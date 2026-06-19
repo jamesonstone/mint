@@ -17,10 +17,10 @@ var rootCmd = &cobra.Command{
 Mint is a release tooling CLI for computing the next version, writing the
 changelog, and minting the release.
 
-The current command surface provides version reporting and CHANGELOG.md
-generation from conventional commits. Release computation, tagging, publishing,
-and package-manager-specific behavior are intentionally future-scoped until
-their contracts are specified.
+The current command surface provides version reporting, CHANGELOG.md generation
+from conventional commits, release tag resolution, and GHCR/ECR publish
+workflow generation. Mint resolves release metadata directly, while generated
+workflows own Git tag creation and image publishing.
 
 ` + releaseFlow(),
 	Version: Version,

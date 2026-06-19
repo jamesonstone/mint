@@ -24,8 +24,8 @@
 
 - Clearly separate implemented facts from intended direction.
 - Mint's current product intent is to compute the next version, write the changelog, and mint the release.
-- The current repository contains a minimal Go/Cobra CLI scaffold, Kit-style README, Makefile build targets, version reporting, conventional-commit CHANGELOG.md generation, and a GitHub Action wrapper that builds and exposes the CLI in workflows.
-- Mint does not yet contain a release algorithm, tagging behavior, publishing behavior, external integrations, or package-manager-specific release behavior.
+- The current repository contains a Go/Cobra CLI scaffold, Kit-style README, Makefile build targets, version reporting, conventional-commit CHANGELOG.md generation, release tag resolution, GHCR/ECR publish workflow generation, and a GitHub Action wrapper that builds and exposes the CLI in workflows.
+- Mint resolves release metadata from Git history and can generate Git-tag-first container publish workflows; the CLI resolver itself does not create or push tags, publish images, create GitHub Releases, deploy services, or implement package-manager-specific release behavior.
 
 ## CONSTRAINTS
 
@@ -53,8 +53,8 @@
 ### Implementation Evidence
 
 - Do not claim that Mint has implemented release behavior, CI, external integrations, package-manager behavior, or tests beyond the artifacts that exist in the repository.
-- Future product behavior, release algorithms, external integrations, and test strategy must be defined in feature specs before implementation.
-- The Go module, `cmd/mint`, `pkg/cli`, `pkg/changelog`, Makefile, and `action.yml` are implementation evidence for the current CLI scaffold, changelog generation, and GitHub Action wrapper only.
+- Future product behavior, additional release algorithms, external integrations, and test strategy must be defined in feature specs before implementation.
+- The Go module, `cmd/mint`, `pkg/cli`, `pkg/changelog`, `pkg/release`, Makefile, and `action.yml` are implementation evidence for the current CLI scaffold, changelog generation, release resolution, workflow generation, and GitHub Action wrapper.
 
 ### Local And Generated State
 
@@ -96,22 +96,21 @@ All work must be classified before editing.
 
 ## NON-GOALS
 
-- Do not define concrete release algorithms before a feature spec covers them.
 - Do not add package-manager-specific release behavior before the supported package ecosystems are specified.
 - Do not build a hosted release service, web application, or external orchestration platform without a dedicated spec.
-- Do not introduce broad CI orchestration, publishing automation, or GitHub release behavior before the release contract is specified.
+- Do not introduce broad CI orchestration, GitHub Release creation, ECS/service deployment, unsupported registry publishing, or package-manager publishing before a dedicated feature spec covers it.
 - Do not invent external-system integrations when `docs/references/external-systems.md` has no durable project-specific integration guidance.
 - Do not treat starter reference files as complete project policy until stable project-specific facts are added.
 - Do not use the constitution to replace detailed workflow, delivery, or command-discovery rules that belong in pointer-loaded references.
 
 ## DEFINITIONS
 
-- **Mint**: The project in this repository. It is a Go CLI whose current implemented surface is root help, version reporting, conventional-commit CHANGELOG.md generation, and a GitHub Action wrapper that builds and exposes the CLI in workflows; its product intent is to compute the next version, write the changelog, and mint the release.
+- **Mint**: The project in this repository. It is a Go CLI whose current implemented surface is root help, version reporting, conventional-commit CHANGELOG.md generation, release tag resolution, GHCR/ECR publish workflow generation, and a GitHub Action wrapper that builds and exposes the CLI in workflows; its product intent is to compute the next version, write the changelog, and mint the release.
 - **Constitution**: `docs/CONSTITUTION.md`, the canonical project contract and highest repo-local project rule after safety constraints and the current user request.
 - **Kit-managed project**: A repository using Kit artifacts such as `.kit.yaml`, `docs/CONSTITUTION.md`, `docs/agents/*`, and `docs/specs/<feature>/`.
 - **Feature artifact**: A canonical markdown document under `docs/specs/<feature>/`, such as `BRAINSTORM.md`, `SPEC.md`, `PLAN.md`, or `TASKS.md`.
-- **Release**: A future Mint operation that prepares a version, changelog, and release output. The exact release behavior is not implemented yet.
-- **Version**: A future release identifier computed by Mint. Versioning rules must be specified before implementation.
+- **Release**: A Mint operation that prepares version metadata, changelog output, or release workflow output while keeping deploy and package publishing scope explicit.
+- **Version**: A strict `vX.Y.Z` SemVer Git tag computed by Mint release resolution from reachable Git history.
 - **Changelog**: A human-readable release note artifact produced or updated by Mint from conventional commits and Git refs.
 - **Local generated state**: Machine-local files, caches, dotenv inputs, Kit runtime state, and scratch artifacts that should not be committed as durable project state.
 - **Implementation evidence**: Repository artifacts such as source files, manifests, tests, commands, docs, or config that prove behavior exists.

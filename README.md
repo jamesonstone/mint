@@ -11,26 +11,29 @@
 
 🪙 Compute the next version, write the changelog, and mint the release.
 
-Mint is a release tooling CLI. The current implementation establishes the same
+Mint is a release tooling CLI. The current implementation provides the same
 CLI, README, Makefile, and build patterns used by Kit: a small Go binary under
 `cmd/mint`, a reusable `pkg/cli` command package, Cobra-based help/version
-handling, conventional-commit CHANGELOG.md generation, linker-injected
-versions, repository-level build targets, and a GitHub Action wrapper that
-builds and exposes the CLI in workflows.
+handling, conventional-commit CHANGELOG.md generation, SemVer release
+resolution, GHCR/ECR publish workflow generation, linker-injected versions,
+repository-level build targets, and a GitHub Action wrapper that builds and
+exposes the CLI in workflows.
 
-Release computation, tagging, publishing, GitHub releases, and
-package-manager-specific behavior are intentionally future-scoped until their
-contracts are specified.
+Mint resolves release metadata directly. Generated workflows own Git tag
+creation and image publishing. GitHub Release creation, ECS deployment,
+package-manager-specific publishing, and registries beyond GHCR/ECR remain out
+of scope.
 
 CLI principles:
 
 - 🧰 Kit-style command structure
-- 📄 documented behavior before release automation
-- 🪙 release intent without invented release semantics
+- 📄 documented behavior before release automation expands
+- 🪙 deterministic SemVer release resolution from Git history
 - ⚡ small root surface while the domain model is still forming
 - 🔍 explicit build and verification commands
 - 🔄 version output that works for binaries and module-installed builds
 - 📝 deterministic CHANGELOG.md generation from conventional commits
+- 🏷️ Git-tag-first GHCR/ECR publish workflow generation
 - 🧩 public GitHub Action integration that keeps `mint` as the core CLI
 
 ## ⚙️ Installation
@@ -76,6 +79,14 @@ mint \
   --owner jamesonstone \
   --repo kit \
   --output CHANGELOG.md
+
+# resolve the next SemVer release tag from Git history
+mint release resolve --commitish HEAD
+
+# render a GHCR publish workflow
+mint release workflow \
+  --image name=api,uri=ghcr.io/jamesonstone/mint-api,dockerfile=Dockerfile.api,context=. \
+  --output .github/workflows/release-publish.yml
 
 # build the local binary into bin/mint
 make build
@@ -140,24 +151,52 @@ steps:
       output: CHANGELOG.md
 ```
 
+Resolve a release tag from a workflow after checking out full Git history:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+
+  - name: Resolve release
+    id: release
+    uses: jamesonstone/mint@v1
+    with:
+      command: release-resolve
+      commitish: ${{ github.sha }}
+
+  - name: Show release tag
+    run: echo "${{ steps.release.outputs.version_tag }}"
+```
+
 Supported action inputs:
 
-| Input         | Default        | Description                                             |
-| ------------- | -------------- | ------------------------------------------------------- |
-| `command`     | `version`      | Run `version`, `help`, `changelog`, or `none`           |
-| `go-version`  | `1.25.5`       | Go version used to build the CLI on the runner          |
-| `prev-tag`    | empty          | Previous Git tag or ref; empty for first release        |
-| `current-tag` | empty          | Current Git tag or ref for changelog generation         |
-| `owner`       | empty          | GitHub repository owner for changelog links             |
-| `repo`        | empty          | GitHub repository name for changelog links              |
-| `output`      | `CHANGELOG.md` | Changelog file path for `command: changelog`            |
+| Input         | Default        | Description                                                       |
+| ------------- | -------------- | ----------------------------------------------------------------- |
+| `command`     | `version`      | Run `version`, `help`, `changelog`, `release-resolve`, or `none`  |
+| `go-version`  | `1.25.5`       | Go version used to build the CLI on the runner                    |
+| `prev-tag`    | empty          | Previous Git tag or ref; empty for first changelog release        |
+| `current-tag` | empty          | Current Git tag or ref for changelog generation                   |
+| `owner`       | empty          | GitHub repository owner for changelog links                       |
+| `repo`        | empty          | GitHub repository name for changelog links                        |
+| `output`      | `CHANGELOG.md` | Changelog file path for `command: changelog`                      |
+| `commitish`   | `HEAD`         | Git ref for `command: release-resolve`                            |
 
 Supported action outputs:
 
-| Output      | Description                              |
-| ----------- | ---------------------------------------- |
-| `mint-path` | Absolute path to the built `mint` binary |
-| `output`    | Captured stdout from the selected command |
+| Output          | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| `mint-path`     | Absolute path to the built `mint` binary              |
+| `output`        | Captured stdout from the selected command             |
+| `version_tag`   | Resolved strict SemVer release tag                    |
+| `version_bump`  | `already-tagged`, `patch`, `minor`, or `major`        |
+| `base_tag`      | Reachable base SemVer tag, if one exists              |
+| `target_sha`    | Full target commit SHA                                |
+| `short_sha`     | Twelve-character target commit SHA                    |
+| `needs_git_tag` | Whether a generated workflow should create a Git tag  |
+| `commit_count`  | Number of commits evaluated for release resolution    |
+| `release_notes` | Lightweight tag annotation notes for generated tags   |
 
 To install Mint into the workflow `PATH` without running it immediately:
 
@@ -176,9 +215,50 @@ steps:
 
 ### 🪙 Release
 
-| Command          | Description                                    |
-| ---------------- | ---------------------------------------------- |
-| `mint changelog` | Generate CHANGELOG.md from conventional commits |
+| Command                 | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `mint release`          | Resolve releases and render publish workflows    |
+| `mint release resolve`  | Compute a strict `vX.Y.Z` release tag            |
+| `mint release workflow` | Generate a GHCR or ECR publish workflow          |
+| `mint changelog`        | Generate CHANGELOG.md from conventional commits  |
+
+Resolve a release tag:
+
+```bash
+mint release resolve --commitish HEAD
+```
+
+The resolver prints the resolved `version_tag` and can write all release fields
+in GitHub Actions output format:
+
+```bash
+mint release resolve \
+  --commitish HEAD \
+  --github-output "$GITHUB_OUTPUT"
+```
+
+Generate a GHCR publish workflow:
+
+```bash
+mint release workflow \
+  --image name=api,uri=ghcr.io/jamesonstone/mint-api,dockerfile=Dockerfile.api,context=. \
+  --output .github/workflows/release-publish.yml
+```
+
+Generate an ECR publish workflow:
+
+```bash
+mint release workflow \
+  --image name=api,uri=123456789012.dkr.ecr.us-east-1.amazonaws.com/mint-api,dockerfile=Dockerfile.api,context=. \
+  --output .github/workflows/release-publish.yml
+```
+
+Generated workflows run on `push`, resolve the release with the Mint action,
+create and push an annotated SemVer Git tag before image publishing when needed,
+and publish each image with both the resolved version tag and `latest`.
+
+Image URIs must be repository URIs without tags. All images in one generated
+workflow must use the same supported registry kind: GHCR or AWS ECR.
 
 The root command also accepts the changelog flags directly for script-friendly
 usage:
@@ -195,8 +275,9 @@ mint --prev-tag v1.0.0 --current-tag v1.1.0 --owner jamesonstone --repo kit
 | `mint completion` | Generate shell autocompletion       |
 | `mint help`       | Help about Mint or a Mint command   |
 
-Future release commands will be added after their feature specs define the
-versioning, tag, and publishing contracts.
+Mint does not create GitHub Releases, deploy ECS services, publish
+package-manager artifacts, or support registries beyond GHCR/ECR in this
+release workflow feature.
 
 ## 🛠️ Development
 
@@ -214,5 +295,6 @@ versioning, tag, and publishing contracts.
 | `make clean`             | Remove local build output and run `go clean`     |
 | `make all`               | Run `fmt`, `vet`, `test`, and `build`            |
 
-The Makefile mirrors Kit's local build pattern. Release-domain behavior should
-be added through feature specs before product commands are implemented.
+The Makefile mirrors Kit's local build pattern. Additional release-domain
+behavior should be added through feature specs before product commands are
+implemented.
