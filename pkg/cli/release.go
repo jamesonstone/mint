@@ -38,13 +38,14 @@ var releaseGitHubCommandFlags releaseGitHubFlags
 
 var releaseCmd = &cobra.Command{
 	Use:   "release",
-	Short: "Resolve versions, publish GitHub releases, and render workflows",
-	Long: `Resolve release metadata, publish GitHub Releases, and render publish workflows.
+	Short: "Resolve, tag, and publish release state",
+	Long: `Resolve, tag, and publish release state.
 
 Mint release commands compute read-only SemVer release metadata from Git
-history, publish GitHub Releases for resolved tags, and generate GHCR or ECR
-publish workflow YAML. They do not deploy services, publish package-manager
-artifacts, or make the resolver mutate Git state directly.`,
+history, create immutable Git tags, publish GitHub Releases for resolved tags,
+and can still render legacy GHCR or ECR publish workflow YAML. They do not
+deploy services, publish package-manager artifacts, or make the resolver mutate
+Git state directly.`,
 	Args: cobra.NoArgs,
 }
 

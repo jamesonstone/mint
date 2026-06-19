@@ -11,8 +11,8 @@
 - The CLI binary entrypoint is `cmd/mint`.
 - Reusable command code belongs under `pkg/cli`.
 - Changelog generation code belongs under `pkg/changelog`.
-- Release resolution, GitHub Release publishing, and publish workflow
-  generation code belongs under `pkg/release`.
+- Release resolution, Git tag creation, GitHub Release publishing, and publish
+  workflow generation code belongs under `pkg/release`.
 - `Makefile` is the durable local build surface.
 - `action.yml` is the public GitHub Action metadata and wraps the CLI instead of reimplementing Mint behavior in workflow shell.
 
@@ -24,21 +24,27 @@
 - `make install-git-hooks` configures this clone to use `.githooks/`.
 - `make fmt`, `make vet`, `make test`, `make lint`, `make tidy`, and `make all` mirror the Kit repository's local development targets.
 - `mint changelog --prev-tag <tag> --current-tag <tag> --owner <owner> --repo <repo> --output CHANGELOG.md` prepends a conventional-commit release block.
+- `mint changelog --prev-tag <tag> --current-tag <new-version> --current-ref <ref> --owner <owner> --repo <repo>` renders a changelog for a newly resolved version before its tag exists.
 - The root command accepts the same changelog flags directly for script-friendly usage.
 - `mint release resolve --commitish <ref>` resolves strict SemVer release metadata from reachable Git history.
 - `mint release resolve --commitish <ref> --github-output "$GITHUB_OUTPUT"` writes release metadata fields for GitHub Actions.
+- `mint release tag --tag <tag> --target <sha> --notes-file <path>` creates or reuses an annotated strict SemVer Git tag.
 - `mint release github --owner <owner> --repo <repo> --tag <tag> --target <sha> --notes-file <path>` creates or reuses a GitHub Release.
+- `mint release publish --owner <owner> --repo <repo> --commitish <ref>` resolves, tags, and publishes GitHub Release state without Docker or deploy behavior.
 - `mint release workflow --image name=<name>,uri=<repo-uri>,dockerfile=<path>,context=<path> --output <path>` renders a GHCR or ECR publish workflow.
 
 ## GitHub Action
 
 - Consumers can use Mint from a workflow with `uses: jamesonstone/mint@<ref>`.
 - The action is a composite action that sets up Go, builds `./cmd/mint`, adds the built binary directory to `GITHUB_PATH`, and optionally runs a supported command.
-- Supported `command` input values are `version`, `help`, `changelog`, `release-resolve`, `github-release`, and `none`.
+- Supported `command` input values are `version`, `help`, `changelog`, `release-resolve`, `release-tag`, `github-release`, `release-publish`, and `none`.
 - The `go-version` input defaults to `1.25.5`, matching `go.mod`.
-- `command: changelog` uses `prev-tag`, `current-tag`, `owner`, `repo`, and `output` inputs.
+- `command: changelog` uses `prev-tag`, `current-tag`, `current-ref`, `owner`, `repo`, and `output` inputs.
 - `command: release-resolve` uses the `commitish` input and exposes typed release outputs.
+- `command: release-tag` uses `release-tag`, `target-sha`, `release-notes-file`, `release-remote`, and `release-push` inputs.
 - `command: github-release` uses `owner`, `repo`, `release-tag`, `target-sha`, `release-title`, `release-notes-file`, `github-token`, and `github-api-url` inputs.
+- `command: release-publish` uses `commitish`, `owner`, `repo`, `release-title`, `release-remote`, `release-push`, `github-token`, and `github-api-url` inputs.
 - The action outputs `mint-path`, captured `output`, and release fields for `release-resolve`.
+- Git tag outputs include `tag_name`, `tag_target_sha`, `tag_created`, `tag_reused`, and `tag_pushed`.
 - GitHub Release publishing outputs include `release_tag`, `release_url`, and `release_created`.
-- Additional release behavior should be added to the CLI through feature specs first, then exposed through the action.
+- Mint owns release state. Application repositories own Docker builds, image registry publishing, and deployments after Mint finishes release-state commands.

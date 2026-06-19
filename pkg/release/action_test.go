@@ -22,14 +22,23 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 	action := string(data)
 	for _, want := range []string{
 		"release-resolve",
+		"release-tag",
 		"github-release",
+		"release-publish",
+		"current-ref:",
+		"MINT_CURRENT_REF",
 		"MINT_COMMITISH",
 		"MINT_RELEASE_TAG",
 		"MINT_TARGET_SHA",
+		"MINT_RELEASE_REMOTE",
+		"MINT_RELEASE_PUSH",
 		"MINT_GITHUB_TOKEN_INPUT",
 		"MINT_GITHUB_CONTEXT_TOKEN",
 		"release resolve --commitish",
+		"--current-ref \"$MINT_CURRENT_REF\"",
+		"release tag --tag",
 		"release github --owner",
+		"release publish --commitish",
 		"--github-output \"$release_output\"",
 		"cat \"$release_output\" >> \"$GITHUB_OUTPUT\"",
 		"version_tag:",
@@ -43,6 +52,9 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 		"release_tag:",
 		"release_url:",
 		"release_created:",
+		"tag_created:",
+		"tag_reused:",
+		"tag_pushed:",
 		"Unsupported mint action command",
 	} {
 		if !strings.Contains(action, want) {
@@ -71,10 +83,8 @@ func TestSelfReleaseWorkflowUsesMintForGitHubRelease(t *testing.T) {
 		"name: Release",
 		"contents: write",
 		"uses: ./",
-		"command: release-resolve",
-		"command: github-release",
-		"release-tag: ${{ steps.release.outputs.version_tag }}",
-		"target-sha: ${{ steps.release.outputs.target_sha }}",
+		"command: release-publish",
+		"commitish: ${{ github.sha }}",
 		"github-token: ${{ secrets.GITHUB_TOKEN }}",
 	} {
 		if !strings.Contains(workflow, want) {

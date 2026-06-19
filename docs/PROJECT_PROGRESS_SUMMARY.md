@@ -10,6 +10,7 @@
 | 0004 | changelog-generation | `docs/specs/0004-changelog-generation` | complete | no | 2026-06-19 | Generate CHANGELOG.md release entries from conventional commits between Git refs. |
 | 0005 | pull-forward-v1-features | `docs/specs/0005-pull-forward-v1-features` | complete | no | 2026-06-19 | Adds release resolution and GHCR/ECR publish workflow generation to Mint using the proven Git-tag-first container release pattern; ECS deployment and GitHub Release creation stay out of scope. |
 | 0006 | github-release-publishing | `docs/specs/0006-github-release-publishing` | complete | no | 2026-06-19 | Add GitHub Release publishing to Mint and configure Mint to publish Mint's own GitHub Releases through the Mint action. |
+| 0007 | release-state-ownership | `docs/specs/0007-release-state-ownership` | complete | no | 2026-06-19 | Make Mint own release-state operations through CLI/action commands while application repositories keep Docker publishing and deployment workflows. |
 
 ## PROJECT INTENT
 
@@ -75,6 +76,15 @@ See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 - **OPEN ITEMS**: none
 - **POINTERS**: `docs/specs/0006-github-release-publishing/SPEC.md`, `docs/specs/0006-github-release-publishing/PLAN.md`, `docs/specs/0006-github-release-publishing/TASKS.md`
 
+### release-state-ownership
+
+- **STATUS**: complete
+- **PAUSED**: no
+- **INTENT**: Mint should own release-state operations directly: version resolution, release-note/changelog support, immutable Git tag creation, and GitHub Release creation. Application repositories should keep Docker image building, registry authentication, registry publishing, deployment, and infrastructure workflows.
+- **APPROACH**: 1. Add first-class release tag package behavior with strict SemVer validation, target validation, same-commit reuse, conflict failure, annotated tags, and optional push. 2. Add release publish composition over resolver, tag creation, and GitHub Release creation. 3. Add `mint release tag` and `mint release publish` CLI adapters. 4. Extend the action allowlist and outputs. 5. Update the self-release workflow and generated Docker workflow renderer to delegate release-state behavior to Mint. 6. Update README, constitution, tooling, testing, and feature docs. 7. Complete final validation and readiness checks.
+- **OPEN ITEMS**: none
+- **POINTERS**: `docs/specs/0007-release-state-ownership/SPEC.md`, `docs/specs/0007-release-state-ownership/PLAN.md`, `docs/specs/0007-release-state-ownership/TASKS.md`
+
 ## LAST UPDATED
 
-2026-06-19 17:35:36 EDT
+2026-06-19 18:45:53 EDT

@@ -17,8 +17,16 @@ func Generate(ctx context.Context, options Options) (Result, error) {
 		return Result{}, fmt.Errorf("repo is required")
 	}
 
-	if err := validateTag(ctx, normalized.WorkDir, normalized.CurrentTag); err != nil {
-		return Result{}, err
+	rangeEnd := normalized.CurrentTag
+	if normalized.CurrentRef != "" {
+		rangeEnd = normalized.CurrentRef
+		if err := validateCommitish(ctx, normalized.WorkDir, normalized.CurrentRef); err != nil {
+			return Result{}, err
+		}
+	} else {
+		if err := validateTag(ctx, normalized.WorkDir, normalized.CurrentTag); err != nil {
+			return Result{}, err
+		}
 	}
 	if normalized.PrevTag != "" {
 		if err := validateTag(ctx, normalized.WorkDir, normalized.PrevTag); err != nil {
@@ -26,12 +34,12 @@ func Generate(ctx context.Context, options Options) (Result, error) {
 		}
 	}
 
-	rawCommits, err := loadCommits(ctx, normalized.WorkDir, normalized.PrevTag, normalized.CurrentTag)
+	rawCommits, err := loadCommits(ctx, normalized.WorkDir, normalized.PrevTag, rangeEnd)
 	if err != nil {
 		return Result{}, err
 	}
 	if len(rawCommits) == 0 {
-		return Result{}, fmt.Errorf("no commits in range %s..%s", normalized.PrevTag, normalized.CurrentTag)
+		return Result{}, fmt.Errorf("no commits in range %s..%s", normalized.PrevTag, rangeEnd)
 	}
 
 	version, err := versionFromTag(normalized.CurrentTag)
@@ -43,7 +51,7 @@ func Generate(ctx context.Context, options Options) (Result, error) {
 		return Result{}, err
 	}
 
-	releaseDate, err := tagAuthorDate(ctx, normalized.WorkDir, normalized.CurrentTag)
+	releaseDate, err := commitishAuthorDate(ctx, normalized.WorkDir, rangeEnd)
 	if err != nil {
 		return Result{}, err
 	}
@@ -77,6 +85,17 @@ func validateTag(ctx context.Context, workDir string, tag string) error {
 	}
 	if !exists {
 		return fmt.Errorf("tag not found: %s", tag)
+	}
+	return nil
+}
+
+func validateCommitish(ctx context.Context, workDir string, ref string) error {
+	exists, err := commitishExists(ctx, workDir, ref)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("ref not found: %s", ref)
 	}
 	return nil
 }
