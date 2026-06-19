@@ -1,0 +1,402 @@
+# CONSTITUTION
+
+## PURPOSE
+
+This document is the canonical project contract for Mint. It defines the
+development rules, architecture, implementation boundaries, process, and
+long-term direction that future work must preserve unless a later user request
+and feature specification explicitly change them.
+
+Mint is a Go CLI and GitHub Action for release tooling. Its product intent is
+to compute the next version, write the changelog, and mint the release while
+keeping release behavior explicit, testable, and traceable through Kit-managed
+documents.
+
+## PRINCIPLES
+
+### Correctness Before Motion
+
+- Prefer accurate, evidence-backed changes over quick changes.
+- Do not guess repository behavior, file contents, command behavior,
+  dependencies, implemented architecture, or workflow semantics.
+- When current repository evidence conflicts with prior notes or intent, treat
+  current evidence as stronger and update canonical docs before implementation.
+- Fail closed for invalid release, changelog, Git, workflow, or file state.
+
+### Minimal, Durable Changes
+
+- Make the smallest production-ready change that satisfies the active request
+  and feature artifact.
+- Prefer explicit, idiomatic Go over cleverness or premature generalization.
+- Add abstractions only when they remove real duplication, clarify ownership,
+  or match an established local pattern.
+- Keep public API surface small. If a symbol is only needed inside one package,
+  keep it unexported.
+
+### CLI-First Product Shape
+
+- The `mint` CLI is the core product surface.
+- GitHub Action behavior wraps the CLI and must not become an independent
+  implementation of Mint behavior.
+- Workflow-generation features may emit shell or YAML, but the validation and
+  decision logic must remain in Go where it can be tested.
+- User-facing commands should remain script-friendly: deterministic stdout,
+  explicit flags, clear errors, and no hidden interactive prompts unless a
+  future spec requires them.
+
+### Document-First Traceability
+
+- Durable decisions belong in canonical markdown artifacts, not only in chat.
+- Feature implementation must trace back to `SPEC.md`, `PLAN.md`, and
+  `TASKS.md` before product files change.
+- Documentation must be updated when implementation reality changes behavior,
+  command surface, release semantics, dependencies, or operator expectations.
+- Keep implemented facts separate from future intent.
+
+## CURRENT IMPLEMENTED SURFACE
+
+The current repository implements:
+
+- A Go module at `github.com/jamesonstone/mint`.
+- A thin binary entrypoint at `cmd/mint/main.go` that delegates to
+  `pkg/cli.Execute()`.
+- A Cobra CLI under `pkg/cli` with:
+  - root help and Kit-style command grouping;
+  - `mint version` and `mint --version`;
+  - `mint changelog`;
+  - root-level changelog flags for script compatibility;
+  - `mint release resolve`;
+  - `mint release workflow`.
+- A `pkg/changelog` package that generates `CHANGELOG.md` release blocks from
+  conventional commits and Git refs.
+- A `pkg/release` package that resolves release metadata and renders GHCR/ECR
+  publish workflows.
+- A root `action.yml` composite GitHub Action that builds `cmd/mint`, adds the
+  binary to `PATH`, and runs an allowlisted Mint command.
+- A Kit-style `Makefile`, Go tests, and repository-managed pre-commit build
+  hook.
+- Kit-managed docs under `docs/agents`, `docs/specs`, `docs/references`, and
+  this constitution.
+
+Mint currently does not create GitHub Releases, deploy services, publish
+package-manager artifacts, support registries beyond GHCR/ECR, or make the CLI
+resolver push tags or images directly.
+
+## ARCHITECTURE
+
+### Package Ownership
+
+- `cmd/mint` contains only the executable entrypoint and should remain a thin
+  delegation layer.
+- `pkg/cli` owns Cobra command registration, flag binding, command help,
+  stdout/stderr behavior, version output, and adapter code from CLI flags to
+  domain packages.
+- `pkg/changelog` owns changelog generation, including Git ref validation,
+  commit collection, conventional commit parsing, grouping, rendering, and
+  atomic file writes.
+- `pkg/release` owns release metadata resolution, SemVer tag handling, bump
+  classification, GitHub output writing, image spec validation, and publish
+  workflow rendering.
+- `action.yml` is the public GitHub Action metadata. It builds and invokes the
+  CLI through fixed command branches.
+- `docs/specs/<feature>` owns feature-scoped requirements, plans, tasks, and
+  reflection records.
+- `docs/references` owns durable cross-feature references and rulesets.
+
+### Adapter And Domain Boundary
+
+- CLI command functions should be thin adapters. They parse flags, call domain
+  packages, and print user-facing output.
+- Domain packages should not depend on Cobra.
+- Domain packages should expose focused `Options` and `Result` structs for
+  command-level behavior.
+- Git-backed behavior should accept `context.Context` and optional `WorkDir`
+  values so tests can run in deterministic temporary repositories.
+- Domain logic should return data to callers instead of printing directly,
+  except where warning writers are explicitly part of the contract.
+
+### Git And File Boundaries
+
+- Git operations should be explicit subprocess calls with fixed argument lists.
+- Validate refs before using them in release or changelog calculations.
+- Parse Git output using stable delimiters or structured formats, not ad hoc
+  human-oriented text.
+- Changelog file writes must be atomic: read, validate, write a temporary file,
+  preserve permissions, and rename.
+- Generated workflows may create tags and push images when users run them, but
+  the local CLI resolver must remain read-only.
+
+### GitHub Action Boundary
+
+- The action must build the Go CLI from source on the runner.
+- The action must use an allowlist for `command`; it must not run arbitrary
+  shell, `eval`, or user-provided command strings.
+- The action should expose typed outputs for command behavior that workflows
+  need to consume.
+- The action should keep `mint-path` and captured `output` stable for general
+  usage.
+
+## CODE STYLE AND NAMING
+
+- Use idiomatic Go with explicit error returns.
+- Keep package names short and domain-specific: `cli`, `changelog`, `release`.
+- Use `Options` for input structs and `Result` for returned command/domain
+  outcomes.
+- Prefer unexported helper types and functions unless a CLI adapter, test, or
+  external package boundary needs the symbol.
+- Public exported symbols must have useful comments.
+- Prefer package-level compiled regular expressions for stable parsers.
+- Use `strings.Builder` for deterministic multi-line rendering.
+- Keep validation errors specific to the invalid field or state.
+- Use table-driven tests for matrix behavior such as SemVer bumps, image
+  validation, invalid refs, and generated workflow variants.
+- Test Git behavior with temporary repositories that configure local test
+  authors and deterministic dates.
+- Keep source files near 300 lines when splitting improves clarity; this does
+  not apply to docs or Kit generated/local state.
+
+## DEPENDENCIES
+
+- `github.com/spf13/cobra`: CLI command tree, flags, help, and version command
+  behavior.
+- `github.com/spf13/pflag`: Cobra's flag implementation, indirect.
+- `github.com/inconshreveable/mousetrap`: Cobra's Windows console support,
+  indirect.
+- `golang.org/x/term`: terminal detection for human-friendly help styling.
+- `golang.org/x/sys`: terminal/platform support through `x/term`, indirect.
+- `gopkg.in/yaml.v3`: YAML parsing in tests for `action.yml` and generated
+  workflow validation.
+
+Do not add dependencies for convenience. Each new dependency must have a clear
+runtime or test purpose, fit the CLI-first architecture, and be recorded in the
+relevant feature docs and durable references.
+
+## RELEASE AND CHANGELOG CONTRACTS
+
+### Changelog Generation
+
+- `current_tag`, `repo_owner`, and `repo_name` are required.
+- `prev_tag` may be empty for a first release.
+- `output_file` defaults to `CHANGELOG.md`.
+- Both tags must resolve to commits when present.
+- Commit parsing follows the conventional commit subject contract implemented
+  by `pkg/changelog`.
+- Non-conventional commits are warnings and are skipped.
+- `docs`, `test`, and `chore` commits are excluded from rendered release
+  entries.
+- Rendered groups are ordered as breaking changes, features, fixes, perf, then
+  other.
+- Issue links come from `closes`, `fixes`, or `resolves` body text before a
+  subject `(#123)` suffix.
+- Existing changelog release headers must parse. Unparseable changelogs fail.
+- Duplicate versions fail and must not overwrite existing content.
+
+### Release Resolution
+
+- Release tags are strict `vX.Y.Z` SemVer Git tags.
+- Pre-release tags, build-metadata tags, and non-`v` tags are ignored by the
+  resolver.
+- The target commit defaults to `HEAD` and must resolve to a commit.
+- If the target commit already has strict SemVer tags, choose the highest tag,
+  set `version_bump=already-tagged`, `needs_git_tag=false`, and
+  `commit_count=0`.
+- Otherwise, choose the highest reachable strict SemVer base tag.
+- Breaking commits produce a major bump. `feat` commits produce a minor bump.
+  `fix`, other conventional, and non-conventional commits produce a patch bump.
+- First release defaults are `v1.0.0` for breaking changes, `v0.1.0` for
+  features, and `v0.0.1` otherwise.
+- The resolver returns `version_tag`, `version_bump`, `base_tag`,
+  `target_sha`, `short_sha`, `needs_git_tag`, `commit_count`, and
+  `release_notes`.
+
+### Publish Workflow Generation
+
+- Image specs use `name=<name>,uri=<image-uri>,dockerfile=<path>,context=<path>`.
+- `name`, `uri`, and `dockerfile` are required; `context` defaults to `.`.
+- Image URIs must be repository URIs without tags or digests.
+- Supported registries are GHCR (`ghcr.io`) and AWS ECR
+  (`<account>.dkr.ecr.<region>.amazonaws.com`).
+- A generated workflow must not mix registry kinds.
+- Generated workflows run on `push` and guard the publish job to the repository
+  default branch.
+- Generated workflows must fetch full history and tags, resolve the release
+  through the Mint action, create or validate the Git tag before publishing, set
+  up Docker Buildx, authenticate to the selected registry, and publish every
+  image with the resolved SemVer tag and `latest`.
+- Generated workflows must not include ECS deployment, task-definition
+  mutation, `workflow_dispatch` deployment gates, GitHub Release creation, or
+  package-manager publishing.
+
+## DEVELOPMENT PROCESS
+
+### Source Of Truth
+
+Authority order:
+
+1. safety and permission constraints
+2. current user request
+3. `docs/CONSTITUTION.md`
+4. `SPEC.md`
+5. `PLAN.md`
+6. `TASKS.md`
+7. `BRAINSTORM.md`
+8. repo conventions
+
+`docs/CONSTITUTION.md` is the canonical project contract.
+`docs/specs/<feature>` is the source of truth for feature-scoped requirements,
+plans, tasks, and reflection. `BRAINSTORM.md` is research context, not binding
+implementation authority.
+
+### Work Classification
+
+- Classify all work before editing.
+- Use spec-driven work for new features, substantial behavioral changes,
+  cross-component changes, and Kit pipeline phases.
+- Use ad hoc work for contained bug fixes, reviews, dependency updates, config
+  changes, and small refinements.
+- Do not create feature docs for ad hoc work unless the scope grows into a new
+  feature.
+- If a change touches behavior covered by existing feature docs, update those
+  docs unless the change is purely mechanical and behavior-neutral.
+
+### Kit Workflow
+
+- Spec-driven work proceeds through Kit artifacts in order: optional
+  `BRAINSTORM.md`, `SPEC.md`, `PLAN.md`, `TASKS.md`, implementation,
+  reflection, and completion.
+- Do not move out of order unless the user explicitly overrides the workflow.
+- `docs/PROJECT_PROGRESS_SUMMARY.md` must reflect the highest completed
+  artifact or active phase for each feature at all times.
+- Use RLM-style just-in-time context loading for broad or noisy analysis.
+- Use `kit dispatch` or subagents only after discovery narrows the work into
+  distinct low-overlap lanes. Keep the main agent responsible for synthesis,
+  integration, validation, and communication.
+
+### Documentation Boundaries
+
+- Keep `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` as short
+  routing tables.
+- Put durable workflow detail in `docs/agents/*`.
+- Put durable rulesets in `docs/references/rules/*`.
+- Put durable cross-feature technical references in `docs/references/*`.
+- Do not turn top-level instruction files into always-loaded manuals.
+- Do not copy full PR delivery, branch, issue, or Kit command-discovery
+  procedures into this constitution; load the pointer rules when those
+  decisions are active.
+
+### Validation
+
+- Run the smallest relevant verification for ad hoc docs work.
+- Run package tests for changed Go domain packages.
+- Run `go test ./...`, `go vet ./...`, `make build`, and `git diff --check`
+  for CLI, action, release, changelog, or build-surface changes.
+- Parse `action.yml` or generated workflow YAML when action/workflow metadata
+  changes.
+- Never claim validation passed unless it actually ran.
+- If validation cannot run, state why and report the residual risk.
+
+### Git And Delivery
+
+- Do not stage, commit, push, create issues, or mutate PRs without explicit
+  user approval.
+- In Kit-managed projects, GitHub delivery must follow repo-local delivery
+  rules under `docs/agents/GUARDRAILS.md` and
+  `docs/references/rules/github-pr-delivery.md`.
+- Branch, issue, commit, push, and PR defaults from global tools are not
+  authoritative in this repository.
+- Never commit secrets, `.env` values, private keys, local tokens, or
+  machine-local config.
+
+## LOCAL AND GENERATED STATE
+
+- Treat `.env`, `.envrc`-loaded values, `.kit/runs/`, `.kit/loops/`,
+  `.kit/state.json`, `.kit/cache/`, `.kit/tmp/`, `.kit/temp/`, `.kit/*.tmp`,
+  `.kit/*.lock`, and `bin/` as local or generated state unless a future spec
+  says otherwise.
+- Do not cite local generated state as durable project truth except when
+  reporting validation artifact locations.
+- Keep generated state, caches, and scratch artifacts out of durable docs.
+
+### Kit-Managed Baseline Rules
+
+<!-- BEGIN KIT-MANAGED BASELINE RULES -->
+- Treat `docs/CONSTITUTION.md` as the canonical project contract.
+- Keep `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` aligned with the repo-local docs tree.
+- Prefer implementation/source code files around 300 lines or less when splitting improves clarity and ownership.
+- Do not apply the code-file size guideline to documentation files, all `docs/**`, all `.kit/**`, or `.kit.yaml`.
+- Do not split or rewrite docs, generated state, or Kit config artifacts solely because they exceed 300 lines.
+<!-- END KIT-MANAGED BASELINE RULES -->
+
+## NON-NEGOTIABLE CONSTRAINTS
+
+- Do not claim implemented behavior that is not backed by repository evidence.
+- Do not add package-manager-specific release behavior before the supported
+  package ecosystems are specified.
+- Do not add GitHub Release creation before a dedicated spec defines ownership,
+  content, idempotency, and failure behavior.
+- Do not add ECS/service deployment or environment-specific deployment behavior
+  to release workflow generation before a dedicated spec covers it.
+- Do not add unsupported registry publishing before a dedicated spec defines the
+  registry contract.
+- Do not build a hosted release service, web application, or external
+  orchestration platform without a dedicated spec.
+- Do not invent external-system integrations when
+  `docs/references/external-systems.md` has no durable project-specific
+  integration guidance.
+- Do not allow the GitHub Action to execute arbitrary command strings.
+- Do not reimplement CLI domain logic in `action.yml` shell.
+- Do not use this constitution to replace pointer-loaded workflow and delivery
+  rules.
+
+## LONG-TERM VISION
+
+Mint should grow into a focused release tooling layer that turns repository
+history and explicit release configuration into repeatable release artifacts.
+The durable direction is:
+
+- Keep the CLI as the source of product behavior and the GitHub Action as a
+  transport wrapper.
+- Keep release decisions deterministic, inspectable, and script-friendly.
+- Prefer typed Go domain packages over shell scripts for parsing, validation,
+  and rendering.
+- Expand release capabilities incrementally through specs: richer release
+  plans, changelog integration, GitHub Releases, additional registries,
+  package-manager publishing, deployment handoff, and policy checks should each
+  have explicit contracts before implementation.
+- Make generated workflows boring and auditable: tag first, publish with
+  immutable version tags plus `latest` only where specified, and fail on
+  conflicting remote state.
+- Preserve a clear boundary between release artifact generation and
+  environment-specific deployment.
+- Keep docs, tests, and command output aligned so future maintainers can trust
+  the repository without reconstructing decisions from chat history.
+
+## DEFINITIONS
+
+- **Mint**: The project in this repository. It is a Go CLI and GitHub Action
+  whose current implemented surface is root help, version reporting,
+  conventional-commit `CHANGELOG.md` generation, release tag resolution,
+  GHCR/ECR publish workflow generation, and action-based CLI execution.
+- **Constitution**: `docs/CONSTITUTION.md`, the canonical project contract and
+  highest repo-local project rule after safety constraints and the current user
+  request.
+- **Kit-managed project**: A repository using Kit artifacts such as
+  `.kit.yaml`, `docs/CONSTITUTION.md`, `docs/agents/*`, and
+  `docs/specs/<feature>`.
+- **Feature artifact**: A canonical markdown document under
+  `docs/specs/<feature>`, such as `BRAINSTORM.md`, `SPEC.md`, `PLAN.md`, or
+  `TASKS.md`.
+- **Release**: A Mint operation that prepares version metadata, changelog
+  output, or release workflow output while keeping deploy and package
+  publishing scope explicit.
+- **Version**: A strict `vX.Y.Z` SemVer Git tag computed by Mint release
+  resolution from reachable Git history.
+- **Changelog**: A human-readable release note artifact produced or updated by
+  Mint from conventional commits and Git refs.
+- **Generated workflow**: YAML rendered by Mint for users to commit into their
+  own repositories when they want tag-first GHCR or ECR publishing.
+- **Local generated state**: Machine-local files, caches, dotenv inputs, Kit
+  runtime state, build output, and scratch artifacts that should not be
+  committed as durable project state.
+- **Implementation evidence**: Repository artifacts such as source files,
+  manifests, tests, commands, docs, or config that prove behavior exists.
