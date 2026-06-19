@@ -10,13 +10,17 @@ import (
 
 // WriteGitHubOutputFile appends release result fields to a GitHub output file.
 func WriteGitHubOutputFile(path string, result Result) error {
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	file, err := openOutputFile(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	return WriteGitHubOutput(file, result)
+}
+
+func openOutputFile(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 }
 
 // WriteGitHubOutput writes release result fields in GitHub Actions output format.

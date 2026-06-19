@@ -6,7 +6,7 @@ branding:
   color: yellow
 inputs:
   command:
-    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, none."
+    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, github-release, none."
     required: false
     default: version
   go-version:
@@ -37,6 +37,30 @@ inputs:
     description: Git ref used by command release-resolve.
     required: false
     default: HEAD
+  release-tag:
+    description: Strict vX.Y.Z SemVer tag used by command github-release.
+    required: false
+    default: ""
+  target-sha:
+    description: Commitish where GitHub should create the release tag when missing.
+    required: false
+    default: ""
+  release-title:
+    description: Release title used by command github-release; defaults to release-tag.
+    required: false
+    default: ""
+  release-notes-file:
+    description: Optional release notes file used by command github-release.
+    required: false
+    default: ""
+  github-token:
+    description: GitHub token used by command github-release.
+    required: false
+    default: ""
+  github-api-url:
+    description: GitHub API base URL used by command github-release.
+    required: false
+    default: https://api.github.com
 outputs:
   mint-path:
     description: Absolute path to the built Mint CLI on the runner.
@@ -68,6 +92,15 @@ outputs:
   release_notes:
     description: Lightweight release notes from command release-resolve.
     value: ${{ steps.run.outputs.release_notes }}
+  release_tag:
+    description: GitHub Release tag from command github-release.
+    value: ${{ steps.run.outputs.release_tag }}
+  release_url:
+    description: GitHub Release URL from command github-release.
+    value: ${{ steps.run.outputs.release_url }}
+  release_created:
+    description: Whether command github-release created a new release.
+    value: ${{ steps.run.outputs.release_created }}
 runs:
   using: composite
   steps:
@@ -111,11 +144,24 @@ runs:
         MINT_REPO: ${{ inputs.repo }}
         MINT_OUTPUT_FILE: ${{ inputs.output }}
         MINT_COMMITISH: ${{ inputs.commitish }}
+        MINT_RELEASE_TAG: ${{ inputs.release-tag }}
+        MINT_TARGET_SHA: ${{ inputs.target-sha }}
+        MINT_RELEASE_TITLE: ${{ inputs.release-title }}
+        MINT_RELEASE_NOTES_FILE: ${{ inputs.release-notes-file }}
+        MINT_GITHUB_TOKEN_INPUT: ${{ inputs.github-token }}
+        MINT_GITHUB_CONTEXT_TOKEN: ${{ github.token }}
+        MINT_GITHUB_API_URL: ${{ inputs.github-api-url }}
       run: |
         set -euo pipefail
 
         release_output="$RUNNER_TEMP/mint-release-output"
         rm -f "$release_output"
+
+        if [ -n "$MINT_GITHUB_TOKEN_INPUT" ]; then
+          export MINT_GITHUB_TOKEN="$MINT_GITHUB_TOKEN_INPUT"
+        elif [ -n "$MINT_GITHUB_CONTEXT_TOKEN" ]; then
+          export MINT_GITHUB_TOKEN="$MINT_GITHUB_CONTEXT_TOKEN"
+        fi
 
         case "$MINT_COMMAND" in
           version)
@@ -131,11 +177,15 @@ runs:
             output="$("$MINT_PATH" release resolve --commitish "$MINT_COMMITISH" --github-output "$release_output")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
+          github-release)
+            output="$("$MINT_PATH" release github --owner "$MINT_OWNER" --repo "$MINT_REPO" --tag "$MINT_RELEASE_TAG" --target "$MINT_TARGET_SHA" --title "$MINT_RELEASE_TITLE" --notes-file "$MINT_RELEASE_NOTES_FILE" --api-url "$MINT_GITHUB_API_URL" --github-output "$release_output")"
+            cat "$release_output" >> "$GITHUB_OUTPUT"
+            ;;
           none)
             output=""
             ;;
           *)
-            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, none."
+            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, github-release, none."
             exit 2
             ;;
         esac

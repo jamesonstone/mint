@@ -18,9 +18,10 @@ Mint is a release tooling CLI for computing the next version, writing the
 changelog, and minting the release.
 
 The current command surface provides version reporting, CHANGELOG.md generation
-from conventional commits, release tag resolution, and GHCR/ECR publish
-workflow generation. Mint resolves release metadata directly, while generated
-workflows own Git tag creation and image publishing.
+from conventional commits, release tag resolution, GitHub Release publishing,
+and GHCR/ECR publish workflow generation. Mint resolves release metadata
+directly, publishes GitHub Releases through the GitHub API, and leaves generated
+container workflows to own Git tag creation and image publishing.
 
 ` + releaseFlow(),
 	Version: Version,

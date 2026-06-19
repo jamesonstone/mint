@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jamesonstone/mint/pkg/release"
 	"github.com/spf13/cobra"
@@ -19,18 +20,31 @@ type releaseWorkflowFlags struct {
 	mintRef string
 }
 
+type releaseGitHubFlags struct {
+	owner        string
+	repo         string
+	tag          string
+	target       string
+	title        string
+	notesFile    string
+	tokenEnv     string
+	apiURL       string
+	githubOutput string
+}
+
 var releaseResolveCommandFlags releaseResolveFlags
 var releaseWorkflowCommandFlags releaseWorkflowFlags
+var releaseGitHubCommandFlags releaseGitHubFlags
 
 var releaseCmd = &cobra.Command{
 	Use:   "release",
-	Short: "Resolve release versions and render publish workflows",
-	Long: `Resolve release metadata and render publish workflows.
+	Short: "Resolve versions, publish GitHub releases, and render workflows",
+	Long: `Resolve release metadata, publish GitHub Releases, and render publish workflows.
 
-Mint release commands compute read-only SemVer release metadata from Git history
-and generate GHCR or ECR publish workflow YAML. They do not create GitHub
-Releases, deploy services, publish package-manager artifacts, or mutate Git
-state directly.`,
+Mint release commands compute read-only SemVer release metadata from Git
+history, publish GitHub Releases for resolved tags, and generate GHCR or ECR
+publish workflow YAML. They do not deploy services, publish package-manager
+artifacts, or make the resolver mutate Git state directly.`,
 	Args: cobra.NoArgs,
 }
 
@@ -62,12 +76,28 @@ all images in one workflow must use the same supported registry kind.`,
 	},
 }
 
+var releaseGitHubCmd = &cobra.Command{
+	Use:   "github",
+	Short: "Create or reuse a GitHub Release for a SemVer tag",
+	Long: `Create or reuse a GitHub Release for a SemVer tag.
+
+The command is idempotent for an existing release with the same tag. The token
+is read from the environment so scripts do not need to pass secrets as command
+arguments.`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runReleaseGitHub(cmd, releaseGitHubCommandFlags)
+	},
+}
+
 func init() {
 	bindReleaseResolveFlags(releaseResolveCmd, &releaseResolveCommandFlags)
 	bindReleaseWorkflowFlags(releaseWorkflowCmd, &releaseWorkflowCommandFlags)
+	bindReleaseGitHubFlags(releaseGitHubCmd, &releaseGitHubCommandFlags)
 
 	releaseCmd.AddCommand(releaseResolveCmd)
 	releaseCmd.AddCommand(releaseWorkflowCmd)
+	releaseCmd.AddCommand(releaseGitHubCmd)
 	rootCmd.AddCommand(releaseCmd)
 }
 
@@ -82,6 +112,19 @@ func bindReleaseWorkflowFlags(cmd *cobra.Command, values *releaseWorkflowFlags) 
 	flags.StringArrayVar(&values.images, "image", nil, "repeatable image spec: name=<name>,uri=<image-uri>,dockerfile=<path>,context=<path>")
 	flags.StringVar(&values.output, "output", "", "optional workflow output path; stdout when omitted")
 	flags.StringVar(&values.mintRef, "mint-ref", release.DefaultMintRef, "Mint action ref used by generated workflows")
+}
+
+func bindReleaseGitHubFlags(cmd *cobra.Command, values *releaseGitHubFlags) {
+	flags := cmd.Flags()
+	flags.StringVar(&values.owner, "owner", "", "GitHub repository owner")
+	flags.StringVar(&values.repo, "repo", "", "GitHub repository name")
+	flags.StringVar(&values.tag, "tag", "", "strict vX.Y.Z SemVer tag to release")
+	flags.StringVar(&values.target, "target", "", "commitish where GitHub should create the tag when missing")
+	flags.StringVar(&values.title, "title", "", "release title; defaults to --tag")
+	flags.StringVar(&values.notesFile, "notes-file", "", "optional file containing release notes")
+	flags.StringVar(&values.tokenEnv, "token-env", "", "environment variable containing a GitHub token; falls back to MINT_GITHUB_TOKEN, GITHUB_TOKEN, then GH_TOKEN")
+	flags.StringVar(&values.apiURL, "api-url", release.DefaultGitHubAPIBaseURL, "GitHub API base URL")
+	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
 }
 
 func runReleaseResolve(cmd *cobra.Command, values releaseResolveFlags) error {
@@ -126,4 +169,62 @@ func runReleaseWorkflow(cmd *cobra.Command, values releaseWorkflowFlags) error {
 
 	_, err = fmt.Fprint(cmd.OutOrStdout(), workflow)
 	return err
+}
+
+func runReleaseGitHub(cmd *cobra.Command, values releaseGitHubFlags) error {
+	notes := ""
+	if values.notesFile != "" {
+		data, err := os.ReadFile(values.notesFile)
+		if err != nil {
+			return err
+		}
+		notes = string(data)
+	}
+
+	result, err := release.PublishGitHubRelease(cmd.Context(), release.GitHubReleaseOptions{
+		Owner:      values.owner,
+		Repo:       values.repo,
+		Tag:        values.tag,
+		Target:     values.target,
+		Title:      values.title,
+		Notes:      notes,
+		Token:      githubToken(values.tokenEnv),
+		APIBaseURL: values.apiURL,
+	})
+	if err != nil {
+		return err
+	}
+
+	if values.githubOutput != "" {
+		if err := release.WriteGitHubReleaseOutputFile(values.githubOutput, result); err != nil {
+			return err
+		}
+	}
+
+	if result.Created {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "created GitHub release %s %s\n", result.TagName, result.URL)
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "GitHub release %s already exists %s\n", result.TagName, result.URL)
+	return err
+}
+
+func githubToken(tokenEnv string) string {
+	names := make([]string, 0, 4)
+	if strings.TrimSpace(tokenEnv) != "" {
+		names = append(names, strings.TrimSpace(tokenEnv))
+	}
+	names = append(names, "MINT_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
+
+	seen := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
