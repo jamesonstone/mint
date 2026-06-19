@@ -1,0 +1,115 @@
+name: Mint
+description: Build and run the Mint CLI in a GitHub Actions workflow.
+author: Jameson Stone
+branding:
+  icon: tag
+  color: yellow
+inputs:
+  command:
+    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, none."
+    required: false
+    default: version
+  go-version:
+    description: Go version used to build the Mint CLI from the action source.
+    required: false
+    default: "1.25.5"
+  prev-tag:
+    description: Previous Git tag or ref for changelog generation; empty for first release.
+    required: false
+    default: ""
+  current-tag:
+    description: Current Git tag or ref for changelog generation.
+    required: false
+    default: ""
+  owner:
+    description: GitHub repository owner used for changelog links.
+    required: false
+    default: ""
+  repo:
+    description: GitHub repository name used for changelog links.
+    required: false
+    default: ""
+  output:
+    description: Changelog output path used by command changelog.
+    required: false
+    default: CHANGELOG.md
+outputs:
+  mint-path:
+    description: Absolute path to the built Mint CLI on the runner.
+    value: ${{ steps.build.outputs.mint-path }}
+  output:
+    description: Captured stdout from the selected Mint command.
+    value: ${{ steps.run.outputs.output }}
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: false
+    - name: Build Mint CLI
+      id: build
+      shell: bash
+      env:
+        MINT_ACTION_REF: ${{ github.action_ref }}
+      run: |
+        set -euo pipefail
+
+        mint_dir="$RUNNER_TEMP/mint-action"
+        mkdir -p "$mint_dir"
+
+        mint_version="${MINT_ACTION_REF:-dev}"
+        case "$mint_version" in
+          *[!A-Za-z0-9._+/-]*)
+            mint_version="dev"
+            ;;
+        esac
+
+        cd "$GITHUB_ACTION_PATH"
+        go build -ldflags "-X github.com/jamesonstone/mint/pkg/cli.Version=$mint_version" -o "$mint_dir/mint" ./cmd/mint
+
+        echo "$mint_dir" >> "$GITHUB_PATH"
+        echo "mint-path=$mint_dir/mint" >> "$GITHUB_OUTPUT"
+    - name: Run Mint CLI
+      id: run
+      shell: bash
+      env:
+        MINT_COMMAND: ${{ inputs.command }}
+        MINT_PATH: ${{ steps.build.outputs.mint-path }}
+        MINT_PREV_TAG: ${{ inputs.prev-tag }}
+        MINT_CURRENT_TAG: ${{ inputs.current-tag }}
+        MINT_OWNER: ${{ inputs.owner }}
+        MINT_REPO: ${{ inputs.repo }}
+        MINT_OUTPUT_FILE: ${{ inputs.output }}
+      run: |
+        set -euo pipefail
+
+        case "$MINT_COMMAND" in
+          version)
+            output="$("$MINT_PATH" version)"
+            ;;
+          help)
+            output="$("$MINT_PATH" --help)"
+            ;;
+          changelog)
+            output="$("$MINT_PATH" --prev-tag "$MINT_PREV_TAG" --current-tag "$MINT_CURRENT_TAG" --owner "$MINT_OWNER" --repo "$MINT_REPO" --output "$MINT_OUTPUT_FILE")"
+            ;;
+          none)
+            output=""
+            ;;
+          *)
+            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, none."
+            exit 2
+            ;;
+        esac
+
+        if [ -n "$output" ]; then
+          printf '%s\n' "$output"
+        fi
+
+        {
+          echo "output<<MINT_OUTPUT"
+          printf '%s\n' "$output"
+          echo "MINT_OUTPUT"
+        } >> "$GITHUB_OUTPUT"
