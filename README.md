@@ -237,39 +237,39 @@ release and create the tag when the tag does not already exist.
 
 Supported action inputs:
 
-| Input                | Default                  | Description                                                        |
-| -------------------- | ------------------------ | ------------------------------------------------------------------ |
+| Input                | Default                  | Description                                                                        |
+| -------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
 | `command`            | `version`                | Run `version`, `help`, `changelog`, `release-resolve`, `github-release`, or `none` |
-| `go-version`         | `1.25.5`                 | Go version used to build the CLI on the runner                     |
-| `prev-tag`           | empty                    | Previous Git tag or ref; empty for first changelog release         |
-| `current-tag`        | empty                    | Current Git tag or ref for changelog generation                    |
-| `owner`              | empty                    | GitHub repository owner for changelog links and GitHub Releases    |
-| `repo`               | empty                    | GitHub repository name for changelog links and GitHub Releases     |
-| `output`             | `CHANGELOG.md`           | Changelog file path for `command: changelog`                       |
-| `commitish`          | `HEAD`                   | Git ref for `command: release-resolve`                             |
-| `release-tag`        | empty                    | Strict `vX.Y.Z` SemVer tag for `command: github-release`           |
-| `target-sha`         | empty                    | Commitish where GitHub should create the tag when missing          |
-| `release-title`      | empty                    | Release title; defaults to `release-tag`                           |
-| `release-notes-file` | empty                    | Optional release notes file for `command: github-release`          |
-| `github-token`       | empty                    | GitHub token for `command: github-release`                         |
-| `github-api-url`     | `https://api.github.com` | GitHub API base URL                                                |
+| `go-version`         | `1.25.5`                 | Go version used to build the CLI on the runner                                     |
+| `prev-tag`           | empty                    | Previous Git tag or ref; empty for first changelog release                         |
+| `current-tag`        | empty                    | Current Git tag or ref for changelog generation                                    |
+| `owner`              | empty                    | GitHub repository owner for changelog links and GitHub Releases                    |
+| `repo`               | empty                    | GitHub repository name for changelog links and GitHub Releases                     |
+| `output`             | `CHANGELOG.md`           | Changelog file path for `command: changelog`                                       |
+| `commitish`          | `HEAD`                   | Git ref for `command: release-resolve`                                             |
+| `release-tag`        | empty                    | Strict `vX.Y.Z` SemVer tag for `command: github-release`                           |
+| `target-sha`         | empty                    | Commitish where GitHub should create the tag when missing                          |
+| `release-title`      | empty                    | Release title; defaults to `release-tag`                                           |
+| `release-notes-file` | empty                    | Optional release notes file for `command: github-release`                          |
+| `github-token`       | empty                    | GitHub token for `command: github-release`                                         |
+| `github-api-url`     | `https://api.github.com` | GitHub API base URL                                                                |
 
 Supported action outputs:
 
-| Output          | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| `mint-path`     | Absolute path to the built `mint` binary              |
-| `output`        | Captured stdout from the selected command             |
-| `version_tag`   | Resolved strict SemVer release tag                    |
-| `version_bump`  | `already-tagged`, `patch`, `minor`, or `major`        |
-| `base_tag`      | Reachable base SemVer tag, if one exists              |
-| `target_sha`    | Full target commit SHA                                |
-| `short_sha`     | Twelve-character target commit SHA                    |
-| `needs_git_tag` | Whether a generated workflow should create a Git tag  |
-| `commit_count`  | Number of commits evaluated for release resolution    |
-| `release_notes` | Lightweight tag annotation notes for generated tags   |
-| `release_tag`   | GitHub Release tag from `command: github-release`     |
-| `release_url`   | GitHub Release URL from `command: github-release`     |
+| Output            | Description                                             |
+| ----------------- | ------------------------------------------------------- |
+| `mint-path`       | Absolute path to the built `mint` binary                |
+| `output`          | Captured stdout from the selected command               |
+| `version_tag`     | Resolved strict SemVer release tag                      |
+| `version_bump`    | `already-tagged`, `patch`, `minor`, or `major`          |
+| `base_tag`        | Reachable base SemVer tag, if one exists                |
+| `target_sha`      | Full target commit SHA                                  |
+| `short_sha`       | Twelve-character target commit SHA                      |
+| `needs_git_tag`   | Whether a generated workflow should create a Git tag    |
+| `commit_count`    | Number of commits evaluated for release resolution      |
+| `release_notes`   | Lightweight tag annotation notes for generated tags     |
+| `release_tag`     | GitHub Release tag from `command: github-release`       |
+| `release_url`     | GitHub Release URL from `command: github-release`       |
 | `release_created` | Whether `command: github-release` created a new release |
 
 To install Mint into the workflow `PATH` without running it immediately:
@@ -289,13 +289,13 @@ steps:
 
 ### 🪙 Release
 
-| Command                 | Description                                      |
-| ----------------------- | ------------------------------------------------ |
-| `mint release`          | Resolve releases and render publish workflows    |
-| `mint release resolve`  | Compute a strict `vX.Y.Z` release tag            |
-| `mint release github`   | Create or reuse a GitHub Release                 |
-| `mint release workflow` | Generate a GHCR or ECR publish workflow          |
-| `mint changelog`        | Generate CHANGELOG.md from conventional commits  |
+| Command                 | Description                                     |
+| ----------------------- | ----------------------------------------------- |
+| `mint release`          | Resolve releases and render publish workflows   |
+| `mint release resolve`  | Compute a strict `vX.Y.Z` release tag           |
+| `mint release github`   | Create or reuse a GitHub Release                |
+| `mint release workflow` | Generate a GHCR or ECR publish workflow         |
+| `mint changelog`        | Generate CHANGELOG.md from conventional commits |
 
 Resolve a release tag:
 
@@ -359,30 +359,30 @@ mint --prev-tag v1.0.0 --current-tag v1.1.0 --owner jamesonstone --repo kit
 
 ### 🔧 Utilities
 
-| Command           | Description                         |
-| ----------------- | ----------------------------------- |
-| `mint version`    | Print the installed Mint version    |
-| `mint completion` | Generate shell autocompletion       |
-| `mint help`       | Help about Mint or a Mint command   |
+| Command           | Description                       |
+| ----------------- | --------------------------------- |
+| `mint version`    | Print the installed Mint version  |
+| `mint completion` | Generate shell autocompletion     |
+| `mint help`       | Help about Mint or a Mint command |
 
 Mint does not deploy ECS services, publish package-manager artifacts, or
 support registries beyond GHCR/ECR in this release workflow feature.
 
 ## 🛠️ Development
 
-| Target                   | Description                                      |
-| ------------------------ | ------------------------------------------------ |
-| `make build`             | Build `bin/mint` with linker-injected version    |
-| `make build-windows`     | Build `bin/mint.exe` for Windows amd64           |
-| `make install`           | Install `mint` with linker-injected version      |
-| `make install-git-hooks` | Use `.githooks/` as this clone's Git hooks path  |
-| `make test`              | Run `go test -v ./...`                           |
-| `make lint`              | Run `golangci-lint run ./...`                    |
-| `make fmt`               | Run `go fmt ./...`                               |
-| `make vet`               | Run `go vet ./...`                               |
-| `make tidy`              | Run `go mod tidy`                                |
-| `make clean`             | Remove local build output and run `go clean`     |
-| `make all`               | Run `fmt`, `vet`, `test`, and `build`            |
+| Target                   | Description                                     |
+| ------------------------ | ----------------------------------------------- |
+| `make build`             | Build `bin/mint` with linker-injected version   |
+| `make build-windows`     | Build `bin/mint.exe` for Windows amd64          |
+| `make install`           | Install `mint` with linker-injected version     |
+| `make install-git-hooks` | Use `.githooks/` as this clone's Git hooks path |
+| `make test`              | Run `go test -v ./...`                          |
+| `make lint`              | Run `golangci-lint run ./...`                   |
+| `make fmt`               | Run `go fmt ./...`                              |
+| `make vet`               | Run `go vet ./...`                              |
+| `make tidy`              | Run `go mod tidy`                               |
+| `make clean`             | Remove local build output and run `go clean`    |
+| `make all`               | Run `fmt`, `vet`, `test`, and `build`           |
 
 The Makefile mirrors Kit's local build pattern. Additional release-domain
 behavior should be added through feature specs before product commands are
