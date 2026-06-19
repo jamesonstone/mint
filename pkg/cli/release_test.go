@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +25,7 @@ func TestReleaseHelpIncludesSubcommands(t *testing.T) {
 	}
 
 	help := output.String()
-	for _, want := range []string{"resolve", "workflow", "Resolve release metadata"} {
+	for _, want := range []string{"resolve", "workflow", "github", "Resolve release metadata"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("release help missing %q:\n%s", want, help)
 		}
@@ -89,6 +91,63 @@ func TestRunReleaseWorkflowPrintsWorkflow(t *testing.T) {
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("workflow output missing %q:\n%s", want, workflow)
+		}
+	}
+}
+
+func TestRunReleaseGitHubCreatesRelease(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/jamesonstone/mint/releases/tags/v1.2.3":
+			http.NotFound(w, r)
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/jamesonstone/mint/releases":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"tag_name":"v1.2.3","html_url":"https://github.com/jamesonstone/mint/releases/tag/v1.2.3"}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	notesPath := filepath.Join(t.TempDir(), "notes.md")
+	if err := os.WriteFile(notesPath, []byte("Release notes\n"), 0o644); err != nil {
+		t.Fatalf("write notes: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "github-output")
+	t.Setenv("MINT_TEST_GITHUB_TOKEN", "test-token")
+
+	var stdout bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&stdout)
+
+	err := runReleaseGitHub(cmd, releaseGitHubFlags{
+		owner:        "jamesonstone",
+		repo:         "mint",
+		tag:          "v1.2.3",
+		target:       "abc123",
+		title:        "Mint v1.2.3",
+		notesFile:    notesPath,
+		tokenEnv:     "MINT_TEST_GITHUB_TOKEN",
+		apiURL:       server.URL,
+		githubOutput: outputPath,
+	})
+	if err != nil {
+		t.Fatalf("runReleaseGitHub() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "created GitHub release v1.2.3") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+
+	output := readCLITestFile(t, outputPath)
+	for _, want := range []string{
+		"release_tag=v1.2.3",
+		"release_url=https://github.com/jamesonstone/mint/releases/tag/v1.2.3",
+		"release_created=true",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("GitHub output missing %q:\n%s", want, output)
 		}
 	}
 }

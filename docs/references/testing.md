@@ -16,6 +16,8 @@
 - For GitHub Action metadata changes, parse `action.yml` as YAML and run a local action-equivalent build of `./cmd/mint`.
 - For GitHub Action wrapper changes, smoke-test the locally built binary with `version` and `--help`.
 - For changelog CLI changes, smoke-test `./bin/mint changelog --help` and run the full Go test suite.
-- Use `go test ./pkg/release` for release resolver, image validation, GitHub output, action metadata, and workflow rendering coverage.
+- Use `go test ./pkg/release` for release resolver, GitHub Release publishing, image validation, GitHub output, action metadata, and workflow rendering coverage.
 - For release workflow changes, assert generated YAML parses and keeps tag creation before image publishing.
+- For self-release workflow changes, assert YAML parses, uses the Mint action for both release resolution and GitHub Release publishing, and does not include container-image publishing.
 - For release resolver changes, use temporary Git repositories with deterministic commits, dates, and tags.
+- For GitHub Release publishing changes, use local HTTP test servers and never create live releases during unit tests.

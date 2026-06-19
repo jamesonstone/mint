@@ -9,6 +9,7 @@
 | 0003 | github-action | `docs/specs/0003-github-action` | complete | no | 2026-06-19 | Expose the Mint CLI through a public GitHub composite action without adding release behavior. |
 | 0004 | changelog-generation | `docs/specs/0004-changelog-generation` | complete | no | 2026-06-19 | Generate CHANGELOG.md release entries from conventional commits between Git refs. |
 | 0005 | pull-forward-v1-features | `docs/specs/0005-pull-forward-v1-features` | complete | no | 2026-06-19 | Adds release resolution and GHCR/ECR publish workflow generation to Mint using the proven Git-tag-first container release pattern; ECS deployment and GitHub Release creation stay out of scope. |
+| 0006 | github-release-publishing | `docs/specs/0006-github-release-publishing` | complete | no | 2026-06-19 | Add GitHub Release publishing to Mint and configure Mint to publish Mint's own GitHub Releases through the Mint action. |
 
 ## PROJECT INTENT
 
@@ -65,6 +66,15 @@ See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 - **OPEN ITEMS**: none
 - **POINTERS**: `docs/specs/0005-pull-forward-v1-features/BRAINSTORM.md`, `docs/specs/0005-pull-forward-v1-features/SPEC.md`, `docs/specs/0005-pull-forward-v1-features/PLAN.md`, `docs/specs/0005-pull-forward-v1-features/TASKS.md`
 
+### github-release-publishing
+
+- **STATUS**: complete
+- **PAUSED**: no
+- **INTENT**: Mint can resolve the next strict SemVer tag and expose that result through its GitHub Action, but it cannot publish a GitHub Release artifact. The Mint repository also needs to use Mint itself to publish Mint's own GitHub Releases without container-image publishing.
+- **APPROACH**: 1. Add a small standard-library GitHub REST API client in `pkg/release` for get-by-tag and create-release behavior. 2. Treat existing releases by tag as idempotent success. 3. Add `mint release github` as a thin Cobra adapter that reads tokens from environment variables. 4. Extend `action.yml` with a fixed `github-release` allowlist command and typed outputs. 5. Add `.github/workflows/release.yaml` so the repository uses the local Mint action to resolve and publish its GitHub Release. 6. Update README, constitution, tooling, testing, and progress docs after implementation evidence exists. 7. Complete repository validation and readiness checks.
+- **OPEN ITEMS**: none
+- **POINTERS**: `docs/specs/0006-github-release-publishing/SPEC.md`, `docs/specs/0006-github-release-publishing/PLAN.md`, `docs/specs/0006-github-release-publishing/TASKS.md`
+
 ## LAST UPDATED
 
-2026-06-19 16:32:46 EDT
+2026-06-19 17:35:36 EDT

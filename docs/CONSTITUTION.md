@@ -66,19 +66,22 @@ The current repository implements:
   - `mint changelog`;
   - root-level changelog flags for script compatibility;
   - `mint release resolve`;
+  - `mint release github`;
   - `mint release workflow`.
 - A `pkg/changelog` package that generates `CHANGELOG.md` release blocks from
   conventional commits and Git refs.
-- A `pkg/release` package that resolves release metadata and renders GHCR/ECR
-  publish workflows.
+- A `pkg/release` package that resolves release metadata, publishes GitHub
+  Releases, and renders GHCR/ECR publish workflows.
 - A root `action.yml` composite GitHub Action that builds `cmd/mint`, adds the
   binary to `PATH`, and runs an allowlisted Mint command.
+- A repository release workflow that uses the Mint action itself to resolve and
+  publish Mint GitHub Releases.
 - A Kit-style `Makefile`, Go tests, and repository-managed pre-commit build
   hook.
 - Kit-managed docs under `docs/agents`, `docs/specs`, `docs/references`, and
   this constitution.
 
-Mint currently does not create GitHub Releases, deploy services, publish
+Mint currently does not deploy services, upload release assets, publish
 package-manager artifacts, support registries beyond GHCR/ECR, or make the CLI
 resolver push tags or images directly.
 
@@ -95,8 +98,8 @@ resolver push tags or images directly.
   commit collection, conventional commit parsing, grouping, rendering, and
   atomic file writes.
 - `pkg/release` owns release metadata resolution, SemVer tag handling, bump
-  classification, GitHub output writing, image spec validation, and publish
-  workflow rendering.
+  classification, GitHub output writing, GitHub Release publishing, image spec
+  validation, and publish workflow rendering.
 - `action.yml` is the public GitHub Action metadata. It builds and invokes the
   CLI through fixed command branches.
 - `docs/specs/<feature>` owns feature-scoped requirements, plans, tasks, and
@@ -123,8 +126,10 @@ resolver push tags or images directly.
   human-oriented text.
 - Changelog file writes must be atomic: read, validate, write a temporary file,
   preserve permissions, and rename.
-- Generated workflows may create tags and push images when users run them, but
-  the local CLI resolver must remain read-only.
+- Generated container workflows may create tags and push images when users run
+  them, but the local CLI resolver must remain read-only.
+- GitHub Release publishing may call the GitHub API to create a Release and its
+  missing tag, but it must not mutate local Git state.
 
 ### GitHub Action Boundary
 
@@ -135,6 +140,8 @@ resolver push tags or images directly.
   need to consume.
 - The action should keep `mint-path` and captured `output` stable for general
   usage.
+- The action may expose GitHub Release publishing only by invoking the Mint CLI,
+  not by duplicating release API logic in shell.
 
 ## CODE STYLE AND NAMING
 
@@ -209,6 +216,27 @@ relevant feature docs and durable references.
   `target_sha`, `short_sha`, `needs_git_tag`, `commit_count`, and
   `release_notes`.
 
+### GitHub Release Publishing
+
+- `mint release github` creates or reuses a GitHub Release for a strict
+  `vX.Y.Z` SemVer tag.
+- Required inputs are repository owner, repository name, release tag, target
+  commitish, and a GitHub token.
+- The token must come from an environment variable, not from a required command
+  argument. Default lookup order is `MINT_GITHUB_TOKEN`, `GITHUB_TOKEN`, then
+  `GH_TOKEN`, unless `--token-env` points at another variable.
+- The command uses the GitHub REST API directly and must not require the GitHub
+  CLI to be installed.
+- Existing releases for the same tag are treated as idempotent success.
+- The command writes `release_tag`, `release_url`, and `release_created` when
+  asked to append GitHub Actions output.
+- The command may create a Git tag through GitHub Release creation when the tag
+  does not already exist, but it must not create local tags, push images,
+  upload release assets, or deploy services.
+- The self-release workflow for this repository must use the Mint action to
+  resolve and publish the GitHub Release, with `contents: write` permissions and
+  without container-image publishing.
+
 ### Publish Workflow Generation
 
 - Image specs use `name=<name>,uri=<image-uri>,dockerfile=<path>,context=<path>`.
@@ -224,7 +252,7 @@ relevant feature docs and durable references.
   up Docker Buildx, authenticate to the selected registry, and publish every
   image with the resolved SemVer tag and `latest`.
 - Generated workflows must not include ECS deployment, task-definition
-  mutation, `workflow_dispatch` deployment gates, GitHub Release creation, or
+  mutation, `workflow_dispatch` deployment gates, GitHub Release publishing, or
   package-manager publishing.
 
 ## DEVELOPMENT PROCESS
@@ -332,8 +360,9 @@ implementation authority.
 - Do not claim implemented behavior that is not backed by repository evidence.
 - Do not add package-manager-specific release behavior before the supported
   package ecosystems are specified.
-- Do not add GitHub Release creation before a dedicated spec defines ownership,
-  content, idempotency, and failure behavior.
+- Do not add GitHub Release asset upload, package publication, or deployment
+  side effects before a dedicated spec defines ownership, content,
+  idempotency, and failure behavior.
 - Do not add ECS/service deployment or environment-specific deployment behavior
   to release workflow generation before a dedicated spec covers it.
 - Do not add unsupported registry publishing before a dedicated spec defines the
@@ -360,7 +389,7 @@ The durable direction is:
 - Prefer typed Go domain packages over shell scripts for parsing, validation,
   and rendering.
 - Expand release capabilities incrementally through specs: richer release
-  plans, changelog integration, GitHub Releases, additional registries,
+  plans, changelog integration, release assets, additional registries,
   package-manager publishing, deployment handoff, and policy checks should each
   have explicit contracts before implementation.
 - Make generated workflows boring and auditable: tag first, publish with
@@ -376,7 +405,8 @@ The durable direction is:
 - **Mint**: The project in this repository. It is a Go CLI and GitHub Action
   whose current implemented surface is root help, version reporting,
   conventional-commit `CHANGELOG.md` generation, release tag resolution,
-  GHCR/ECR publish workflow generation, and action-based CLI execution.
+  GitHub Release publishing, GHCR/ECR publish workflow generation, and
+  action-based CLI execution.
 - **Constitution**: `docs/CONSTITUTION.md`, the canonical project contract and
   highest repo-local project rule after safety constraints and the current user
   request.
