@@ -39,6 +39,17 @@ CLI principles:
 - 🧱 project-owned Docker/GHCR/ECR/deployment boundaries
 - 🧩 public GitHub Action integration that keeps `mint` as the core CLI
 
+## Agent Instructions
+
+Coding agents should use
+[`agent-instructions/instructions.md`](agent-instructions/instructions.md) as
+the comprehensive agent-first functionality map for Mint. That manifest
+describes available commands, GitHub Action modes, release-state boundaries,
+guardrails, validation, and evidence files.
+
+Use [`agent-instructions/skills.md`](agent-instructions/skills.md) when loading
+Mint as a reusable code-agent skill.
+
 ## ⚙️ Installation
 
 ```bash
