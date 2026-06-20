@@ -81,6 +81,7 @@ func TestSelfReleaseWorkflowUsesMintForGitHubRelease(t *testing.T) {
 	workflow := string(data)
 	for _, want := range []string{
 		"name: Release",
+		"if: github.ref == 'refs/heads/main'",
 		"contents: write",
 		"uses: ./",
 		"command: release-publish",
@@ -92,9 +93,18 @@ func TestSelfReleaseWorkflowUsesMintForGitHubRelease(t *testing.T) {
 		}
 	}
 
-	for _, reject := range []string{"docker buildx", "packages: write", "aws ecs", "amazon-ecr-login", "docker/login-action"} {
+	for _, reject := range []string{
+		"docker buildx",
+		"packages: write",
+		"aws ecs",
+		"amazon-ecr-login",
+		"docker/login-action",
+		"gh release",
+		"git tag",
+		"refs/tags/",
+	} {
 		if strings.Contains(workflow, reject) {
-			t.Fatalf("release workflow contains container/deploy content %q:\n%s", reject, workflow)
+			t.Fatalf("release workflow contains copied release/deploy shell %q:\n%s", reject, workflow)
 		}
 	}
 }
