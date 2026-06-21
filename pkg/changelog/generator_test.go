@@ -101,6 +101,41 @@ func TestGeneratePreservesExistingTopLevelHeadingWithoutTrailingNewline(t *testi
 	}
 }
 
+func TestGenerateAllowsUncreatedCurrentTagWithCurrentRef(t *testing.T) {
+	repo := newTestRepo(t)
+	repo.commit(t, "feat: first release", "", "2024-01-01T00:00:00Z")
+	repo.tag(t, "v1.0.0")
+	featHash := repo.commit(t, "feat(cli): compute next version", "", "2024-01-02T00:00:00Z")
+
+	outputPath := filepath.Join(repo.dir, "CHANGELOG.md")
+	result, err := Generate(context.Background(), Options{
+		PrevTag:    "v1.0.0",
+		CurrentTag: "v1.1.0",
+		CurrentRef: "HEAD",
+		RepoOwner:  "jamesonstone",
+		RepoName:   "mint",
+		OutputFile: outputPath,
+		WorkDir:    repo.dir,
+	})
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	if result.Tag != "v1.1.0" || result.Version != "1.1.0" {
+		t.Fatalf("Generate() result tag/version = %q/%q", result.Tag, result.Version)
+	}
+
+	content := readFile(t, outputPath)
+	wantHeader := "## [1.1.0](https://github.com/jamesonstone/mint/releases/tag/v1.1.0) - 2024-01-02"
+	if !strings.Contains(content, wantHeader) {
+		t.Fatalf("CHANGELOG missing header %q:\n%s", wantHeader, content)
+	}
+	wantLine := "- **cli:** compute next version\n  ([" + featHash + "](https://github.com/jamesonstone/mint/commit/" + featHash + "))"
+	if !strings.Contains(content, wantLine) {
+		t.Fatalf("CHANGELOG missing feature line %q:\n%s", wantLine, content)
+	}
+}
+
 func TestGenerateFailsWhenVersionAlreadyExists(t *testing.T) {
 	repo := newTestRepo(t)
 	repo.commit(t, "feat: first release", "", "2024-01-01T00:00:00Z")
@@ -147,6 +182,19 @@ func TestGenerateFailsForMissingTagAndEmptyRange(t *testing.T) {
 	})
 	if err == nil || err.Error() != "tag not found: v2.0.0" {
 		t.Fatalf("Generate() missing tag error = %v", err)
+	}
+
+	_, err = Generate(context.Background(), Options{
+		PrevTag:    "v1.0.0",
+		CurrentTag: "v2.0.0",
+		CurrentRef: "missing-ref",
+		RepoOwner:  "jamesonstone",
+		RepoName:   "mint",
+		OutputFile: filepath.Join(repo.dir, "CHANGELOG.md"),
+		WorkDir:    repo.dir,
+	})
+	if err == nil || err.Error() != "ref not found: missing-ref" {
+		t.Fatalf("Generate() missing current ref error = %v", err)
 	}
 
 	_, err = Generate(context.Background(), Options{

@@ -10,7 +10,11 @@ import (
 )
 
 func tagExists(ctx context.Context, workDir string, tag string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "--quiet", tag+"^{commit}")
+	return commitishExists(ctx, workDir, tag)
+}
+
+func commitishExists(ctx context.Context, workDir string, ref string) (bool, error) {
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "--quiet", ref+"^{commit}")
 	if workDir != "" {
 		cmd.Dir = workDir
 	}
@@ -24,13 +28,17 @@ func tagExists(ctx context.Context, workDir string, tag string) (bool, error) {
 }
 
 func tagAuthorDate(ctx context.Context, workDir string, tag string) (time.Time, error) {
-	out, err := runGit(ctx, workDir, "show", "-s", "--format=%aI", tag+"^{commit}")
+	return commitishAuthorDate(ctx, workDir, tag)
+}
+
+func commitishAuthorDate(ctx context.Context, workDir string, ref string) (time.Time, error) {
+	out, err := runGit(ctx, workDir, "show", "-s", "--format=%aI", ref+"^{commit}")
 	if err != nil {
 		return time.Time{}, err
 	}
 	date, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
 	if err != nil {
-		return time.Time{}, fmt.Errorf("cannot parse commit date for %s: %w", tag, err)
+		return time.Time{}, fmt.Errorf("cannot parse commit date for %s: %w", ref, err)
 	}
 	return date, nil
 }

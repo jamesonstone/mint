@@ -16,6 +16,7 @@ permissions:
 jobs:
   github-release:
     name: GitHub Release
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -27,34 +28,12 @@ jobs:
         shell: bash
         run: git fetch --force --tags
 
-      - name: Resolve release
+      - name: Publish release state
         id: release
         uses: ./
         with:
-          command: release-resolve
+          command: release-publish
           commitish: ${{ github.sha }}
-
-      - name: Write release notes
-        id: notes
-        shell: bash
-        env:
-          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
-        run: |
-          set -euo pipefail
-
-          notes_file="$RUNNER_TEMP/mint-release-notes.md"
-          printf '%s\n' "$RELEASE_NOTES" > "$notes_file"
-          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
-
-      - name: Publish GitHub Release
-        id: github_release
-        uses: ./
-        with:
-          command: github-release
           owner: ${{ github.repository_owner }}
           repo: ${{ github.event.repository.name }}
-          release-tag: ${{ steps.release.outputs.version_tag }}
-          target-sha: ${{ steps.release.outputs.target_sha }}
-          release-title: ${{ steps.release.outputs.version_tag }}
-          release-notes-file: ${{ steps.notes.outputs.path }}
           github-token: ${{ secrets.GITHUB_TOKEN }}

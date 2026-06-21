@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -138,6 +139,31 @@ func runGit(ctx context.Context, workDir string, args ...string) ([]byte, error)
 		return nil, fmt.Errorf("%s", message)
 	}
 	return out, nil
+}
+
+func runGitNoOutput(ctx context.Context, workDir string, args ...string) error {
+	return runGitNoOutputEnv(ctx, workDir, nil, args...)
+}
+
+func runGitNoOutputEnv(ctx context.Context, workDir string, env []string, args ...string) error {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		message := strings.TrimSpace(stderr.String())
+		if message == "" {
+			return err
+		}
+		return fmt.Errorf("%s", message)
+	}
+	return nil
 }
 
 func splitLines(out []byte) []string {

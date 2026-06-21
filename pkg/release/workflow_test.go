@@ -28,11 +28,14 @@ func TestGenerateWorkflowGHCR(t *testing.T) {
 		"packages: write",
 		"uses: jamesonstone/mint@v1",
 		"command: release-resolve",
+		"command: release-tag",
 		"git fetch --force --tags",
 		"RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}",
 		"printf '%s\\n' \"$RELEASE_NOTES\" > \"$notes_file\"",
-		"git tag -a \"$tag\" \"$target\" -F \"$notes_file\"",
-		"git push origin \"refs/tags/$tag\"",
+		"release-tag: ${{ steps.release.outputs.version_tag }}",
+		"target-sha: ${{ steps.release.outputs.target_sha }}",
+		"release-notes-file: ${{ steps.release-notes.outputs.path }}",
+		"release-push: ${{ steps.release.outputs.needs_git_tag }}",
 		"docker/login-action@v3",
 		"registry: ghcr.io",
 		"username: ${{ github.actor }}",
@@ -136,7 +139,7 @@ func assertValidYAML(t *testing.T, value string) {
 func assertTagBeforePublish(t *testing.T, workflow string) {
 	t.Helper()
 
-	tagIndex := strings.Index(workflow, "git tag -a")
+	tagIndex := strings.Index(workflow, "command: release-tag")
 	publishIndex := strings.Index(workflow, "docker buildx build")
 	if tagIndex < 0 || publishIndex < 0 {
 		t.Fatalf("workflow missing tag or publish step:\n%s", workflow)
@@ -158,6 +161,8 @@ func assertNoDeployContent(t *testing.T, workflow string) {
 		"ECS_CLUSTER",
 		"container-name",
 		"github-release",
+		"git tag -a",
+		"git push origin",
 	}
 	for _, value := range rejected {
 		if strings.Contains(workflow, value) {

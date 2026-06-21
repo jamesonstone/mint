@@ -10,6 +10,7 @@ import (
 type changelogFlags struct {
 	prevTag    string
 	currentTag string
+	currentRef string
 	owner      string
 	repo       string
 	output     string
@@ -44,7 +45,8 @@ func init() {
 func bindChangelogFlags(cmd *cobra.Command, values *changelogFlags) {
 	flags := cmd.Flags()
 	flags.StringVar(&values.prevTag, "prev-tag", "", "previous Git tag or ref; empty for first release")
-	flags.StringVar(&values.currentTag, "current-tag", "", "current Git tag or ref to release")
+	flags.StringVar(&values.currentTag, "current-tag", "", "current release tag to render")
+	flags.StringVar(&values.currentRef, "current-ref", "", "optional Git ref used as the changelog range end when current-tag does not exist yet")
 	flags.StringVar(&values.owner, "owner", "", "GitHub repository owner")
 	flags.StringVar(&values.repo, "repo", "", "GitHub repository name")
 	flags.StringVar(&values.output, "output", changelog.DefaultOutputFile, "path to CHANGELOG.md")
@@ -58,7 +60,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 }
 
 func rootChangelogRequested(cmd *cobra.Command) bool {
-	for _, name := range []string{"prev-tag", "current-tag", "owner", "repo", "output"} {
+	for _, name := range []string{"prev-tag", "current-tag", "current-ref", "owner", "repo", "output"} {
 		if cmd.Flags().Changed(name) {
 			return true
 		}
@@ -70,6 +72,7 @@ func runChangelog(cmd *cobra.Command, values changelogFlags) error {
 	result, err := changelog.Generate(cmd.Context(), changelog.Options{
 		PrevTag:       values.prevTag,
 		CurrentTag:    values.currentTag,
+		CurrentRef:    values.currentRef,
 		RepoOwner:     values.owner,
 		RepoName:      values.repo,
 		OutputFile:    values.output,

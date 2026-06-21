@@ -10,6 +10,7 @@ const DefaultOutputFile = "CHANGELOG.md"
 type Options struct {
 	PrevTag       string
 	CurrentTag    string
+	CurrentRef    string
 	RepoOwner     string
 	RepoName      string
 	OutputFile    string

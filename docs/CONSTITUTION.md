@@ -66,12 +66,14 @@ The current repository implements:
   - `mint changelog`;
   - root-level changelog flags for script compatibility;
   - `mint release resolve`;
+  - `mint release tag`;
   - `mint release github`;
+  - `mint release publish`;
   - `mint release workflow`.
 - A `pkg/changelog` package that generates `CHANGELOG.md` release blocks from
   conventional commits and Git refs.
-- A `pkg/release` package that resolves release metadata, publishes GitHub
-  Releases, and renders GHCR/ECR publish workflows.
+- A `pkg/release` package that resolves release metadata, creates immutable Git
+  tags, publishes GitHub Releases, and renders GHCR/ECR publish workflows.
 - A root `action.yml` composite GitHub Action that builds `cmd/mint`, adds the
   binary to `PATH`, and runs an allowlisted Mint command.
 - A repository release workflow that uses the Mint action itself to resolve and
@@ -81,9 +83,10 @@ The current repository implements:
 - Kit-managed docs under `docs/agents`, `docs/specs`, `docs/references`, and
   this constitution.
 
-Mint currently does not deploy services, upload release assets, publish
-package-manager artifacts, support registries beyond GHCR/ECR, or make the CLI
-resolver push tags or images directly.
+Mint currently does not build Docker images directly, authenticate to registries
+directly, deploy services, upload release assets, publish package-manager
+artifacts, support registries beyond GHCR/ECR, or make the CLI resolver push
+tags or images directly.
 
 ## ARCHITECTURE
 
@@ -98,8 +101,8 @@ resolver push tags or images directly.
   commit collection, conventional commit parsing, grouping, rendering, and
   atomic file writes.
 - `pkg/release` owns release metadata resolution, SemVer tag handling, bump
-  classification, GitHub output writing, GitHub Release publishing, image spec
-  validation, and publish workflow rendering.
+  classification, GitHub output writing, Git tag creation/reuse, GitHub Release
+  publishing, image spec validation, and publish workflow rendering.
 - `action.yml` is the public GitHub Action metadata. It builds and invokes the
   CLI through fixed command branches.
 - `docs/specs/<feature>` owns feature-scoped requirements, plans, tasks, and
@@ -126,10 +129,13 @@ resolver push tags or images directly.
   human-oriented text.
 - Changelog file writes must be atomic: read, validate, write a temporary file,
   preserve permissions, and rename.
-- Generated container workflows may create tags and push images when users run
-  them, but the local CLI resolver must remain read-only.
-- GitHub Release publishing may call the GitHub API to create a Release and its
-  missing tag, but it must not mutate local Git state.
+- Generated container workflows may push images when users run them, but Git
+  tag creation must be delegated to Mint release-state commands rather than
+  copied shell.
+- The local CLI resolver must remain read-only.
+- GitHub Release publishing may call the GitHub API to create a Release, but
+  local Git tag creation and pushing belongs to `mint release tag` or
+  `mint release publish`.
 
 ### GitHub Action Boundary
 
@@ -140,8 +146,8 @@ resolver push tags or images directly.
   need to consume.
 - The action should keep `mint-path` and captured `output` stable for general
   usage.
-- The action may expose GitHub Release publishing only by invoking the Mint CLI,
-  not by duplicating release API logic in shell.
+- The action may expose release-state behavior only by invoking the Mint CLI,
+  not by duplicating Git tag or release API logic in shell.
 
 ## CODE STYLE AND NAMING
 
@@ -184,8 +190,12 @@ relevant feature docs and durable references.
 
 - `current_tag`, `repo_owner`, and `repo_name` are required.
 - `prev_tag` may be empty for a first release.
+- `current_ref` may be provided when `current_tag` is a newly resolved version
+  that does not exist yet; in that case `current_ref` is the commit range end
+  and `current_tag` is still the rendered release tag.
 - `output_file` defaults to `CHANGELOG.md`.
-- Both tags must resolve to commits when present.
+- Tags must resolve to commits when used as range refs. `current_ref` must
+  resolve to a commit when provided.
 - Commit parsing follows the conventional commit subject contract implemented
   by `pkg/changelog`.
 - Non-conventional commits are warnings and are skipped.
@@ -216,6 +226,22 @@ relevant feature docs and durable references.
   `target_sha`, `short_sha`, `needs_git_tag`, `commit_count`, and
   `release_notes`.
 
+### Git Tag Creation
+
+- `mint release tag` creates or reuses annotated strict `vX.Y.Z` Git tags.
+- Required inputs are release tag, target commitish, and release notes file.
+- The target commitish must resolve to a commit before any tag mutation.
+- If the tag already exists on the same target commit, the command succeeds and
+  reports tag reuse.
+- If the tag already exists on another commit, the command fails and must never
+  move the tag.
+- Conflicting tag errors must include the recovery path: inspect and correct
+  the conflicting tag, or push a dummy commit after correction to trigger a
+  clean release calculation.
+- A newly created tag is annotated from the provided notes file.
+- Tag pushing defaults to enabled for CLI/action CI usage and can be disabled
+  with `--push=false`.
+
 ### GitHub Release Publishing
 
 - `mint release github` creates or reuses a GitHub Release for a strict
@@ -230,12 +256,16 @@ relevant feature docs and durable references.
 - Existing releases for the same tag are treated as idempotent success.
 - The command writes `release_tag`, `release_url`, and `release_created` when
   asked to append GitHub Actions output.
-- The command may create a Git tag through GitHub Release creation when the tag
-  does not already exist, but it must not create local tags, push images,
+- `mint release github` must not create local tags, push tags, push images,
   upload release assets, or deploy services.
+- `mint release publish` composes release-state operations: resolve, write
+  release notes to a temporary file, create or reuse the Git tag, push the tag
+  when enabled, and create or reuse the GitHub Release.
+- `mint release publish` must not build Docker images, authenticate to
+  registries, push containers, upload release assets, or deploy services.
 - The self-release workflow for this repository must use the Mint action to
-  resolve and publish the GitHub Release, with `contents: write` permissions and
-  without container-image publishing.
+  publish release state, with `contents: write` permissions and without
+  container-image publishing.
 
 ### Publish Workflow Generation
 
@@ -248,9 +278,9 @@ relevant feature docs and durable references.
 - Generated workflows run on `push` and guard the publish job to the repository
   default branch.
 - Generated workflows must fetch full history and tags, resolve the release
-  through the Mint action, create or validate the Git tag before publishing, set
-  up Docker Buildx, authenticate to the selected registry, and publish every
-  image with the resolved SemVer tag and `latest`.
+  through the Mint action, create or validate the Git tag through the Mint
+  action before publishing, set up Docker Buildx, authenticate to the selected
+  registry, and publish every image with the resolved SemVer tag and `latest`.
 - Generated workflows must not include ECS deployment, task-definition
   mutation, `workflow_dispatch` deployment gates, GitHub Release publishing, or
   package-manager publishing.

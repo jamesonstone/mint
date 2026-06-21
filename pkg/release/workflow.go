@@ -58,12 +58,22 @@ func GenerateWorkflow(opts WorkflowOptions) (string, error) {
 	builder.WriteString("        with:\n")
 	builder.WriteString("          command: release-resolve\n")
 	builder.WriteString("          commitish: ${{ github.sha }}\n")
-	builder.WriteString("      - name: Create release tag\n")
+	builder.WriteString("      - name: Write release notes\n")
+	builder.WriteString("        id: release-notes\n")
 	builder.WriteString("        env:\n")
 	builder.WriteString("          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}\n")
 	builder.WriteString("        shell: bash\n")
 	builder.WriteString("        run: |\n")
-	builder.WriteString(indentBlock(tagCreationScript(), 10))
+	builder.WriteString(indentBlock(releaseNotesFileScript(), 10))
+	builder.WriteString("      - name: Create release tag\n")
+	builder.WriteString("        uses: jamesonstone/mint@" + mintRef + "\n")
+	builder.WriteString("        with:\n")
+	builder.WriteString("          command: release-tag\n")
+	builder.WriteString("          release-tag: ${{ steps.release.outputs.version_tag }}\n")
+	builder.WriteString("          target-sha: ${{ steps.release.outputs.target_sha }}\n")
+	builder.WriteString("          release-notes-file: ${{ steps.release-notes.outputs.path }}\n")
+	builder.WriteString("          release-remote: origin\n")
+	builder.WriteString("          release-push: ${{ steps.release.outputs.needs_git_tag }}\n")
 	builder.WriteString("      - name: Set up Docker Buildx\n")
 	builder.WriteString("        uses: docker/setup-buildx-action@v3\n")
 
@@ -81,32 +91,12 @@ func GenerateWorkflow(opts WorkflowOptions) (string, error) {
 	return builder.String(), nil
 }
 
-func tagCreationScript() string {
+func releaseNotesFileScript() string {
 	return `set -euo pipefail
 
-tag="${{ steps.release.outputs.version_tag }}"
-target="${{ steps.release.outputs.target_sha }}"
 notes_file="$RUNNER_TEMP/mint-release-notes.txt"
 printf '%s\n' "$RELEASE_NOTES" > "$notes_file"
-
-if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
-  existing="$(git rev-list -n 1 "$tag")"
-  if [ "$existing" = "$target" ]; then
-    echo "Tag $tag already exists on target commit; continuing."
-    exit 0
-  fi
-  echo "::error::Tag $tag already exists on $existing, expected $target. Delete or move the conflicting tag manually before retrying."
-  exit 1
-fi
-
-if [ "${{ steps.release.outputs.needs_git_tag }}" = "true" ]; then
-  git config user.name "github-actions[bot]"
-  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-  git tag -a "$tag" "$target" -F "$notes_file"
-  git push origin "refs/tags/$tag"
-else
-  echo "No new Git tag needed for $tag."
-fi
+echo "path=$notes_file" >> "$GITHUB_OUTPUT"
 `
 }
 

@@ -25,7 +25,7 @@ func TestReleaseHelpIncludesSubcommands(t *testing.T) {
 	}
 
 	help := output.String()
-	for _, want := range []string{"resolve", "workflow", "github", "Resolve release metadata"} {
+	for _, want := range []string{"resolve", "tag", "github", "publish", "workflow", "Resolve, tag, and publish release state"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("release help missing %q:\n%s", want, help)
 		}
@@ -95,6 +95,51 @@ func TestRunReleaseWorkflowPrintsWorkflow(t *testing.T) {
 	}
 }
 
+func TestRunReleaseTagCreatesTagAndWritesGitHubOutput(t *testing.T) {
+	repo := newCLITestRepo(t)
+	repo.commit(t, "feat: tag release", "", "2024-01-01T00:00:00Z")
+	target := repo.revParse(t, "HEAD")
+	t.Chdir(repo.dir)
+
+	notesPath := filepath.Join(t.TempDir(), "notes.md")
+	if err := os.WriteFile(notesPath, []byte("Release notes\n"), 0o644); err != nil {
+		t.Fatalf("write notes: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "github-output")
+
+	var stdout bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&stdout)
+
+	err := runReleaseTag(cmd, releaseTagFlags{
+		tag:          "v1.2.3",
+		target:       "HEAD",
+		notesFile:    notesPath,
+		push:         false,
+		githubOutput: outputPath,
+	})
+	if err != nil {
+		t.Fatalf("runReleaseTag() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "created Git tag v1.2.3") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	output := readCLITestFile(t, outputPath)
+	for _, want := range []string{
+		"tag_name=v1.2.3",
+		"tag_target_sha=" + target,
+		"tag_created=true",
+		"tag_reused=false",
+		"tag_pushed=false",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("GitHub output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 func TestRunReleaseGitHubCreatesRelease(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -152,6 +197,62 @@ func TestRunReleaseGitHubCreatesRelease(t *testing.T) {
 	}
 }
 
+func TestRunReleasePublishCreatesTagReleaseAndWritesGitHubOutput(t *testing.T) {
+	repo := newCLITestRepo(t)
+	repo.commit(t, "feat: publish release", "", "2024-01-01T00:00:00Z")
+	t.Chdir(repo.dir)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/repos/jamesonstone/mint/releases/tags/v0.1.0":
+			http.NotFound(w, r)
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/jamesonstone/mint/releases":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"tag_name":"v0.1.0","html_url":"https://github.com/jamesonstone/mint/releases/tag/v0.1.0"}`))
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	outputPath := filepath.Join(t.TempDir(), "github-output")
+	t.Setenv("MINT_TEST_GITHUB_TOKEN", "test-token")
+
+	var stdout bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&stdout)
+
+	err := runReleasePublish(cmd, releasePublishFlags{
+		commitish:    "HEAD",
+		owner:        "jamesonstone",
+		repo:         "mint",
+		push:         false,
+		tokenEnv:     "MINT_TEST_GITHUB_TOKEN",
+		apiURL:       server.URL,
+		githubOutput: outputPath,
+	})
+	if err != nil {
+		t.Fatalf("runReleasePublish() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "published GitHub release v0.1.0") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	output := readCLITestFile(t, outputPath)
+	for _, want := range []string{
+		"version_tag=v0.1.0",
+		"tag_name=v0.1.0",
+		"tag_created=true",
+		"release_tag=v0.1.0",
+		"release_created=true",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("GitHub output missing %q:\n%s", want, output)
+		}
+	}
+}
+
 type cliTestRepo struct {
 	dir     string
 	counter int
@@ -185,6 +286,18 @@ func (repo *cliTestRepo) commit(t *testing.T, subject string, body string, date 
 		"GIT_AUTHOR_DATE=" + date,
 		"GIT_COMMITTER_DATE=" + date,
 	}, args...)
+}
+
+func (repo *cliTestRepo) revParse(t *testing.T, ref string) string {
+	t.Helper()
+
+	cmd := exec.Command("git", "rev-parse", ref)
+	cmd.Dir = repo.dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git rev-parse %s failed: %v\n%s", ref, err, string(out))
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func (repo *cliTestRepo) git(t *testing.T, env []string, args ...string) {
