@@ -384,7 +384,6 @@ implementation authority.
 - Do not apply the code-file size guideline to documentation files, all `docs/**`, all `.kit/**`, or `.kit.yaml`.
 - Do not split or rewrite docs, generated state, or Kit config artifacts solely because they exceed 300 lines.
 <!-- END KIT-MANAGED BASELINE RULES -->
-
 ## NON-NEGOTIABLE CONSTRAINTS
 
 - Do not claim implemented behavior that is not backed by repository evidence.
@@ -460,3 +459,94 @@ The durable direction is:
   committed as durable project state.
 - **Implementation evidence**: Repository artifacts such as source files,
   manifests, tests, commands, docs, or config that prove behavior exists.
+
+
+## CONSTRAINTS
+
+These are runtime and behavioral invariants Mint must always guarantee. They
+complement the scope-limiting rules in `## NON-NEGOTIABLE CONSTRAINTS`.
+
+- Release resolution and the local CLI resolver are read-only; they never
+  create, move, push, or delete Git tags or container images.
+- Mint never moves an existing tag. A strict SemVer tag that already exists on a
+  different commit is a hard failure with a stated recovery path, never a silent
+  retag.
+- Release-state operations are idempotent: re-running `mint release tag`,
+  `mint release github`, or `mint release publish` for the same tag and target
+  commit succeeds without duplicating Git tags or GitHub Releases.
+- Invalid release, changelog, Git ref, workflow, or file state fails closed.
+  Mint never emits partial or ambiguous release artifacts.
+- Refs are validated to resolve to commits before any range calculation or tag
+  mutation.
+- Changelog writes are atomic and never overwrite an existing version block;
+  duplicate versions fail.
+- The GitHub Action runs only allowlisted commands and never executes arbitrary
+  shell, `eval`, or user-supplied command strings.
+- GitHub tokens are read from environment variables, never required as command
+  arguments, and never logged.
+- Generated workflows are tag-first, never mix registry kinds, and never deploy
+  services.
+- Secrets, `.env` values, tokens, and machine-local state are never committed or
+  cited as durable project truth.
+
+### Kit-Managed Baseline Rules
+
+<!-- BEGIN KIT-MANAGED BASELINE RULES -->
+- Treat `docs/CONSTITUTION.md` as the canonical project contract.
+- Keep `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` aligned with the repo-local docs tree.
+- Prefer implementation/source code files around 300 lines or less when splitting improves clarity and ownership.
+- Do not apply the code-file size guideline to documentation files, all `docs/**`, all `.kit/**`, or `.kit.yaml`.
+- Do not split or rewrite docs, generated state, or Kit config artifacts solely because they exceed 300 lines.
+<!-- END KIT-MANAGED BASELINE RULES -->
+
+## CHANGE CLASSIFICATION
+
+All work falls into one of three tracks. Classify before acting. This mirrors
+the `DEVELOPMENT PROCESS → Work Classification` section and makes each track
+concrete.
+
+### Spec-Driven (Formal)
+
+- Use for new features, substantial architectural or behavioral changes,
+  cross-component changes, and Kit pipeline phases.
+- Workflow: optional `BRAINSTORM.md`, then `SPEC.md`, `PLAN.md`, `TASKS.md`,
+  implementation, reflection, and completion, in order.
+- Create feature artifacts under `docs/specs/<feature>/` and keep
+  `docs/PROJECT_PROGRESS_SUMMARY.md` aligned with the highest completed
+  artifact or active phase.
+
+### Ad Hoc (Lightweight)
+
+- Use for contained bug fixes, security reviews, refactors, dependency updates,
+  config changes, and small refinements.
+- Workflow: understand, implement, verify.
+- Update only practical docs such as README, inline docs, and API docs.
+- Do not create `SPEC.md`, `PLAN.md`, or `TASKS.md` for ad hoc work.
+
+### Ad Hoc with Existing Specs
+
+- If the change touches behavior covered by existing feature docs, default to
+  updating those docs.
+- Skip spec updates only for purely mechanical, behavior-neutral changes such as
+  formatting, typo fixes, or dependency bumps.
+
+## NON-GOALS
+
+Mint deliberately excludes the following until a dedicated spec defines the
+contract, ownership, idempotency, and failure behavior:
+
+- Mint does not build Docker images, authenticate to registries, or push
+  containers itself; generated workflows perform those steps in the user's
+  repository.
+- Mint does not upload GitHub Release assets or publish package-manager
+  artifacts (npm, Homebrew, apt, PyPI, Go proxy, and similar).
+- Mint does not deploy services, mutate ECS task definitions, or perform
+  environment-specific deployment.
+- Mint does not support container registries beyond GHCR and AWS ECR.
+- Mint is not a hosted release service, web application, or external
+  orchestration platform.
+- The GitHub Action is not an independent reimplementation of Mint behavior and
+  never executes arbitrary command strings.
+- Mint does not invent external-system integrations absent durable guidance in
+  `docs/references/external-systems.md`.
+- The local CLI resolver does not push tags or images.
