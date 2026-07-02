@@ -31,6 +31,18 @@ func WriteReleaseTagOutputFile(path string, result TagResult) error {
 	return WriteReleaseTagOutput(file, result)
 }
 
+// WriteSelectTagOutputFile appends selected release tag fields to a GitHub
+// output file.
+func WriteSelectTagOutputFile(path string, result SelectTagResult) error {
+	file, err := openOutputFile(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return WriteSelectTagOutput(file, result)
+}
+
 func openOutputFile(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 }
@@ -75,6 +87,27 @@ func WriteReleaseTagOutput(writer io.Writer, result TagResult) error {
 		{name: "tag_created", value: strconv.FormatBool(result.Created)},
 		{name: "tag_reused", value: strconv.FormatBool(result.Reused)},
 		{name: "tag_pushed", value: strconv.FormatBool(result.Pushed)},
+	}
+
+	for _, field := range fields {
+		if _, err := fmt.Fprintf(writer, "%s=%s\n", field.name, field.value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// WriteSelectTagOutput writes selected release tag fields in GitHub Actions
+// output format.
+func WriteSelectTagOutput(writer io.Writer, result SelectTagResult) error {
+	fields := []struct {
+		name  string
+		value string
+	}{
+		{name: "version_tag", value: result.VersionTag},
+		{name: "tag_source", value: string(result.TagSource)},
+		{name: "target_sha", value: result.TargetSHA},
+		{name: "short_sha", value: result.ShortSHA},
 	}
 
 	for _, field := range fields {

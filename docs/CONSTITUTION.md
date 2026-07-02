@@ -66,14 +66,16 @@ The current repository implements:
   - `mint changelog`;
   - root-level changelog flags for script compatibility;
   - `mint release resolve`;
+  - `mint release select-tag`;
   - `mint release tag`;
   - `mint release github`;
   - `mint release publish`;
   - `mint release workflow`.
 - A `pkg/changelog` package that generates `CHANGELOG.md` release blocks from
   conventional commits and Git refs.
-- A `pkg/release` package that resolves release metadata, creates immutable Git
-  tags, publishes GitHub Releases, and renders GHCR/ECR publish workflows.
+- A `pkg/release` package that resolves release metadata, selects existing
+  release tags for downstream workflows, creates immutable Git tags, publishes
+  GitHub Releases, and renders GHCR/ECR publish workflows.
 - A root `action.yml` composite GitHub Action that builds `cmd/mint`, adds the
   binary to `PATH`, and runs an allowlisted Mint command.
 - A repository release workflow that uses the Mint action itself to resolve and
@@ -225,6 +227,21 @@ relevant feature docs and durable references.
 - The resolver returns `version_tag`, `version_bump`, `base_tag`,
   `target_sha`, `short_sha`, `needs_git_tag`, `commit_count`, and
   `release_notes`.
+
+### Release Tag Selection
+
+- `mint release select-tag` is read-only and never computes a new version,
+  creates tags, pushes images, or deploys services.
+- The target commit defaults to `HEAD` and must resolve to a commit.
+- If `--requested-tag` is provided, the command validates it as a strict
+  `vX.Y.Z` SemVer tag and returns it.
+- If no requested tag is provided, the command selects the highest strict
+  SemVer tag pointing at the target commit.
+- If no strict SemVer tag points at the target commit, the command fails closed
+  so downstream deploy workflows cannot silently deploy `latest` or an
+  ambiguous image.
+- The command returns `version_tag`, `tag_source`, `target_sha`, and
+  `short_sha` when asked to append GitHub Actions output.
 
 ### Git Tag Creation
 
@@ -434,8 +451,8 @@ The durable direction is:
 - **Mint**: The project in this repository. It is a Go CLI and GitHub Action
   whose current implemented surface is root help, version reporting,
   conventional-commit `CHANGELOG.md` generation, release tag resolution,
-  GitHub Release publishing, GHCR/ECR publish workflow generation, and
-  action-based CLI execution.
+  release tag selection, GitHub Release publishing, GHCR/ECR publish workflow
+  generation, and action-based CLI execution.
 - **Constitution**: `docs/CONSTITUTION.md`, the canonical project contract and
   highest repo-local project rule after safety constraints and the current user
   request.
@@ -466,8 +483,9 @@ The durable direction is:
 These are runtime and behavioral invariants Mint must always guarantee. They
 complement the scope-limiting rules in `## NON-NEGOTIABLE CONSTRAINTS`.
 
-- Release resolution and the local CLI resolver are read-only; they never
-  create, move, push, or delete Git tags or container images.
+- Release resolution, release tag selection, and the local CLI resolver are
+  read-only; they never create, move, push, or delete Git tags or container
+  images.
 - Mint never moves an existing tag. A strict SemVer tag that already exists on a
   different commit is a hard failure with a stated recovery path, never a silent
   retag.

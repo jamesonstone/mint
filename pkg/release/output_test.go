@@ -41,3 +41,29 @@ func TestWriteGitHubOutputIncludesAllReleaseFields(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteSelectTagOutputIncludesAllSelectionFields(t *testing.T) {
+	var output bytes.Buffer
+	result := SelectTagResult{
+		VersionTag: "v1.2.3",
+		TagSource:  SelectTagSourceCommitTag,
+		TargetSHA:  strings.Repeat("b", 40),
+		ShortSHA:   strings.Repeat("b", 12),
+	}
+
+	if err := WriteSelectTagOutput(&output, result); err != nil {
+		t.Fatalf("WriteSelectTagOutput() error = %v", err)
+	}
+
+	value := output.String()
+	for _, want := range []string{
+		"version_tag=v1.2.3\n",
+		"tag_source=commit-tag\n",
+		"target_sha=" + result.TargetSHA + "\n",
+		"short_sha=" + result.ShortSHA + "\n",
+	} {
+		if !strings.Contains(value, want) {
+			t.Fatalf("output missing %q:\n%s", want, value)
+		}
+	}
+}

@@ -100,6 +100,22 @@ implemented_surface:
             - "needs_git_tag"
             - "commit_count"
             - "release_notes"
+      - name: "mint release select-tag"
+        type: "release_state"
+        when: "Select an already-published strict vX.Y.Z release tag for a downstream workflow."
+        why: "Let deployment workflows recover the image tag created by release publishing without computing a new version or copying tag lookup shell."
+        mutates: false
+        core_flags:
+          - "--commitish"
+          - "--requested-tag"
+          - "--github-output"
+        outputs:
+          stdout: "selected version tag"
+          github_output:
+            - "version_tag"
+            - "tag_source"
+            - "target_sha"
+            - "short_sha"
       - name: "mint release tag"
         type: "release_state"
         when: "Create or reuse an annotated strict vX.Y.Z Git tag."
@@ -223,6 +239,7 @@ implemented_surface:
       - "help"
       - "changelog"
       - "release-resolve"
+      - "release-select-tag"
       - "release-tag"
       - "github-release"
       - "release-publish"
@@ -231,6 +248,7 @@ implemented_surface:
       versioning:
         - "go-version"
         - "commitish"
+        - "requested-tag"
       changelog:
         - "prev-tag"
         - "current-tag"
@@ -261,6 +279,11 @@ implemented_surface:
         - "needs_git_tag"
         - "commit_count"
         - "release_notes"
+      select_tag:
+        - "version_tag"
+        - "tag_source"
+        - "target_sha"
+        - "short_sha"
       github_release:
         - "release_tag"
         - "release_url"
@@ -275,6 +298,7 @@ implemented_surface:
 release_state_boundary:
   mint_owns:
     - "SemVer release resolution from Git history."
+    - "Read-only release tag selection for downstream workflows."
     - "Conventional-commit changelog and release-note generation."
     - "Immutable annotated Git tag creation and reuse."
     - "Git tag push when explicitly requested or when action defaults apply."
@@ -353,6 +377,11 @@ agent_workflows:
     command: "mint release resolve --commitish HEAD"
     github_action_command: "release-resolve"
     required_checkout: "fetch-depth: 0"
+  select_published_tag:
+    when: "A deploy workflow needs the existing SemVer image tag created by release publishing and must not compute a new version."
+    command: "mint release select-tag --commitish HEAD"
+    github_action_command: "release-select-tag"
+    required_checkout: "fetch-depth: 0 and fetch-tags: true"
   changelog_only:
     when: "A release block must be generated before tag creation."
     command: "mint changelog --prev-tag <previous> --current-tag <version> --current-ref <sha> --owner <owner> --repo <repo> --output CHANGELOG.md"
@@ -409,6 +438,7 @@ validation:
       - "go vet ./..."
       - "make build"
       - "go run ./cmd/mint release resolve --commitish HEAD"
+      - "go run ./cmd/mint release select-tag --help"
       - "go run ./cmd/mint release tag --help"
       - "go run ./cmd/mint release github --help"
       - "go run ./cmd/mint release publish --help"
