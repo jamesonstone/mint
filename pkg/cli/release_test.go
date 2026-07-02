@@ -25,7 +25,7 @@ func TestReleaseHelpIncludesSubcommands(t *testing.T) {
 	}
 
 	help := output.String()
-	for _, want := range []string{"resolve", "tag", "github", "publish", "workflow", "Resolve, tag, and publish release state"} {
+	for _, want := range []string{"resolve", "select-tag", "tag", "github", "publish", "workflow", "Resolve, tag, and publish release state"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("release help missing %q:\n%s", want, help)
 		}
@@ -66,6 +66,67 @@ func TestRunReleaseResolvePrintsVersionAndWritesGitHubOutput(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("GitHub output missing %q:\n%s", want, output)
 		}
+	}
+}
+
+func TestRunReleaseSelectTagPrintsTagAndWritesGitHubOutput(t *testing.T) {
+	repo := newCLITestRepo(t)
+	repo.commit(t, "feat: tagged release", "", "2024-01-01T00:00:00Z")
+	repo.tag(t, "v1.2.3")
+	target := repo.revParse(t, "HEAD")
+	t.Chdir(repo.dir)
+
+	outputPath := filepath.Join(t.TempDir(), "github-output")
+	var stdout bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&stdout)
+
+	err := runReleaseSelectTag(cmd, releaseSelectTagFlags{
+		commitish:    "HEAD",
+		githubOutput: outputPath,
+	})
+	if err != nil {
+		t.Fatalf("runReleaseSelectTag() error = %v", err)
+	}
+
+	if got := strings.TrimSpace(stdout.String()); got != "v1.2.3" {
+		t.Fatalf("stdout = %q, want v1.2.3", got)
+	}
+
+	output := readCLITestFile(t, outputPath)
+	for _, want := range []string{
+		"version_tag=v1.2.3",
+		"tag_source=commit-tag",
+		"target_sha=" + target,
+		"short_sha=" + target[:12],
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("GitHub output missing %q:\n%s", want, output)
+		}
+	}
+}
+
+func TestRunReleaseSelectTagUsesRequestedTag(t *testing.T) {
+	repo := newCLITestRepo(t)
+	repo.commit(t, "feat: manual deploy", "", "2024-01-01T00:00:00Z")
+	t.Chdir(repo.dir)
+
+	var stdout bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&stdout)
+
+	err := runReleaseSelectTag(cmd, releaseSelectTagFlags{
+		commitish:    "HEAD",
+		requestedTag: "v9.8.7",
+	})
+	if err != nil {
+		t.Fatalf("runReleaseSelectTag() error = %v", err)
+	}
+
+	if got := strings.TrimSpace(stdout.String()); got != "v9.8.7" {
+		t.Fatalf("stdout = %q, want v9.8.7", got)
 	}
 }
 
@@ -286,6 +347,11 @@ func (repo *cliTestRepo) commit(t *testing.T, subject string, body string, date 
 		"GIT_AUTHOR_DATE=" + date,
 		"GIT_COMMITTER_DATE=" + date,
 	}, args...)
+}
+
+func (repo *cliTestRepo) tag(t *testing.T, tag string) {
+	t.Helper()
+	repo.git(t, nil, "tag", tag)
 }
 
 func (repo *cliTestRepo) revParse(t *testing.T, ref string) string {

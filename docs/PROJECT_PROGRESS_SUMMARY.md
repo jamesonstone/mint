@@ -11,6 +11,7 @@
 | 0005 | pull-forward-v1-features | `docs/specs/0005-pull-forward-v1-features` | complete | no | 2026-06-19 | Adds release resolution and GHCR/ECR publish workflow generation to Mint using the proven Git-tag-first container release pattern; ECS deployment and GitHub Release creation stay out of scope. |
 | 0006 | github-release-publishing | `docs/specs/0006-github-release-publishing` | complete | no | 2026-06-19 | Add GitHub Release publishing to Mint and configure Mint to publish Mint's own GitHub Releases through the Mint action. |
 | 0007 | release-state-ownership | `docs/specs/0007-release-state-ownership` | complete | no | 2026-06-19 | Make Mint own release-state operations through CLI/action commands while application repositories keep Docker publishing and deployment workflows. |
+| 0008 | release-tag-selection | `docs/specs/0008-release-tag-selection` | complete | no | 2026-07-02 | Add a read-only release tag selector so deploy workflows can recover an already-published SemVer image tag without copied shell. |
 
 ## PROJECT INTENT
 
@@ -85,6 +86,15 @@ See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 - **OPEN ITEMS**: none
 - **POINTERS**: `docs/specs/0007-release-state-ownership/SPEC.md`, `docs/specs/0007-release-state-ownership/PLAN.md`, `docs/specs/0007-release-state-ownership/TASKS.md`
 
+### release-tag-selection
+
+- **STATUS**: complete
+- **PAUSED**: no
+- **INTENT**: Downstream deploy workflows need a small Mint helper that recovers the strict SemVer image tag already created by release publishing, or validates a manually requested tag, without copying Git tag lookup shell into each repository.
+- **APPROACH**: 1. Add read-only package behavior that resolves a target commit, validates optional requested tags, and selects the highest strict SemVer tag pointing at the target. 2. Add `mint release select-tag` as a thin CLI adapter. 3. Extend the composite action with `release-select-tag`, `requested-tag`, and typed outputs. 4. Update README, constitution, tooling references, agent manifests, and feature docs. 5. Validate package, CLI, and action behavior with focused tests.
+- **OPEN ITEMS**: none
+- **POINTERS**: `docs/specs/0008-release-tag-selection/SPEC.md`, `docs/specs/0008-release-tag-selection/PLAN.md`, `docs/specs/0008-release-tag-selection/TASKS.md`
+
 ## LAST UPDATED
 
-2026-06-19 18:45:53 EDT
+2026-07-02 17:25:34 EDT

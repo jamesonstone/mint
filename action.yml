@@ -6,7 +6,7 @@ branding:
   color: yellow
 inputs:
   command:
-    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, release-tag, github-release, release-publish, none."
+    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, none."
     required: false
     default: version
   go-version:
@@ -38,11 +38,15 @@ inputs:
     required: false
     default: CHANGELOG.md
   commitish:
-    description: Git ref used by command release-resolve.
+    description: Git ref used by command release-resolve or release-select-tag.
     required: false
     default: HEAD
+  requested-tag:
+    description: Optional strict vX.Y.Z SemVer tag used by command release-select-tag.
+    required: false
+    default: ""
   release-tag:
-    description: Strict vX.Y.Z SemVer tag used by command github-release.
+    description: Strict vX.Y.Z SemVer tag used by command release-tag or github-release.
     required: false
     default: ""
   target-sha:
@@ -81,7 +85,7 @@ outputs:
     description: Captured stdout from the selected Mint command.
     value: ${{ steps.run.outputs.output }}
   version_tag:
-    description: Resolved SemVer release tag from command release-resolve.
+    description: Selected or resolved SemVer release tag.
     value: ${{ steps.run.outputs.version_tag }}
   version_bump:
     description: Selected release bump from command release-resolve.
@@ -90,11 +94,14 @@ outputs:
     description: Reachable base SemVer tag from command release-resolve.
     value: ${{ steps.run.outputs.base_tag }}
   target_sha:
-    description: Full target commit SHA from command release-resolve.
+    description: Full target commit SHA from release commands that inspect a commitish.
     value: ${{ steps.run.outputs.target_sha }}
   short_sha:
-    description: Twelve-character target commit SHA from command release-resolve.
+    description: Twelve-character target commit SHA from release commands that inspect a commitish.
     value: ${{ steps.run.outputs.short_sha }}
+  tag_source:
+    description: Whether command release-select-tag used a requested tag or a tag pointing at the commit.
+    value: ${{ steps.run.outputs.tag_source }}
   needs_git_tag:
     description: Whether a new Git SemVer tag should be created by the caller.
     value: ${{ steps.run.outputs.needs_git_tag }}
@@ -172,6 +179,7 @@ runs:
         MINT_REPO: ${{ inputs.repo }}
         MINT_OUTPUT_FILE: ${{ inputs.output }}
         MINT_COMMITISH: ${{ inputs.commitish }}
+        MINT_REQUESTED_TAG: ${{ inputs.requested-tag }}
         MINT_RELEASE_TAG: ${{ inputs.release-tag }}
         MINT_TARGET_SHA: ${{ inputs.target-sha }}
         MINT_RELEASE_TITLE: ${{ inputs.release-title }}
@@ -207,6 +215,10 @@ runs:
             output="$("$MINT_PATH" release resolve --commitish "$MINT_COMMITISH" --github-output "$release_output")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
+          release-select-tag)
+            output="$("$MINT_PATH" release select-tag --commitish "$MINT_COMMITISH" --requested-tag "$MINT_REQUESTED_TAG" --github-output "$release_output")"
+            cat "$release_output" >> "$GITHUB_OUTPUT"
+            ;;
           release-tag)
             output="$("$MINT_PATH" release tag --tag "$MINT_RELEASE_TAG" --target "$MINT_TARGET_SHA" --notes-file "$MINT_RELEASE_NOTES_FILE" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
@@ -223,7 +235,7 @@ runs:
             output=""
             ;;
           *)
-            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, release-tag, github-release, release-publish, none."
+            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, none."
             exit 2
             ;;
         esac

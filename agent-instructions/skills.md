@@ -24,6 +24,8 @@ Mint as a CLI/action.
 ## Decide
 
 - Use `mint release resolve` when the caller needs version metadata only.
+- Use `mint release select-tag` when a downstream workflow needs an already
+  published strict SemVer tag and must not compute a new release version.
 - Use `mint changelog` when the caller needs a deterministic `CHANGELOG.md`
   block from conventional commits.
 - Use `mint release tag` when the caller needs an immutable annotated Git tag.
@@ -83,6 +85,27 @@ In GitHub Actions, check out full history first:
   with:
     command: release-resolve
     commitish: ${{ github.sha }}
+```
+
+### Select Published Release Tag
+
+```bash
+mint release select-tag --commitish HEAD
+```
+
+Use `--requested-tag v1.2.3` for a manual deploy override. Without a requested
+tag, Mint chooses the highest strict SemVer tag pointing at the target commit
+and fails if the commit has not already been tagged.
+
+In GitHub Actions:
+
+```yaml
+- id: image
+  uses: jamesonstone/mint@v1
+  with:
+    command: release-select-tag
+    commitish: HEAD
+    requested-tag: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || '' }}
 ```
 
 ### Generate Changelog
@@ -202,6 +225,7 @@ go test ./...
 go vet ./...
 make build
 go run ./cmd/mint release resolve --commitish HEAD
+go run ./cmd/mint release select-tag --help
 go run ./cmd/mint release tag --help
 go run ./cmd/mint release github --help
 go run ./cmd/mint release publish --help

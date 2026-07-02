@@ -27,6 +27,26 @@ type Result struct {
 	ReleaseNotes string
 }
 
+// SelectTagResult contains an existing or requested release tag selected for a
+// downstream workflow.
+type SelectTagResult struct {
+	VersionTag string
+	TagSource  SelectTagSource
+	TargetSHA  string
+	ShortSHA   string
+}
+
+// SelectTagSource identifies how a release tag was selected.
+type SelectTagSource string
+
+const (
+	// SelectTagSourceRequested means the caller provided the selected tag.
+	SelectTagSourceRequested SelectTagSource = "requested"
+	// SelectTagSourceCommitTag means the selected tag already points at the
+	// target commit.
+	SelectTagSourceCommitTag SelectTagSource = "commit-tag"
+)
+
 // Bump identifies the selected release bump.
 type Bump string
 

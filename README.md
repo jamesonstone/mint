@@ -15,21 +15,22 @@ Mint is a release tooling CLI. The current implementation provides the same
 CLI, README, Makefile, and build patterns used by Kit: a small Go binary under
 `cmd/mint`, a reusable `pkg/cli` command package, Cobra-based help/version
 handling, conventional-commit CHANGELOG.md generation, SemVer release
-resolution, annotated Git tag creation, GitHub Release publishing, GHCR/ECR
-publish workflow generation, linker-injected versions, repository-level build
-targets, and a GitHub Action wrapper that builds and exposes the CLI in
-workflows.
+resolution, read-only release tag selection, annotated Git tag creation,
+GitHub Release publishing, GHCR/ECR publish workflow generation,
+linker-injected versions, repository-level build targets, and a GitHub Action
+wrapper that builds and exposes the CLI in workflows.
 
-Mint owns release-state operations: SemVer resolution, changelog/release-note
-generation, immutable Git tag creation, and GitHub Release creation.
-Application repositories own Docker builds, image registry publishing,
-infrastructure updates, and deployments.
+Mint owns release-state operations: SemVer resolution and selection,
+changelog/release-note generation, immutable Git tag creation, and GitHub
+Release creation. Application repositories own Docker builds, image registry
+publishing, infrastructure updates, and deployments.
 
 CLI principles:
 
 - 🧰 Kit-style command structure
 - 📄 documented behavior before release automation expands
 - 🪙 deterministic SemVer release resolution from Git history
+- 🔎 read-only release tag selection for deployment handoff workflows
 - ⚡ small root surface while the domain model is still forming
 - 🔍 explicit build and verification commands
 - 🔄 version output that works for binaries and module-installed builds
@@ -96,6 +97,9 @@ mint \
 
 # resolve the next SemVer release tag from Git history
 mint release resolve --commitish HEAD
+
+# select an existing release tag for a downstream deploy workflow
+mint release select-tag --commitish HEAD
 
 # create or reuse an annotated Git tag for a resolved tag
 mint release tag \
@@ -248,6 +252,29 @@ steps:
     run: echo "${{ steps.release.outputs.version_tag }}"
 ```
 
+Select an already-published release tag for a deploy workflow. A manual
+`requested-tag` wins when supplied; otherwise Mint selects the highest strict
+SemVer tag pointing at the checked-out commit and fails if none exists:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+      fetch-tags: true
+
+  - name: Select published image tag
+    id: image
+    uses: jamesonstone/mint@v1
+    with:
+      command: release-select-tag
+      commitish: HEAD
+      requested-tag: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || '' }}
+
+  - name: Use image tag
+    run: echo "${{ steps.image.outputs.version_tag }}"
+```
+
 Create the Git tag and GitHub Release explicitly from a workflow with Mint:
 
 ```yaml
@@ -352,7 +379,7 @@ Supported action inputs:
 
 | Input                | Default                  | Description                                                                        |
 | -------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
-| `command`            | `version`                | Run `version`, `help`, `changelog`, `release-resolve`, `release-tag`, `github-release`, `release-publish`, or `none` |
+| `command`            | `version`                | Run `version`, `help`, `changelog`, `release-resolve`, `release-select-tag`, `release-tag`, `github-release`, `release-publish`, or `none` |
 | `go-version`         | `1.25.5`                 | Go version used to build the CLI on the runner                                     |
 | `prev-tag`           | empty                    | Previous Git tag or ref; empty for first changelog release                         |
 | `current-tag`        | empty                    | Current Git tag or release version for changelog generation                        |
@@ -360,7 +387,8 @@ Supported action inputs:
 | `owner`              | empty                    | GitHub repository owner for changelog links and GitHub Releases                    |
 | `repo`               | empty                    | GitHub repository name for changelog links and GitHub Releases                     |
 | `output`             | `CHANGELOG.md`           | Changelog file path for `command: changelog`                                       |
-| `commitish`          | `HEAD`                   | Git ref for `command: release-resolve`                                             |
+| `commitish`          | `HEAD`                   | Git ref for `command: release-resolve` or `command: release-select-tag`            |
+| `requested-tag`      | empty                    | Optional strict `vX.Y.Z` SemVer tag for `command: release-select-tag`              |
 | `release-tag`        | empty                    | Strict `vX.Y.Z` SemVer tag for `command: release-tag` or `command: github-release` |
 | `target-sha`         | empty                    | Commitish where Mint should create the tag                                         |
 | `release-title`      | empty                    | Release title; defaults to `release-tag`                                           |
@@ -381,6 +409,7 @@ Supported action outputs:
 | `base_tag`        | Reachable base SemVer tag, if one exists                |
 | `target_sha`      | Full target commit SHA                                  |
 | `short_sha`       | Twelve-character target commit SHA                      |
+| `tag_source`      | `requested` or `commit-tag` from `command: release-select-tag` |
 | `needs_git_tag`   | Whether a generated workflow should create a Git tag    |
 | `commit_count`    | Number of commits evaluated for release resolution      |
 | `release_notes`   | Lightweight tag annotation notes for generated tags     |
@@ -414,6 +443,7 @@ steps:
 | ----------------------- | ----------------------------------------------- |
 | `mint release`          | Resolve, tag, and publish release state         |
 | `mint release resolve`  | Compute a strict `vX.Y.Z` release tag           |
+| `mint release select-tag` | Select an existing strict SemVer release tag  |
 | `mint release tag`      | Create or reuse an annotated SemVer Git tag     |
 | `mint release github`   | Create or reuse a GitHub Release                |
 | `mint release publish`  | Resolve, tag, and publish a GitHub Release      |
@@ -434,6 +464,16 @@ mint release resolve \
   --commitish HEAD \
   --github-output "$GITHUB_OUTPUT"
 ```
+
+Select an existing release tag without computing a new version:
+
+```bash
+mint release select-tag --commitish HEAD
+```
+
+If `--requested-tag v1.2.3` is supplied, Mint validates and returns that strict
+SemVer tag. Otherwise, Mint chooses the highest strict SemVer tag pointing at
+the target commit and fails if the target has not already been tagged.
 
 Create or reuse an annotated SemVer Git tag:
 
