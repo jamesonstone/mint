@@ -32,7 +32,7 @@
 - `mint release select-tag --requested-tag <tag> --github-output "$GITHUB_OUTPUT"` validates an explicitly requested strict SemVer tag for downstream workflows.
 - `mint release tag --tag <tag> --target <sha> --notes-file <path>` creates or reuses an annotated strict SemVer Git tag.
 - `mint release github --owner <owner> --repo <repo> --tag <tag> --target <sha> --notes-file <path>` creates or reuses a GitHub Release.
-- `mint release publish --owner <owner> --repo <repo> --commitish <ref>` resolves, tags, and publishes GitHub Release state without Docker or deploy behavior.
+- `mint release publish --owner <owner> --repo <repo> --commitish <ref>` resolves, writes `.version`, tags, and publishes GitHub Release state without Docker or deploy behavior.
 - `mint release workflow --image name=<name>,uri=<repo-uri>,dockerfile=<path>,context=<path> --output <path>` renders a GHCR or ECR publish workflow.
 
 ## GitHub Action
@@ -46,7 +46,8 @@
 - `command: release-select-tag` uses `commitish` and optional `requested-tag`, then exposes `version_tag`, `tag_source`, `target_sha`, and `short_sha`.
 - `command: release-tag` uses `release-tag`, `target-sha`, `release-notes-file`, `release-remote`, and `release-push` inputs.
 - `command: github-release` uses `owner`, `repo`, `release-tag`, `target-sha`, `release-title`, `release-notes-file`, `github-token`, and `github-api-url` inputs.
-- `command: release-publish` uses `commitish`, `owner`, `repo`, `release-title`, `release-remote`, `release-push`, `github-token`, and `github-api-url` inputs.
+- `command: release-publish` uses `commitish`, `owner`, `repo`, `release-title`, `release-remote`, `release-push`, `github-token`, `github-api-url`, and `version-file` inputs.
+- `command: release-publish` writes the resolved strict SemVer value without the leading `v` to `.version` by default.
 - The action outputs `mint-path`, captured `output`, and release fields for `release-resolve` and `release-select-tag`.
 - Git tag outputs include `tag_name`, `tag_target_sha`, `tag_created`, `tag_reused`, and `tag_pushed`.
 - GitHub Release publishing outputs include `release_tag`, `release_url`, and `release_created`.

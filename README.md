@@ -371,9 +371,10 @@ jobs:
 ```
 
 These workflows need `contents: write` so the repository token can push release
-tags and create GitHub Releases. Docker builds, registry login, image pushes,
-and deployments belong in application-owned workflow steps after Mint finishes
-release-state publishing.
+tags and create GitHub Releases. `release-publish` also writes the resolved
+runtime version to `.version` by default, without the leading `v`. Docker builds,
+registry login, image pushes, and deployments belong in application-owned
+workflow steps after Mint finishes release-state publishing.
 
 Supported action inputs:
 
@@ -397,6 +398,7 @@ Supported action inputs:
 | `release-push`       | `true`                   | Whether Mint pushes a newly created release tag                                    |
 | `github-token`       | empty                    | GitHub token for `command: github-release` or `command: release-publish`           |
 | `github-api-url`     | `https://api.github.com` | GitHub API base URL                                                                |
+| `version-file`       | `.version`               | Version file path written by `command: release-publish`                            |
 
 Supported action outputs:
 
@@ -511,10 +513,10 @@ mint release publish \
   --commitish HEAD
 ```
 
-`mint release publish` resolves the version, writes release notes to a temporary
-file, creates or reuses the Git tag, pushes the tag by default, and creates or
-reuses the GitHub Release. It does not build Docker images, authenticate to
-registries, push containers, or deploy services.
+`mint release publish` resolves the version, writes the runtime `.version` file,
+writes release notes to a temporary file, creates or reuses the Git tag, pushes
+the tag by default, and creates or reuses the GitHub Release. It does not build
+Docker images, authenticate to registries, push containers, or deploy services.
 
 Generate a GHCR publish workflow:
 
