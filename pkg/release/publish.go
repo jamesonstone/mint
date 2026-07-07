@@ -5,20 +5,22 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 )
 
 // PublishOptions configures full release-state publishing.
 type PublishOptions struct {
-	Commitish  string
-	WorkDir    string
-	Owner      string
-	Repo       string
-	Title      string
-	Token      string
-	APIBaseURL string
-	Remote     string
-	PushTag    bool
-	HTTPClient *http.Client
+	Commitish   string
+	WorkDir     string
+	Owner       string
+	Repo        string
+	Title       string
+	Token       string
+	APIBaseURL  string
+	Remote      string
+	PushTag     bool
+	VersionFile string
+	HTTPClient  *http.Client
 }
 
 // PublishResult contains release resolution, Git tag, and GitHub Release state.
@@ -36,6 +38,17 @@ func PublishRelease(ctx context.Context, opts PublishOptions) (PublishResult, er
 		WorkDir:   opts.WorkDir,
 	})
 	if err != nil {
+		return PublishResult{}, err
+	}
+
+	versionFile := opts.VersionFile
+	if versionFile == "" {
+		versionFile = DefaultVersionFile
+	}
+	if opts.WorkDir != "" && !filepath.IsAbs(versionFile) {
+		versionFile = filepath.Join(opts.WorkDir, versionFile)
+	}
+	if err := WriteVersionFile(versionFile, resolved.VersionTag); err != nil {
 		return PublishResult{}, err
 	}
 

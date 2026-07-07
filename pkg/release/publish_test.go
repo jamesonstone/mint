@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -45,6 +46,13 @@ func TestPublishReleaseResolvesTagsAndCreatesGitHubRelease(t *testing.T) {
 
 	if result.Release.VersionTag != "v0.1.0" {
 		t.Fatalf("VersionTag = %q, want v0.1.0", result.Release.VersionTag)
+	}
+	versionFile, err := os.ReadFile(repo.dir + "/.version")
+	if err != nil {
+		t.Fatalf("read .version: %v", err)
+	}
+	if string(versionFile) != "0.1.0\n" {
+		t.Fatalf(".version = %q, want 0.1.0 newline", string(versionFile))
 	}
 	if !result.Tag.Created || result.Tag.Reused || result.Tag.Pushed {
 		t.Fatalf("tag created/reused/pushed = %t/%t/%t", result.Tag.Created, result.Tag.Reused, result.Tag.Pushed)

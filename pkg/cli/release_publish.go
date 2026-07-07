@@ -17,6 +17,7 @@ type releasePublishFlags struct {
 	tokenEnv     string
 	apiURL       string
 	githubOutput string
+	versionFile  string
 }
 
 var releasePublishCommandFlags releasePublishFlags
@@ -51,18 +52,20 @@ func bindReleasePublishFlags(cmd *cobra.Command, values *releasePublishFlags) {
 	flags.StringVar(&values.tokenEnv, "token-env", "", "environment variable containing a GitHub token; falls back to MINT_GITHUB_TOKEN, GITHUB_TOKEN, then GH_TOKEN")
 	flags.StringVar(&values.apiURL, "api-url", release.DefaultGitHubAPIBaseURL, "GitHub API base URL")
 	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
+	flags.StringVar(&values.versionFile, "version-file", release.DefaultVersionFile, "path to write the resolved runtime version without the v prefix")
 }
 
 func runReleasePublish(cmd *cobra.Command, values releasePublishFlags) error {
 	result, err := release.PublishRelease(cmd.Context(), release.PublishOptions{
-		Commitish:  values.commitish,
-		Owner:      values.owner,
-		Repo:       values.repo,
-		Title:      values.title,
-		Token:      githubToken(values.tokenEnv),
-		APIBaseURL: values.apiURL,
-		Remote:     values.remote,
-		PushTag:    values.push,
+		Commitish:   values.commitish,
+		Owner:       values.owner,
+		Repo:        values.repo,
+		Title:       values.title,
+		Token:       githubToken(values.tokenEnv),
+		APIBaseURL:  values.apiURL,
+		Remote:      values.remote,
+		PushTag:     values.push,
+		VersionFile: values.versionFile,
 	})
 	if err != nil {
 		return err

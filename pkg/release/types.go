@@ -7,6 +7,8 @@ const (
 	DefaultCommitish = "HEAD"
 	// DefaultMintRef is the Mint action ref used by generated workflows.
 	DefaultMintRef = "v1"
+	// DefaultVersionFile is the repository-local runtime version file.
+	DefaultVersionFile = ".version"
 )
 
 // Options configures read-only release resolution.
