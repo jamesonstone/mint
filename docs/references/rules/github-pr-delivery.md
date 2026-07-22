@@ -84,6 +84,8 @@ Delivery Contract:
 - If repo-local delivery rules cannot be found or are incomplete, stop and ask. Do not invent a substitute workflow.
 - Global agent/plugin GitHub workflows are fallback tools only. They do not define process in Kit-managed projects.
 - Do not create `codex/*` branches, ad hoc issue bodies, ad hoc PR bodies, draft PRs by default, commits using generic messages, or PRs that omit the repo template unless repo-local Kit rules explicitly require them or the user explicitly overrides the Kit contract.
+- The `PR title format` field must resolve to the Conventional Commits title shape with the GitHub issue as scope:
+  `<type>(<issue_number>): <gitmoji> <short title message>`.
 
 ### Author And Committer Invariant
 
@@ -154,14 +156,35 @@ Include:
 - Do not reuse an existing branch if it contains unrelated work.
 - If a PR already exists for `GH-123`, update it instead of duplicating.
 - Before updating an existing PR, check active PRs for the current branch and confirm the active directory, branch, remote, PR head, and PR base match the intended issue branch and repository.
-- If issue, branch, and PR state disagree, stop and summarize the mismatch.
+- If issue, branch, and PR state disagree, reconcile them autonomously when the intended lane can be proven without destructive changes; otherwise report the ambiguity and request the smallest missing input.
+
+### Additional Scope On An Existing Pull Request
+
+- The normal contract is one issue, exact issue-number branch, and one pull request. Use this exception only when the user explicitly requests that unrelated or tangential new scope continue on an existing pull request.
+- Create or reuse a separate GitHub issue for the additional scope before implementation and assign it to the human user.
+- Keep the existing pull request head branch. Do not create a second branch or pull request solely for the additional issue.
+- Scope every new commit for the additional work to its own issue number, such as `feat(GH-123): :sparkles: add maintenance workflow`, even though the branch retains the original issue number.
+- Preserve the original issue-closing line and append a separate `Closes #123` line in the pull request `Ticket` section when the combined pull request fully resolves the additional issue. Use `Refs #123` when it does not.
+- Refresh the pull request description and `How to Test` section so they accurately describe and validate the complete combined diff. Preserve the existing primary issue scope in the pull request title unless the user explicitly requests a different title.
+- Before push and after updating the pull request, verify its repository, base branch, head branch, head commit, issue assignments, and complete set of closing references.
+- This exception changes traceability mapping only. It does not waive explicit staging, human identity, validation, safety, or ready-for-review requirements.
+
+### Automated Kit Health Worktree Exception
+
+- Ordinary PR delivery stays in the existing project directory. A recurring Kit health automation may use one isolated temporary worktree per repository only when the user explicitly authorized that automation to protect in-flight primary checkouts.
+- Fetch `origin/main` without switching, pulling, merging, stashing, resetting, cleaning, or writing in the primary checkout. Create the temporary worktree from the freshly fetched `origin/main` commit.
+- Run read-only status and health preview in the temporary worktree before GitHub mutation. If no change is required, create no issue, branch, commit, or pull request.
+- When maintenance is required, create or reuse the human-assigned issue first, then create or reuse exact branch `GH-<issue-number>` at the previewed `origin/main` commit inside that worktree.
+- Apply and curate only the Kit health scope, validate the complete diff, stage explicit paths, commit, push, and create or update the ready pull request under the normal delivery gates.
+- Remove the temporary worktree only after successful delivery and only when it is clean. Leave and report a dirty or blocked worktree so evidence is not destroyed.
+- This exception does not authorize worktrees for ordinary feature work, arbitrary recovery, parallel product implementation, or any workflow without explicit user authorization.
 
 ### Branch Workflow
 
 - Branch name is the GitHub issue number only, exact form: `GH-123`.
 - Do not add a slug, suffix, or description.
-- Create or switch branches in the existing project directory.
-- Do not create or use git worktrees for PR delivery.
+- Create or switch branches in the existing project directory unless the explicit automated Kit health worktree exception applies.
+- Do not create or use git worktrees for ordinary PR delivery.
 - Before creating or switching to an issue branch, automatically re-run branch/status/staleness recon for the active directory and current branch.
 - Before branching, refresh the base from the remote. Fetch only. Never pull, merge, or checkout the base:
 
@@ -180,9 +203,9 @@ gh pr list --head GH-123 --state all --json number,url,state,isDraft,headRefName
 ```
 
 - Never commit directly to the base branch, which is protected under `safety-guardrails`.
-- If `git fetch` fails due to offline state, auth, remote errors, or any other reason, stop per `safety-guardrails` failure handling. Do not branch off a base that could not be refreshed.
+- If `git fetch` fails, diagnose and recover autonomously under `safety-guardrails`. Do not branch off a base that could not be refreshed; report a genuine connectivity or authentication blocker only after safe recovery paths are exhausted.
 - Before editing after any thread resume or user redirect, repeat branch and PR recon for the active directory because another thread may have moved the work forward.
-- If the active branch or PR lookup does not match the intended `GH-123` branch and repository, stop and ask before editing.
+- If the active branch or PR lookup does not match the intended `GH-123` branch and repository, recover the intended lane autonomously when it can be proven safely; otherwise report the ambiguity before editing.
 
 ### Implementation Workflow
 
@@ -190,7 +213,7 @@ gh pr list --head GH-123 --state all --json number,url,state,isDraft,headRefName
 - Prefer explicit idiomatic code over clever code.
 - Avoid unnecessary abstractions and premature generalization.
 - Run formatting, linting, and tests appropriate to changed files.
-- On failure, follow `safety-guardrails` failure handling: stop and do not mutate to retry.
+- On failure, follow `safety-guardrails`: diagnose the cause, choose a safe in-scope recovery path, retry autonomously, verify the result, and continue.
 
 ### Review And Staging Workflow
 
@@ -201,6 +224,10 @@ git add <file_name>
 git diff --staged
 ```
 
+- Before staging, perform a self-review pass over the implementation and documentation changes.
+- During self-review, verify the current diff against the original ask, acceptance criteria, and repo-local rules.
+- Resolve known errors before staging, including compile errors, failing focused tests, lint/format failures, broken generated docs, stale command metadata, and obvious regressions found during review.
+- If any relevant error remains, stop and report it. Do not stage, commit, push, or open/update the PR with known-broken work unless the user explicitly instructs that exact exception.
 - Review each file before staging.
 - Stage files explicitly with `git add <file_name>`.
 - Never use `git add .` or `git add -A`.
@@ -209,6 +236,7 @@ git diff --staged
 ### Commit Workflow
 
 - Commit only after staged changes are reviewed and acceptable.
+- Before committing, confirm there are no known relevant errors remaining and that focused verification has passed or any skipped verification has been explicitly reported and accepted by the user.
 - Re-confirm author and committer before committing; abort on any non-human identity:
 
 ```bash
@@ -269,10 +297,17 @@ git log -1 --format='%an <%ae> | %cn <%ce>'
 - Verify remote-side author and committer are the human user.
 - On push rejection, such as a stale base, follow `safety-guardrails` failure handling.
 - Do not force-push or rebase to resolve a push rejection.
+- If a GitHub connector or PR mutation path fails while repository, branch, target, intended effect, and human identity remain unchanged, re-run read-only recon and use another supported authenticated path such as `gh` without requesting routine retry permission. Verify that no duplicate issue or PR was created.
 - Create the PR using `.github/pull_request_template.md` when present.
 - Preserve PR template headings.
 - Author the PR body in the user's name; do not add agent self-attribution.
-- Prefix the PR title with a descriptive gitmoji code that reflects the primary work.
+- The PR title must follow the Conventional Commits 1.0.0 title shape with the issue number as the required scope:
+  `<type>(<issue_number>): <gitmoji> <short title message>`.
+- Example: `feat(GH-123): :sparkles: add invitation workflow`.
+- Use the same allowed `type` values and deterministic type-to-gitmoji mapping as commit titles.
+- Keep the gitmoji immediately after the colon and space as part of the Conventional Commit description.
+- Do not create gitmoji-only PR titles, sentence-case PR titles, or PR titles without the `GH-123` issue scope.
+- Use `!` for a breaking-change PR title only when the change is intentionally breaking and the user explicitly approves that signal.
 - Prefix each concrete bullet in the PR `Description` section with a descriptive gitmoji code that reflects that bullet's work.
 - Use gitmoji codes that are aligned with the work being described, such as `:sparkles:` for feature work, `:bug:` for fixes, `:memo:` for documentation, `:white_check_mark:` for tests, `:recycle:` for refactors, `:green_heart:` for CI, `:wrench:` for tooling, `:dizzy:` for refresh or migration flows, and `:notebook:` for constitution, guide, or reference updates.
 - Keep PR headings from the template unchanged; add gitmoji prefixes to title and description content, not to template headings.
@@ -321,7 +356,7 @@ Include:
 - Do not omit the repository PR template.
 - Do not create descriptive branch names when an issue number is available.
 - Do not commit to the protected base branch.
-- Do not create or use git worktrees for PR delivery.
+- Do not create or use git worktrees for ordinary PR delivery or outside the explicit automated Kit health exception.
 - Do not reuse a branch that contains unrelated work.
 - Do not stage files in bulk.
 - Do not commit with mixed type and gitmoji values.
@@ -352,7 +387,7 @@ Include:
 - Confirm branch was pushed only after commit.
 - Confirm active directory, branch, remote, and PR state were rechecked immediately before pushing.
 - Confirm PR was created with the repository template when present.
-- Confirm PR title and `Description` bullets use descriptive gitmoji prefixes while preserving template headings.
+- Confirm PR title follows the required Conventional Commit format and `Description` bullets use descriptive gitmoji prefixes while preserving template headings.
 - Confirm PR assignee is the human user.
 - Confirm PR is ready for review and not draft unless explicitly requested otherwise.
 - Confirm PR and CI state were observed before final reporting.
@@ -408,7 +443,7 @@ docs(GH-125): :memo: document PR workflow
 PR title and description formatting:
 
 ```text
-PR Title: :sparkles: add invitation workflow
+PR Title: feat(GH-123): :sparkles: add invitation workflow
 
 ## Description
 
