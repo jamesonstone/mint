@@ -112,7 +112,7 @@ func (o *productionOperation) intent(ctx context.Context, freeze bool) (any, boo
 	if err != nil {
 		return nil, false, err
 	}
-	if p.PR != pr.Number || p.HeadSHA != pr.Head.SHA || p.Branch != pr.Head.Ref || pr.Base.Ref != o.config.DefaultBranch || pr.User.Login != o.config.HumanLogin || !strings.Contains(pr.Body, "<!-- mint:proposal:"+p.ID+":"+p.Kind+" -->") {
+	if p.PR != pr.Number || p.HeadSHA != pr.Head.SHA || p.Branch != pr.Head.Ref || pr.Base.Ref != o.config.DefaultBranch || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.Contains(pr.Body, "<!-- mint:proposal:"+p.ID+":"+p.Kind+" -->") {
 		return nil, false, fmt.Errorf("proposal PR/head/author identity mismatch")
 	}
 	if freeze {
@@ -223,7 +223,7 @@ func (o *productionOperation) hotfix(ctx context.Context) (any, bool, error) {
 	if recovered != nil {
 		result = *recovered
 	} else {
-		result, err = promotion.PrepareHotfix(ctx, promotion.HotfixOptions{WorkDir: o.proof.WorkDir, Baseline: *s.Baseline, Issue: request.Issue, Fixes: request.Fixes, HumanName: o.config.HumanName, HumanEmail: o.config.HumanEmail})
+		result, err = promotion.PrepareHotfix(ctx, promotion.HotfixOptions{WorkDir: o.proof.WorkDir, Baseline: *s.Baseline, Issue: request.Issue, Fixes: request.Fixes, CommitterName: promotion.AutomationLogin, CommitterEmail: promotion.AutomationEmail})
 		if err != nil {
 			return result, false, err
 		}

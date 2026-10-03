@@ -14,8 +14,6 @@ type Config struct {
 	Environment           string   `yaml:"environment"`
 	DefaultBranch         string   `yaml:"default_branch"`
 	HumanLogin            string   `yaml:"human_login"`
-	HumanName             string   `yaml:"human_name"`
-	HumanEmail            string   `yaml:"human_email"`
 	BuildWorkflow         string   `yaml:"build_workflow"`
 	ValidationWorkflow    string   `yaml:"validation_workflow"`
 	BaselineWorkflow      string   `yaml:"baseline_workflow"`
@@ -38,7 +36,7 @@ func LoadConfig(path string) (Config, error) {
 	if err := decoder.Decode(&cfg); err != nil {
 		return cfg, err
 	}
-	if cfg.Schema != 1 || !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(cfg.Repository) || cfg.Environment != "production" || cfg.DefaultBranch == "" || cfg.HumanLogin == "" || cfg.HumanName == "" || cfg.HumanEmail == "" || cfg.BuildWorkflow == "" || cfg.ValidationWorkflow == "" || cfg.PromotionWorkflow == "" || cfg.BaselineWorkflow == "" || cfg.BaselineBuildWorkflow == "" || len(cfg.RequiredChecks) == 0 {
+	if cfg.Schema != 1 || !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(cfg.Repository) || cfg.Environment != "production" || cfg.DefaultBranch == "" || cfg.HumanLogin == "" || cfg.BuildWorkflow == "" || cfg.ValidationWorkflow == "" || cfg.PromotionWorkflow == "" || cfg.BaselineWorkflow == "" || cfg.BaselineBuildWorkflow == "" || len(cfg.RequiredChecks) == 0 {
 		return cfg, fmt.Errorf("incomplete production release policy")
 	}
 	for _, p := range cfg.ControlPaths {

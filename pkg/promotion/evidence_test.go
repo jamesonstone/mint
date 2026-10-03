@@ -56,7 +56,7 @@ func TestRunManifestBindsUniqueArchiveDigestAndStrictSchema(t *testing.T) {
 	}
 }
 func TestCurrentHeadChecksPaginateAndRejectStaleReviews(t *testing.T) {
-	for _, mode := range []string{"pass", "stale", "pending", "changes"} {
+	for _, mode := range []string{"pass", "stale", "pending", "changes", "bot"} {
 		t.Run(mode, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.Contains(r.URL.Path, "check-runs") {
@@ -82,7 +82,11 @@ func TestCurrentHeadChecksPaginateAndRejectStaleReviews(t *testing.T) {
 					if mode == "changes" {
 						state = "CHANGES_REQUESTED"
 					}
-					_ = json.NewEncoder(w).Encode([]any{map[string]any{"state": state, "commit_id": commit, "user": map[string]string{"login": "reviewer"}}})
+					reviewer := "reviewer"
+					if mode == "bot" {
+						reviewer = AutomationLogin
+					}
+					_ = json.NewEncoder(w).Encode([]any{map[string]any{"state": state, "commit_id": commit, "user": map[string]string{"login": reviewer}}})
 				}
 			}))
 			defer server.Close()

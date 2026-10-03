@@ -14,9 +14,9 @@ import (
 )
 
 type productionFlags struct {
-	Config, Input, Output, Actor, APIURL, TokenEnv, Kind, Event, IntentID, MergeSHA, Outcome, Summary, Pin string
-	RunID                                                                                                  int64
-	PR                                                                                                     int
+	Config, Input, Output, APIURL, TokenEnv, Kind, Event, IntentID, MergeSHA, Outcome, Summary, Pin string
+	RunID                                                                                           int64
+	PR                                                                                              int
 }
 type productionOperation struct {
 	config   promotion.Config
@@ -37,9 +37,8 @@ func init() {
 		flags.StringVar(&f.Config, "config", ".mint.yaml", "repository-owned release policy")
 		flags.StringVar(&f.Input, "input", "", "typed manifest JSON file")
 		flags.StringVar(&f.Output, "output", "", "write resulting JSON manifest")
-		flags.StringVar(&f.Actor, "actor", "", "trusted repository event actor")
 		flags.StringVar(&f.APIURL, "api-url", "https://api.github.com", "GitHub API URL")
-		flags.StringVar(&f.TokenEnv, "token-env", "MINT_RELEASE_TOKEN", "human-owned release credential environment variable")
+		flags.StringVar(&f.TokenEnv, "token-env", "GH_TOKEN", "job-scoped GitHub credential environment variable")
 		flags.StringVar(&f.Kind, "kind", "normal", "normal or hotfix proposal")
 		flags.StringVar(&f.Event, "event", "candidate", "candidate, close or reopen")
 		flags.StringVar(&f.IntentID, "intent-id", "", "frozen intent identity")
@@ -77,9 +76,9 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 	if err != nil {
 		return err
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin, HumanName: cfg.HumanName, HumanEmail: cfg.HumanEmail}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin}
 	if operation != "status" && operation != "validate" && operation != "validate-review" {
-		if err := client.VerifyHuman(cmd.Context(), f.Actor); err != nil {
+		if err := client.VerifyRepository(cmd.Context()); err != nil {
 			return err
 		}
 	}

@@ -2,7 +2,7 @@
 kit_metadata_version: 1
 artifact: "spec"
 workflow_version: 3
-phase: "clarify"
+phase: "deliver"
 feature:
   id: "0009"
   slug: "production-release-proposals"
@@ -229,7 +229,7 @@ Parent implementation must adopt this addendum into Mint's canonical feature spe
 ## DECISIONS
 
 - Durable release metadata lives on an isolated Git journal branch with compare-and-swap updates; it does not need a database or depend on short-lived Actions artifacts.
-- Mutation identity must be Jameson. No approved human release automation credential is currently configured in the application repositories; provisioning is an activation dependency.
+- Generated release tags, journal/control commits and PRs, and verified Releases use the narrow GitHub Actions identity exception in section 15. Human source development, independent review, merge and protection remain required.
 - Required proposal checks must be explicitly dispatched; GITHUB_TOKEN event suppression cannot be assumed away.
 - The production baseline must be explicitly imported from verified deployment evidence. No automatic inference from the latest tag/Release.
 - Hotfix selection must be built from production plus explicit fixes. Main ancestry cannot be sliced by pinning a main candidate.
@@ -238,7 +238,7 @@ Parent implementation must adopt this addendum into Mint's canonical feature spe
 ## DISCOVERIES
 
 - Current Mint release v0.2.1 does not contain this lifecycle. A published feature-bearing release is unavailable until the Mint PR is merged and its release workflow succeeds.
-- No human release-token secret exists in either application repository as observed 2026-10-03.
+- Built-in job-scoped GITHUB_TOKEN is the default. Both repositories currently return can_approve_pull_request_reviews=false; Actions PR creation must be enabled separately before activation.
 
 ## VALIDATION
 
@@ -270,3 +270,54 @@ Integration validation also covers control-only merge commits, source-build
 versus workflow-code identity for isolated hotfix builds, bootstrap archive and
 independent build provenance, replay after baseline changes and ordered revert
 accounting. A native pull-request CI workflow is included.
+
+
+## 15. Simplification/refactor directive (supersedes human-token requirement, 2026-10-03)
+
+User feedback: the personal-token activation dependency and supporting design add unnecessary complexity relative to existing deployment pipelines. User explicitly requests sending a refactor plan to the parent and simplifying the current design. Retain the agreed version/proposal/production-only Release/hotfix lifecycle; refactor its implementation and authentication, not the product requirements.
+
+### A. Audit and preserve existing integration
+
+Compare each proposed workflow against its original base-revision pipeline before editing. Produce a small before/after event/job map. LabCore's current proposal already reuses deploy.yaml through workflow_call; retain that reuse rather than replacing its deployment safeguards. Reuse the existing UI S3/CloudFront/OIDC deployment steps similarly. Existing app-owned build/scan, runtime configuration, account verification, protected activation, rolling deploy and deployment-verification logic should remain the authority. Do not introduce a second production deploy implementation or new AWS authentication path.
+
+### B. Remove separate human PAT requirement
+
+Replace secrets.MINT_RELEASE_TOKEN with the job-scoped built-in github.token/GITHUB_TOKEN for normal GitHub release automation, and set GH_TOKEN from that credential for gh. Mint should accept the supplied GitHub token independently of whether GET /user identifies a human; installation tokens cannot be treated as invalid merely because they are not personal user tokens.
+
+This refactor intentionally allows the GitHub Actions automation identity for narrowly scoped generated version tags, release-state/control commits, release PR maintenance, and post-verification Releases. Preserve human authorship of application development, independent human approval/merge, branch protection and exact-target checks. Document this precise automation exception instead of fabricating human authorship or granting a blanket bot exemption to unrelated code changes. The previous spec's absolute human-token/bot prohibition for this release automation is superseded by this requested simplification.
+
+Use least-privilege per-job permissions derived from actual API calls (contents, pull-requests, issues reads/writes only when necessary, actions only for reads or dispatch when needed). Ordinary PR checks remain read-only. No new PAT, App, persistent credential, broad repo scope, or security/protection weakening by default. Account for repository Actions settings governing PR creation; report any unavailable GitHub setting as a specific activation prerequisite.
+
+### C. Make chaining explicit, without token event assumptions
+
+Built-in token operations must not be assumed to trigger downstream workflows automatically. Keep native checks running on the exact generated proposal head through an explicit supported dispatch/reusable validation path where necessary. Use job dependencies, workflow_call, and exact producer workflow_run completion as appropriate. Avoid adding redundant event orchestration solely to mimic personal-token events. Check current GitHub behavior and actual repository settings; do not rely on an outdated categorical statement that all PR events are suppressed. Never execute untrusted PR code with the privileged release token. Retain safe trusted-default-branch control execution and unprivileged candidate validation.
+
+### D. Small conceptual flow
+
+1. Main source pipeline: version/tag -> existing build -> immutable candidate identity -> reconcile one release proposal.
+2. PR lifecycle control: close pauses; reopen refreshes; generated/manual control updates validate without recursive rebuild/redeploy cycles.
+3. Merged release proposal: read exact declaration -> existing app deployment of selected artifact -> existing verification -> production GitHub Release and baseline update.
+4. Hotfix: production baseline plus explicit fix -> isolated reviewed source/candidate/proposal -> same deployment path. Ordinary queue remains intact and forward integration is enforced.
+
+Keep CLI/API surface focused around these operations. Consolidate thin adapters/duplicate install/auth/manifest code where this materially reduces complexity. Do not split working deployment into additional workflows merely for naming symmetry. Keep versioning and production publication distinct.
+
+### E. Minimize state without discarding essential evidence
+
+Retain only durable state needed for candidate artifact identity, paused/open proposal identity, last verified production baseline, and in-flight/final promotion identity. Reuse existing deployment manifests and GitHub metadata rather than duplicate them into parallel attestations/journals. Simplify bootstrap using verified retained production deployment evidence; a previous tag still does not prove production. Do not remove immutable artifact verification, baseline fencing, idempotency, pause/reopen recovery, exact merged selection or concurrent hotfix/ordinary serialization for cosmetic brevity.
+
+A protected state branch may remain if it is the simplest tested durable solution. Explain its purpose plainly rather than requiring extra infrastructure. Preserve existing historical releases without deletion/reclassification. No production activation or live data mutation is performed merely to test the refactor.
+
+### F. Verification and delivery
+
+Reuse exact existing Mint/application implementation lanes and PRs for this scope-preserving refactor; do not open coordinating/corrective duplicates. Update canonical specs/runbooks and deployment setup instructions, removing the human PAT prerequisite. Pin downstream applications to the latest published feature-bearing Mint version/exact revision when available; retain a clear dependency hold while upstream is unpublished.
+
+Add tests for installation-token authentication, narrowly allowed automation identities, actual per-job permission needs, explicit exact-head validation with GITHUB_TOKEN, and absence of secrets.MINT_RELEASE_TOKEN dependency. Preserve all existing lifecycle/hotfix/failure/rollback/race tests. Run native/adapter/workflow validation. Report any remaining token/settings limitation from evidence, rather than introducing a PAT proactively. Report source implementation, checks, merge, activation, deployment, and production publication separately.
+
+Deliver a concise final explanation of reduced moving parts and the remaining necessary activation steps. No new credential should appear on that list unless a specific tested limitation remains and is separately raised to the user.
+
+
+Refactor checkpoint: installation-token authentication, narrow automation identity,
+independent human approval rejection for bots, explicit head validation, and hotfix
+source-build dispatch are tested locally. UI production reuses main.yaml; backend
+continues to reuse deploy.yaml. Source remains UNRELEASED; no repository Actions
+setting, credential, cloud or production mutation was performed.

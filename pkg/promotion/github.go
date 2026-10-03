@@ -14,8 +14,8 @@ import (
 
 // Client is the authenticated GitHub transport. Credentials are environment-only.
 type Client struct {
-	APIURL, Token, Repository, HumanLogin, HumanName, HumanEmail string
-	HTTP                                                         *http.Client
+	APIURL, Token, Repository, HumanLogin string
+	HTTP                                  *http.Client
 }
 
 func (c Client) request(ctx context.Context, method, path string, body, out any) (int, error) {
@@ -24,7 +24,7 @@ func (c Client) request(ctx context.Context, method, path string, body, out any)
 		return 0, fmt.Errorf("GitHub API must use HTTPS (loopback tests excepted)")
 	}
 	if c.Token == "" {
-		return 0, fmt.Errorf("human release automation credential is required")
+		return 0, fmt.Errorf("GitHub release credential is required")
 	}
 	var reader io.Reader
 	if body != nil {
@@ -68,28 +68,30 @@ func (c Client) request(ctx context.Context, method, path string, body, out any)
 }
 func (c Client) repoPath(path string) string { return "repos/" + c.Repository + "/" + path }
 
-// VerifyHuman forbids bot authorship and confirms the named event actor can write.
-func (c Client) VerifyHuman(ctx context.Context, actor string) error {
-	var user struct{ Login, Type string }
-	status, err := c.request(ctx, "GET", "user", nil, &user)
+// VerifyRepository accepts repository installation tokens without GET /user.
+// GitHub authorizes each write with the job-scoped permissions; this read fences
+// the credential to the configured repository, not a personal account.
+func (c Client) VerifyRepository(ctx context.Context) error {
+	var repo struct {
+		FullName string `json:"full_name"`
+	}
+	status, err := c.request(ctx, "GET", "repos/"+c.Repository, nil, &repo)
 	if err != nil {
 		return err
 	}
-	if status != 200 || user.Type != "User" || user.Login != c.HumanLogin || c.HumanName == "" || c.HumanEmail == "" {
-		return fmt.Errorf("release token must belong to configured human %s", c.HumanLogin)
-	}
-	if actor == "" {
-		return fmt.Errorf("trusted repository actor is required")
-	}
-	var permission struct{ Permission string }
-	status, err = c.request(ctx, "GET", c.repoPath("collaborators/"+url.PathEscape(actor)+"/permission"), nil, &permission)
-	if err != nil {
-		return err
-	}
-	if status != 200 || (permission.Permission != "admin" && permission.Permission != "maintain" && permission.Permission != "write") {
-		return fmt.Errorf("event actor is not a trusted repository principal")
+	if status != 200 || repo.FullName != c.Repository {
+		return fmt.Errorf("release credential cannot access configured repository")
 	}
 	return nil
+}
+
+const AutomationLogin = "github-actions[bot]"
+const AutomationEmail = "41898282+github-actions[bot]@users.noreply.github.com"
+
+// IsReleaseAuthor allows only the designated human and built-in Actions identity
+// for generated release controls. It never authorizes application source changes.
+func (c Client) IsReleaseAuthor(login string) bool {
+	return login == AutomationLogin || (c.HumanLogin != "" && login == c.HumanLogin)
 }
 
 // WorkflowRun contains server-attested run identity and conclusion.

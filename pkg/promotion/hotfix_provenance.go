@@ -66,7 +66,7 @@ func (c Client) collectHotfixChanges(ctx context.Context, g GitProof, s State, c
 		}
 		return []Change{{SHA: candidate.SourceSHA, Version: candidate.Version, PR: candidate.SourcePR, Title: "Isolated production hotfix", PatchID: id, Hotfix: true}}, nil
 	}
-	expected, err := PrepareHotfix(ctx, HotfixOptions{WorkDir: g.WorkDir, Baseline: *s.Baseline, Issue: 1, Fixes: meta.Fixes, HumanName: c.HumanName, HumanEmail: c.HumanEmail})
+	expected, err := PrepareHotfix(ctx, HotfixOptions{WorkDir: g.WorkDir, Baseline: *s.Baseline, Issue: 1, Fixes: meta.Fixes, CommitterName: AutomationLogin, CommitterEmail: AutomationEmail})
 	if expected.WorkDir != "" {
 		defer func() { _ = os.RemoveAll(expected.WorkDir) }()
 	}

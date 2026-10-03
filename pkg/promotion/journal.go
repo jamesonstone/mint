@@ -141,7 +141,7 @@ func (c Client) createCommit(ctx context.Context, baseTree string, files map[str
 		parents = append(parents, parent)
 	}
 	parents = append(parents, extraParents...)
-	identity := map[string]string{"name": c.HumanName, "email": c.HumanEmail}
+	identity := map[string]string{"name": AutomationLogin, "email": AutomationEmail}
 	body = map[string]any{"tree": tree.SHA, "parents": parents, "message": message, "author": identity, "committer": identity}
 	var commit gitObject
 	status, err = c.request(ctx, "POST", c.repoPath("git/commits"), body, &commit)

@@ -50,7 +50,7 @@ func hotfixRepo(t *testing.T) (string, Baseline, string) {
 }
 func TestHotfixFromProductionExcludesQueuedFeatures(t *testing.T) {
 	dir, base, fix := hotfixRepo(t)
-	source, err := PrepareHotfix(context.Background(), HotfixOptions{WorkDir: dir, Baseline: base, Issue: 123, Fixes: []string{fix}, HumanName: "Human", HumanEmail: "human@example.com"})
+	source, err := PrepareHotfix(context.Background(), HotfixOptions{WorkDir: dir, Baseline: base, Issue: 123, Fixes: []string{fix}, CommitterName: "Human", CommitterEmail: "human@example.com"})
 	if source.WorkDir != "" {
 		defer func() { _ = os.RemoveAll(source.WorkDir) }()
 	}
@@ -84,7 +84,7 @@ func TestHotfixConflictPreservesRecoverableClone(t *testing.T) {
 	gitTest(t, dir, "add", "production.txt")
 	gitTest(t, dir, "commit", "-m", "fix: conflicting fix")
 	fix := gitTest(t, dir, "rev-parse", "HEAD")
-	source, err := PrepareHotfix(context.Background(), HotfixOptions{WorkDir: dir, Baseline: base, Issue: 124, Fixes: []string{fix}, HumanName: "Human", HumanEmail: "human@example.com"})
+	source, err := PrepareHotfix(context.Background(), HotfixOptions{WorkDir: dir, Baseline: base, Issue: 124, Fixes: []string{fix}, CommitterName: "Human", CommitterEmail: "human@example.com"})
 	if source.WorkDir != "" {
 		defer func() { _ = os.RemoveAll(source.WorkDir) }()
 	}
@@ -97,7 +97,7 @@ func TestHotfixConflictPreservesRecoverableClone(t *testing.T) {
 }
 func TestNewAuthoredHotfixStartsAtProduction(t *testing.T) {
 	dir, base, _ := hotfixRepo(t)
-	source, err := PrepareHotfix(context.Background(), HotfixOptions{WorkDir: dir, Baseline: base, Issue: 125, HumanName: "Human", HumanEmail: "human@example.com"})
+	source, err := PrepareHotfix(context.Background(), HotfixOptions{WorkDir: dir, Baseline: base, Issue: 125, CommitterName: "Human", CommitterEmail: "human@example.com"})
 	if source.WorkDir != "" {
 		defer func() { _ = os.RemoveAll(source.WorkDir) }()
 	}

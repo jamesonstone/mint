@@ -28,7 +28,7 @@ func (o *productionOperation) review(ctx context.Context) (any, bool, error) {
 		if !strings.Contains(pr.Body, marker) {
 			continue
 		}
-		if pr.User.Login != o.config.HumanLogin || pr.Base.Ref != o.config.DefaultBranch {
+		if !o.client.IsReleaseAuthor(pr.User.Login) || pr.Base.Ref != o.config.DefaultBranch {
 			return nil, false, fmt.Errorf("foreign deployment-status PR")
 		}
 		data, err := o.client.ReadFile(ctx, ".mint/status.json", pr.Head.SHA)
@@ -48,7 +48,7 @@ func (o *productionOperation) review(ctx context.Context) (any, bool, error) {
 		return recorded, false, nil
 	}
 	if strings.Contains(pr.Body, "<!-- mint:hotfix-source:") {
-		if s.Baseline == nil || pr.User.Login != o.config.HumanLogin || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
+		if s.Baseline == nil || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
 			return nil, false, fmt.Errorf("hotfix source identity mismatch")
 		}
 		c := promotion.Candidate{Kind: "hotfix", SourceSHA: pr.Head.SHA, SourcePR: pr.Number, BaselineID: s.Baseline.ID, Version: s.Baseline.Candidate.Version}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // PullRequest describes exact review identity and merged release declaration.
@@ -108,7 +109,7 @@ func (c Client) CheckHead(ctx context.Context, pr PullRequest, required []string
 		if review.State == "CHANGES_REQUESTED" {
 			return fmt.Errorf("review changes remain requested")
 		}
-		if actor != pr.User.Login && review.State == "APPROVED" && review.Commit == pr.Head.SHA {
+		if !strings.HasSuffix(actor, "[bot]") && actor != pr.User.Login && review.State == "APPROVED" && review.Commit == pr.Head.SHA {
 			approved = true
 		}
 	}

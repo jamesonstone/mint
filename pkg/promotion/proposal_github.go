@@ -26,7 +26,7 @@ func (c Client) DiscoverProposal(ctx context.Context, p Proposal) (*PullRequest,
 			if !strings.Contains(pr.Body, proposalMarker(p)) || pr.MergedAt != nil || pr.Merged {
 				continue
 			}
-			if pr.User.Login != c.HumanLogin || pr.Head.Repo.FullName != c.Repository || pr.Base.Repo.FullName != c.Repository {
+			if !c.IsReleaseAuthor(pr.User.Login) || pr.Head.Repo.FullName != c.Repository || pr.Base.Repo.FullName != c.Repository {
 				return nil, fmt.Errorf("proposal marker is attached to a foreign identity")
 			}
 			if found != nil && found.Number != pr.Number {
@@ -61,7 +61,7 @@ func (c Client) EnsureProposalIssue(ctx context.Context, p Proposal) (int, error
 		}
 		for _, issue := range issues {
 			if issue.PullRequest == nil && strings.Contains(issue.Body, marker) {
-				if issue.User.Login != c.HumanLogin {
+				if !c.IsReleaseAuthor(issue.User.Login) {
 					return 0, fmt.Errorf("release issue has foreign authorship")
 				}
 				return issue.Number, nil

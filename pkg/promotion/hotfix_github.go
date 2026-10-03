@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// PublishHotfixSource exposes the isolated fix as a human-owned review PR against
+// PublishHotfixSource exposes the isolated fix as a human-reviewed source PR against
 // an immutable production base branch. It does not merge, build or deploy it.
 func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, baseline Baseline, issue int) (PullRequest, error) {
 	var none PullRequest
@@ -101,7 +101,7 @@ func (c Client) VerifyHotfixSource(ctx context.Context, candidate Candidate, req
 	if err != nil {
 		return err
 	}
-	if !pr.Merged || pr.MergeSHA != candidate.SourceSHA || pr.User.Login != c.HumanLogin || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
+	if !pr.Merged || pr.MergeSHA != candidate.SourceSHA || !c.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
 		return fmt.Errorf("hotfix has no independently reviewed production-base source PR")
 	}
 	return c.CheckHead(ctx, pr, required)

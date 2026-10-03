@@ -8,7 +8,7 @@ main and tags without force. Use `--target-commitish "$GITHUB_SHA"` to stamp the
 artifact from that exact source even when newer main commits have arrived.
 
 `release production` uses `.mint.yaml` repository policy and an isolated
-`mint-release-state` branch. Git Data commits use configured human authorship and
+`mint-release-state` branch. Generated Git Data commits use the explicit GitHub Actions identity and
 non-force compare-and-swap ref updates. Failed writes report a conflict; replay
 the operation from a freshly fetched repository, never force or reuse stale state.
 The journal retains candidates, immutable merged intents, verified production
@@ -22,11 +22,18 @@ workflow. The previous v0.2.1 release does not contain these commands. Source co
 in a ready Mint PR is not a published upgrade. Keep application activation disabled
 until the upstream release exists, approvals are granted, and adapters are tested.
 
-Provision a narrowly scoped, approved human-owned `MINT_RELEASE_TOKEN`; no bot
-identity is allowed by the current contract. It needs these repositories only:
-contents, issues, pull requests and Actions read/write. Native CI uses the ordinary
-read-only GitHub token. The token owner, configured Git identity and trusted event
-actor are checked before mutations. No credential is created by Mint.
+Use job-scoped `GITHUB_TOKEN`, exposed as `GH_TOKEN` for Mint and gh. Installation
+credentials are checked against the configured repository, never `GET /user`.
+Generated release controls allow only the designated human or `github-actions[bot]`;
+application source authorship and independent human review remain governed.
+The control job needs contents/issues/pull-requests/Actions write and checks read.
+Version/build jobs need contents write and Actions/pull-requests/checks read.
+Intent freezing needs contents write and Actions/pull-requests/checks read; native
+CI remains read-only. No PAT, App or other persistent credential is required.
+Enable the repository setting permitting Actions PR creation before activation;
+Mint neither modifies that setting nor approves/merges its generated PRs.
+Explicit CI dispatch validates the exact proposal head. GitHub may also create
+approval-required runs for token-created PR events; those are not assumed passing.
 
 Import a baseline once using `bootstrap --run-id ID`. An
 operator must first reconcile the currently running artifact/configuration and its
@@ -76,7 +83,7 @@ An approved issue-form request is converted by the repository workflow into type
 JSON `{ "Issue": 123, "BaselineID": "...", "Fixes": ["full SHA"] }`. Verify issue
 ownership/assignment; `prepare-hotfix --input request.json` creates GH-123 from
 current production, cherry-picks only explicit single-parent fixes and opens a
-human-owned source PR against its immutable production base branch. Empty fixes
+human-reviewed source PR against its immutable production base branch. Empty fixes
 prepare a branch for newly authored code; metadata alone cannot build a candidate.
 Interrupted requests recover the same branch and PR. Conflicts preserve the local
 checkout for resolution. Never include queued main changes to repair a conflict.

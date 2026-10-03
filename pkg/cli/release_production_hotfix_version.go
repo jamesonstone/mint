@@ -19,7 +19,7 @@ func (o *productionOperation) versionHotfix(ctx context.Context) (any, bool, err
 	if err != nil {
 		return nil, false, err
 	}
-	if !pr.Merged || pr.User.Login != o.config.HumanLogin || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
+	if !pr.Merged || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
 		return nil, false, fmt.Errorf("hotfix source must be reviewed and merged against its production base")
 	}
 	if err := o.client.CheckHead(ctx, pr, o.config.RequiredChecks); err != nil {

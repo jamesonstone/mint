@@ -576,3 +576,15 @@ contract, ownership, idempotency, and failure behavior:
 - Mint does not invent external-system integrations absent durable guidance in
   `docs/references/external-systems.md`.
 - The local CLI resolver does not push tags or images.
+
+
+## Reviewed Production Automation Identity
+
+The approved production release process permits `github-actions[bot]` only for
+generated source-version tags, isolated release metadata and hotfix preparation,
+release-state/control commits and PR maintenance, and verified production Releases.
+Use job-scoped `GITHUB_TOKEN`; never fabricate human authorship for those writes.
+Application development and repository delivery commits remain human-authored.
+Required checks, independent human current-head approval, protected branches and
+human merge authorization still apply. This is not an allowance for unrelated
+source changes, automatic approval/merge, broader credentials or cloud mutations.

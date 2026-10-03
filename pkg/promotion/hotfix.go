@@ -14,11 +14,11 @@ import (
 // HotfixOptions identifies reviewed fixes and an exact verified production base.
 // Preparation never checks out main, rewrites tags, deploys, or modifies the queue.
 type HotfixOptions struct {
-	WorkDir               string
-	Baseline              Baseline
-	Issue                 int
-	Fixes                 []string
-	HumanName, HumanEmail string
+	WorkDir                       string
+	Baseline                      Baseline
+	Issue                         int
+	Fixes                         []string
+	CommitterName, CommitterEmail string
 }
 
 // HotfixSource records the isolated result and recoverable conflict checkout.
@@ -35,7 +35,7 @@ type HotfixSource struct {
 // explicit reviewed commits. On conflicts it preserves that clone for resolution.
 func PrepareHotfix(ctx context.Context, o HotfixOptions) (HotfixSource, error) {
 	result := HotfixSource{Branch: "GH-" + strconv.Itoa(o.Issue), BaselineID: o.Baseline.ID, Fixes: append([]string{}, o.Fixes...)}
-	if o.Issue <= 0 || o.Baseline.ID == "" || !shaPattern.MatchString(o.Baseline.Candidate.SourceSHA) || o.HumanName == "" || o.HumanEmail == "" {
+	if o.Issue <= 0 || o.Baseline.ID == "" || !shaPattern.MatchString(o.Baseline.Candidate.SourceSHA) || o.CommitterName == "" || o.CommitterEmail == "" {
 		return result, fmt.Errorf("hotfix requires a verified base, governed issue, explicit fixes and human identity")
 	}
 	seen := map[string]bool{}
@@ -62,10 +62,10 @@ func PrepareHotfix(ctx context.Context, o HotfixOptions) (HotfixSource, error) {
 	if _, err := run("clone", "--shared", "--no-checkout", o.WorkDir, dir); err != nil {
 		return result, err
 	}
-	if _, err := run("config", "user.name", o.HumanName); err != nil {
+	if _, err := run("config", "user.name", o.CommitterName); err != nil {
 		return result, err
 	}
-	if _, err := run("config", "user.email", o.HumanEmail); err != nil {
+	if _, err := run("config", "user.email", o.CommitterEmail); err != nil {
 		return result, err
 	}
 	if _, err := run("checkout", "-b", result.Branch, o.Baseline.Candidate.SourceSHA); err != nil {

@@ -57,7 +57,7 @@ func (c Client) discoverHotfixPull(ctx context.Context, branch, base, marker str
 			if pr.Head.Ref != branch || pr.Base.Ref != base {
 				continue
 			}
-			if pr.User.Login != c.HumanLogin || pr.Head.Repo.FullName != c.Repository || pr.Body == "" || !strings.Contains(pr.Body, marker) {
+			if !c.IsReleaseAuthor(pr.User.Login) || pr.Head.Repo.FullName != c.Repository || pr.Body == "" || !strings.Contains(pr.Body, marker) {
 				return nil, fmt.Errorf("existing hotfix PR identity differs; preserve it")
 			}
 			if found != nil {
