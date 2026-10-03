@@ -592,3 +592,12 @@ project-specific infrastructure steps.
 The Makefile mirrors Kit's local build pattern. Additional release-domain
 behavior should be added through feature specs before product commands are
 implemented.
+
+## Reviewed production releases
+
+`mint release version-main` assigns source tags without publishing GitHub Releases.
+`mint release production` separates candidates, reviewed proposals, exact artifact
+promotion, verified history and production publication. See the
+[operator and adapter contract](docs/references/production-release-proposals.md)
+for configuration, activation, retries, hotfixes and rollback. Legacy release
+commands remain available for repositories using the original lifecycle.
