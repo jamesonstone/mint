@@ -40,8 +40,38 @@ func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSna
 	if status != 200 || !shaPattern.MatchString(ref.Object.SHA) {
 		return JournalSnapshot{}, fmt.Errorf("invalid journal ref")
 	}
+	// Git blobs avoid the Contents API's 1 MiB inline-content limit as durable
+	// candidate/history metadata grows. Every read stays on the exact revision.
+	var commit struct{ Tree gitObject }
+	status, err = c.request(ctx, "GET", c.repoPath("git/commits/"+ref.Object.SHA), nil, &commit)
+	if err != nil {
+		return JournalSnapshot{}, err
+	}
+	if status != 200 {
+		return JournalSnapshot{}, fmt.Errorf("journal commit unavailable")
+	}
+	var tree struct {
+		Tree      []struct{ Path, SHA, Type string }
+		Truncated bool
+	}
+	status, err = c.request(ctx, "GET", c.repoPath("git/trees/"+commit.Tree.SHA), nil, &tree)
+	if err != nil {
+		return JournalSnapshot{}, err
+	}
+	if status != 200 || tree.Truncated {
+		return JournalSnapshot{}, fmt.Errorf("journal tree unavailable")
+	}
+	var blobSHA string
+	for _, entry := range tree.Tree {
+		if entry.Path == journalPath && entry.Type == "blob" {
+			blobSHA = entry.SHA
+		}
+	}
+	if !shaPattern.MatchString(blobSHA) {
+		return JournalSnapshot{}, fmt.Errorf("journal blob identity unavailable")
+	}
 	var file struct{ Content, Encoding string }
-	status, err = c.request(ctx, "GET", c.repoPath("contents/"+journalPath+"?ref="+ref.Object.SHA), nil, &file)
+	status, err = c.request(ctx, "GET", c.repoPath("git/blobs/"+blobSHA), nil, &file)
 	if err != nil {
 		return JournalSnapshot{}, err
 	}

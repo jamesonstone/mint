@@ -87,19 +87,18 @@ func (s *State) FinishDeployment(id, outcome, evidenceURL string, proof Proof) e
 		if err != nil {
 			return err
 		}
-		shipped := []Change{}
-		for _, prior := range s.Baseline.Shipped {
-			removed := false
-			for _, change := range added {
-				if change.Reverts == prior.PatchID {
-					removed = true
+		shipped := append([]Change{}, s.Baseline.Shipped...)
+		// Apply logical events in order so a change introduced and reverted in
+		// one release is not incorrectly retained as an active shipped fix.
+		for _, change := range added {
+			active := []Change{}
+			for _, prior := range shipped {
+				if prior.PatchID != change.Reverts {
+					active = append(active, prior)
 				}
 			}
-			if !removed {
-				shipped = append(shipped, prior)
-			}
+			shipped = append(active, change)
 		}
-		shipped = append(shipped, added...)
 		if i.Candidate.Kind == "normal" {
 			s.MainAnchor = i.Candidate.SourceSHA
 		}

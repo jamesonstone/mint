@@ -25,7 +25,7 @@ func (c Client) CollectChanges(ctx context.Context, g GitProof, s State, candida
 	}
 	changes := []Change{}
 	for _, sha := range strings.Fields(string(out)) {
-		paths, err := g.git(nil, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", "--first-parent", sha)
+		paths, err := g.git(nil, "diff-tree", "-m", "--root", "--no-commit-id", "--name-only", "-r", "--first-parent", sha)
 		if err != nil {
 			return nil, err
 		}

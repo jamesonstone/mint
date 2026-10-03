@@ -174,7 +174,7 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 			return p, nil
 		}
 	}
-	head, err := c.createCommit(ctx, baseCommit.Tree.SHA, files, parent, "chore: reconcile production release proposal", extra...)
+	head, err := c.createCommit(ctx, baseCommit.Tree.SHA, files, parent, fmt.Sprintf("chore(%s): :wrench: reconcile production release proposal", p.Branch), extra...)
 	if err != nil {
 		return p, err
 	}

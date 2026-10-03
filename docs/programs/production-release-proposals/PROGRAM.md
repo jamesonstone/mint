@@ -4,11 +4,11 @@ Coordinator: Mint. Implementation authorization from Jameson through release sid
 
 | Repository | Issue | Branch | Spec | State | Dependencies |
 | --- | --- | --- | --- | --- | --- |
-| jamesonstone/mint | #13 | GH-13 | ../../specs/0009-production-release-proposals/SPEC.md | IN_PROGRESS | none |
+| jamesonstone/mint | #13 | GH-13 | ../../specs/0009-production-release-proposals/SPEC.md | READY_SOURCE (PR #14) | publication/review |
 | lsmc-bio/labcore | #1131 | GH-1131 | docs/specs/0111-mint-production-releases/SPEC.md | IN_PROGRESS | tested published Mint release |
 | lsmc-bio/labcore-ui | #823 | GH-823 | docs/specs/0095-mint-production-releases/SPEC.md | IN_PROGRESS | tested published Mint release |
 
-Ready frontier: Mint implementation; application artifact/workflow investigation and contracts.
+Ready frontier: Mint PR #14; application source delivery GH-1131/GH-823. All source adapters are prepared; adopting an exact published Mint feature release remains BLOCKED_DEPENDENCY.
 
 Activation gates: verified feature-bearing Mint version and SHA; ready PR checks/review and explicit merge authority; configured human automation credential with narrow permissions; verified current production baseline; approved workflow/cloud activation. Missing token and baseline do not authorize provisioning or inferred records.
 

@@ -84,7 +84,7 @@ func (c Client) SyncStatus(ctx context.Context, cfg Config, i Intent) (PullReque
 		parent = ref.Object.SHA
 		extra = append(extra, base.Object.SHA)
 	}
-	head, err := c.createCommit(ctx, baseCommit.Tree.SHA, map[string]string{"CHANGELOG.md": text, ".mint/status.json": string(data) + "\n"}, parent, "chore: record verified production deployment status", extra...)
+	head, err := c.createCommit(ctx, baseCommit.Tree.SHA, map[string]string{"CHANGELOG.md": text, ".mint/status.json": string(data) + "\n"}, parent, fmt.Sprintf("chore(%s): :wrench: record verified production deployment status", branch), extra...)
 	if err != nil {
 		return none, err
 	}
@@ -101,7 +101,7 @@ func (c Client) SyncStatus(ctx context.Context, cfg Config, i Intent) (PullReque
 	}
 	body := proposalMarker(p) + "\n\n" + label + "\nThis records an observed outcome; it does not deploy or publish."
 	var pull PullRequest
-	payload := map[string]any{"title": "Production deployment status: " + i.Candidate.Version + " (" + i.Status + ")", "body": body, "head": branch, "base": cfg.DefaultBranch, "draft": false}
+	payload := map[string]any{"title": fmt.Sprintf("chore(GH-%d): :wrench: record %s deployment %s", issue, i.Candidate.Version, i.Status), "body": body, "head": branch, "base": cfg.DefaultBranch, "draft": false}
 	if existing == nil {
 		status, err = c.request(ctx, "POST", c.repoPath("pulls"), payload, &pull)
 	} else {

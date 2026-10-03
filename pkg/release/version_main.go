@@ -114,7 +114,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 }
 
 func controlOnlyCommit(ctx context.Context, dir, sha string, allowed []string) (bool, error) {
-	out, err := runGit(ctx, dir, "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", "--first-parent", sha)
+	out, err := runGit(ctx, dir, "diff-tree", "-m", "--root", "--no-commit-id", "--name-only", "-r", "--first-parent", sha)
 	if err != nil {
 		return false, err
 	}

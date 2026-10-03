@@ -55,7 +55,7 @@ func (c Client) request(ctx context.Context, method, path string, body, out any)
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode >= 200 && res.StatusCode < 300 {
 		if out != nil {
-			if err := json.NewDecoder(io.LimitReader(res.Body, 8<<20)).Decode(out); err != nil {
+			if err := json.NewDecoder(io.LimitReader(res.Body, 32<<20)).Decode(out); err != nil {
 				return res.StatusCode, err
 			}
 		}

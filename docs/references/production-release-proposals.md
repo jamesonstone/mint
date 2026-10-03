@@ -28,10 +28,10 @@ contents, issues, pull requests and Actions read/write. Native CI uses the ordin
 read-only GitHub token. The token owner, configured Git identity and trusted event
 actor are checked before mutations. No credential is created by Mint.
 
-Import a baseline once using `bootstrap --input baseline.json --run-id ID`. An
+Import a baseline once using `bootstrap --run-id ID`. An
 operator must first reconcile the currently running artifact/configuration and its
 successful deployment evidence; latest tags or arbitrary successful builds do not
-prove production. The imported candidate must identify exact source tag, digest,
+prove production. The configured legacy baseline workflow must upload one digest-attested `mint-baseline` archive after live verification; source-build identity is separately checked against `baseline_build_workflow`. A local JSON file is never bootstrap evidence. The imported candidate must identify exact source tag, digest,
 configuration hash and build. Never re-import to erase a failed/unknown intent.
 
 ## Adapter sequence

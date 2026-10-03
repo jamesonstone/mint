@@ -56,7 +56,7 @@ func (c Client) CheckHead(ctx context.Context, pr PullRequest, required []string
 			Total int                                         `json:"total_count"`
 			Runs  []struct{ Name, Status, Conclusion string } `json:"check_runs"`
 		}
-		status, err := c.request(ctx, "GET", c.repoPath(fmt.Sprintf("commits/%s/check-runs?per_page=100&page=%d", pr.Head.SHA, page)), nil, &checks)
+		status, err := c.request(ctx, "GET", c.repoPath(fmt.Sprintf("commits/%s/check-runs?filter=latest&per_page=100&page=%d", pr.Head.SHA, page)), nil, &checks)
 		if err != nil {
 			return err
 		}

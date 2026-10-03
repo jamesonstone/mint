@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 )
 
@@ -142,11 +143,17 @@ func (o *productionOperation) execute(ctx context.Context, operation string) (an
 		if c.Kind == "normal" && run.HeadBranch != o.config.DefaultBranch {
 			return nil, false, fmt.Errorf("normal candidate is not built from default branch")
 		}
-		if run.HeadSHA != c.SourceSHA || run.ID != c.RunID {
+		if (c.Kind == "normal" && run.HeadSHA != c.SourceSHA) || run.ID != c.RunID || run.HeadBranch != o.config.DefaultBranch {
 			return nil, false, fmt.Errorf("candidate does not match successful build")
 		}
 		if err := o.proof.VerifyTag(c.Version, c.SourceSHA); err != nil {
 			return nil, false, err
+		}
+		if prior, exists := s.Candidates[c.SourceSHA]; exists {
+			if c.Repository != prior.Repository || c.Environment != prior.Environment || c.Version != prior.Version || c.Kind != prior.Kind || !reflect.DeepEqual(c.Artifact, prior.Artifact) || c.SourcePR != prior.SourcePR || c.BaselineID != prior.BaselineID {
+				return nil, false, fmt.Errorf("replayed source/build conflicts with immutable candidate")
+			}
+			return prior, false, nil
 		}
 		if c.Kind == "hotfix" {
 			if err := o.client.VerifyHotfixSource(ctx, c, o.config.RequiredChecks); err != nil {
@@ -168,7 +175,7 @@ func (o *productionOperation) execute(ctx context.Context, operation string) (an
 			return nil, false, err
 		}
 		c.Changes = changes
-		e := promotion.BuildEvidence{Repository: run.Repository.FullName, SourceSHA: run.HeadSHA, TagSHA: c.SourceSHA, ArtifactDigest: c.Artifact.Digest, Configuration: c.Artifact.Configuration, RunID: run.ID, Success: true, Trusted: true}
+		e := promotion.BuildEvidence{Repository: run.Repository.FullName, SourceSHA: c.SourceSHA, TagSHA: c.SourceSHA, ArtifactDigest: c.Artifact.Digest, Configuration: c.Artifact.Configuration, RunID: run.ID, Success: true, Trusted: true}
 		return c, true, s.RegisterCandidate(c, e)
 	case "propose-rollback":
 		if s.Baseline == nil {

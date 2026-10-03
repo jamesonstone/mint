@@ -265,3 +265,8 @@ The feature is not yet a published Mint release. Downstream activation remains
 held pending that exact published SHA, approved credentials, baseline import and
 application adapter acceptance. No cloud changes, merge or production activation
 were performed.
+
+Integration validation also covers control-only merge commits, source-build
+versus workflow-code identity for isolated hotfix builds, bootstrap archive and
+independent build provenance, replay after baseline changes and ordered revert
+accounting. A native pull-request CI workflow is included.

@@ -108,3 +108,43 @@ func TestNewAuthoredHotfixStartsAtProduction(t *testing.T) {
 		t.Fatal("new authored hotfix started from main")
 	}
 }
+
+func TestMergedAuthoredHotfixHasActualApplicationPatch(t *testing.T) {
+	dir := t.TempDir()
+	git := func(args ...string) string {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git fixture: %v %s", err, output)
+		}
+		return strings.TrimSpace(string(output))
+	}
+	git("init", "-b", "main")
+	git("config", "user.name", "Human")
+	git("config", "user.email", "human@example.com")
+	if err := os.WriteFile(filepath.Join(dir, "code.txt"), []byte("production\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "code.txt")
+	git("commit", "-m", "fix: production")
+	git("checkout", "-b", "hotfix")
+	if err := os.WriteFile(filepath.Join(dir, "code.txt"), []byte("production\nfix\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "code.txt")
+	git("commit", "-m", "fix: isolated code")
+	original := git("rev-parse", "HEAD")
+	git("checkout", "main")
+	git("merge", "--no-ff", "hotfix", "-m", "fix: reviewed authored hotfix")
+	merged := git("rev-parse", "HEAD")
+	proof := GitProof{Context: context.Background(), WorkDir: dir}
+	before, err := proof.PatchID(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := proof.PatchID(merged)
+	if err != nil || after != before {
+		t.Fatalf("merged hotfix lost patch provenance: %s != %s: %v", before, after, err)
+	}
+}

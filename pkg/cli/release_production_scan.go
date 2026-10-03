@@ -16,7 +16,14 @@ func (o *productionOperation) scan(ctx context.Context) (any, bool, error) {
 	}
 	registered := 0
 	for _, run := range runs {
-		if _, known := o.snapshot.State.Candidates[run.HeadSHA]; known {
+		knownRun := false
+		for _, c := range o.snapshot.State.Candidates {
+			if c.RunID == run.ID {
+				knownRun = true
+				break
+			}
+		}
+		if knownRun {
 			continue
 		}
 		var candidate promotion.Candidate
@@ -25,8 +32,11 @@ func (o *productionOperation) scan(ctx context.Context) (any, bool, error) {
 		} else if err != nil {
 			return nil, false, err
 		}
-		if candidate.SourceSHA != run.HeadSHA || candidate.RunID != run.ID {
+		if (candidate.Kind == "normal" && candidate.SourceSHA != run.HeadSHA) || candidate.RunID != run.ID {
 			return nil, false, fmt.Errorf("producer manifest/run identity conflict")
+		}
+		if _, known := o.snapshot.State.Candidates[candidate.SourceSHA]; known {
+			continue
 		}
 		o.flags.RunID = run.ID
 		if _, _, err := o.execute(ctx, "candidate"); err != nil {

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/jamesonstone/mint/pkg/promotion"
 	"strings"
@@ -15,10 +16,16 @@ func (o *productionOperation) propose(ctx context.Context) (any, bool, error) {
 		return nil, false, fmt.Errorf("verified production baseline is required")
 	}
 	prior, exists := s.Proposals[f.Kind]
-	if exists && prior.PR > 0 {
+	if exists && prior.PR > 0 && prior.State != "deployed" {
 		pr, err := o.client.Pull(ctx, prior.PR)
 		if err != nil {
 			return nil, false, err
+		}
+		if pr.State == "open" && f.Event == "close" {
+			f.Event = "candidate"
+		}
+		if prior.State == "paused" && pr.State == "open" {
+			f.Event = "reopen"
 		}
 		if pr.Merged {
 			return nil, false, fmt.Errorf("merged proposal outcome must be reconciled before updating")
@@ -56,6 +63,9 @@ func (o *productionOperation) propose(ctx context.Context) (any, bool, error) {
 	}
 	generation := fmt.Sprintf("%s-%s", f.Kind, s.Baseline.ID)
 	p, err := s.Reconcile(f.Kind, f.Event, f.Pin, generation, f.Summary, o.proof)
+	if errors.Is(err, promotion.ErrNoEligible) || errors.Is(err, promotion.ErrAlreadyDeployed) {
+		return map[string]string{"state": "idle"}, false, nil
+	}
 	if err != nil {
 		return nil, false, err
 	}
@@ -156,15 +166,25 @@ func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) 
 		return nil, false, fmt.Errorf("production baseline already exists; do not re-import")
 	}
 	var baseline promotion.Baseline
-	if err := readJSON(o.flags.Input, &baseline); err != nil {
+	if err := o.client.RunManifest(ctx, o.flags.RunID, "mint-baseline", &baseline); err != nil {
 		return nil, false, err
 	}
-	run, err := o.client.TrustedRun(ctx, o.flags.RunID, o.config.PromotionWorkflow)
+	run, err := o.client.TrustedRun(ctx, o.flags.RunID, o.config.BaselineWorkflow)
 	if err != nil {
 		return nil, false, err
 	}
-	if baseline.ID == "" || baseline.Candidate.Repository != s.Repository || baseline.Candidate.Environment != s.Environment || baseline.Candidate.SourceSHA != run.HeadSHA || baseline.DeploymentURL != run.HTMLURL {
+	if run.HeadBranch != o.config.DefaultBranch || baseline.ID == "" || baseline.Candidate.Repository != s.Repository || baseline.Candidate.Environment != s.Environment || baseline.DeploymentURL != run.HTMLURL {
 		return nil, false, fmt.Errorf("baseline is not bound to verified deployment evidence")
+	}
+	build, err := o.client.TrustedRun(ctx, baseline.Candidate.RunID, o.config.BaselineBuildWorkflow)
+	if err != nil {
+		return nil, false, err
+	}
+	if build.HeadBranch != o.config.DefaultBranch || build.HeadSHA != baseline.Candidate.SourceSHA || baseline.Candidate.RunURL != build.HTMLURL || baseline.Candidate.Kind != "normal" || baseline.PublicationPending || len(baseline.Shipped) != 0 {
+		return nil, false, fmt.Errorf("bootstrap lacks exact successful source-build and verified runtime evidence")
+	}
+	if err := promotion.ValidateBaselineCandidate(baseline.Candidate); err != nil {
+		return nil, false, err
 	}
 	if err := o.proof.VerifyTag(baseline.Candidate.Version, baseline.Candidate.SourceSHA); err != nil {
 		return nil, false, err

@@ -51,3 +51,21 @@ func TestFrozenIntentReplayDoesNotRequireAnotherDeployment(t *testing.T) {
 		t.Fatal("exact frozen merge replay rejected", err)
 	}
 }
+
+func TestReleaseDoesNotKeepAChangeRevertedInTheSameDeployment(t *testing.T) {
+	s, p := fixture()
+	c := candidate(1, "normal")
+	original := c.Changes[0]
+	revert := Change{SHA: sha(2), Version: "v0.1.2", PatchID: "inverse-1", Revert: true, Reverts: original.PatchID}
+	c.Changes = append(c.Changes, revert)
+	register(t, &s, c)
+	i := start(t, &s, p, "normal")
+	if err := s.FinishDeployment(i.ID, "success", "https://deploy/revert", p); err != nil {
+		t.Fatal(err)
+	}
+	for _, ch := range s.Baseline.Shipped {
+		if ch.PatchID == original.PatchID {
+			t.Fatal("reverted change remained active")
+		}
+	}
+}

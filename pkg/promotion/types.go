@@ -147,3 +147,6 @@ type MainVersionSelection struct {
 	SourcePR   int    `json:"source_pr,omitempty"`
 	BaselineID string `json:"baseline_id,omitempty"`
 }
+
+// ValidateBaselineCandidate checks the complete immutable bootstrap identity.
+func ValidateBaselineCandidate(c Candidate) error { return validateCandidate(c) }

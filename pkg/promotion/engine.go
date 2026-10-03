@@ -1,9 +1,13 @@
 package promotion
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 )
+
+var ErrNoEligible = errors.New("no eligible candidate")
+var ErrAlreadyDeployed = errors.New("candidate is already deployed")
 
 // Proof is supplied by the Git/GitHub adapter, not an event payload or issue text.
 type Proof interface {
@@ -26,9 +30,6 @@ func (s *State) RegisterCandidate(c Candidate, e BuildEvidence) error {
 	if c.Repository != s.Repository || c.Environment != s.Environment || !e.Trusted || !e.Success || e.Repository != s.Repository || e.SourceSHA != c.SourceSHA || e.TagSHA != c.SourceSHA || e.ArtifactDigest != c.Artifact.Digest || e.Configuration != c.Artifact.Configuration || e.RunID != c.RunID {
 		return fmt.Errorf("candidate build/tag/artifact evidence does not match")
 	}
-	if c.Kind == "hotfix" && (s.Baseline == nil || c.BaselineID != s.Baseline.ID) {
-		return fmt.Errorf("hotfix built against stale or absent production")
-	}
 	if prior, ok := s.Candidates[c.SourceSHA]; ok {
 		replay := c
 		replay.RunID = prior.RunID
@@ -37,6 +38,9 @@ func (s *State) RegisterCandidate(c Candidate, e BuildEvidence) error {
 			return fmt.Errorf("candidate identity is immutable")
 		}
 		return nil // Keep the first successful attestation of this exact artifact.
+	}
+	if c.Kind == "hotfix" && (s.Baseline == nil || c.BaselineID != s.Baseline.ID) {
+		return fmt.Errorf("hotfix built against stale or absent production")
 	}
 	s.Candidates[c.SourceSHA] = c
 	return nil
@@ -86,7 +90,7 @@ func (s *State) SelectCandidate(kind, pin string, proof Proof) (Candidate, error
 		}
 	}
 	if selected == nil {
-		return Candidate{}, fmt.Errorf("no eligible %s candidate", kind)
+		return Candidate{}, fmt.Errorf("%w: %s", ErrNoEligible, kind)
 	}
 	if selected.ControlOnly {
 		return Candidate{}, fmt.Errorf("control-only candidate cannot generate a release")
@@ -94,8 +98,11 @@ func (s *State) SelectCandidate(kind, pin string, proof Proof) (Candidate, error
 	if s.Baseline == nil {
 		return Candidate{}, fmt.Errorf("verified production baseline must be imported before proposing")
 	}
+	if selected.Kind == "hotfix" && selected.BaselineID != s.Baseline.ID {
+		return Candidate{}, fmt.Errorf("pinned hotfix baseline is stale")
+	}
 	if selected.SourceSHA == s.Baseline.Candidate.SourceSHA {
-		return Candidate{}, fmt.Errorf("candidate is already deployed")
+		return Candidate{}, ErrAlreadyDeployed
 	}
 	if _, err := s.NewChanges(*selected, proof); err != nil {
 		return Candidate{}, err

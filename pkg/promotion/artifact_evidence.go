@@ -41,7 +41,10 @@ func (c Client) RunManifest(ctx context.Context, runID int64, name string, out a
 		}
 		for _, a := range list.Artifacts {
 			if a.Name == name {
-				if selected != 0 || a.Expired {
+				if a.Expired {
+					return ErrManifestUnavailable
+				}
+				if selected != 0 {
 					return fmt.Errorf("producer manifest is ambiguous or expired")
 				}
 				selected = a.ID

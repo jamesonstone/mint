@@ -54,3 +54,21 @@ func TestVersionMainControlClassificationAndMixedChange(t *testing.T) {
 		t.Fatal(v, err)
 	}
 }
+
+func TestVersionMainMergedProposalDoesNotBecomeAnApplicationCandidate(t *testing.T) {
+	r := newTestRepo(t)
+	r.commit(t, "fix: initial", "", "2026-01-01T00:00:00Z")
+	r.tag(t, "v0.1.0")
+	r.git(t, nil, "checkout", "-b", "proposal")
+	if err := os.WriteFile(filepath.Join(r.dir, "CHANGELOG.md"), []byte("pending"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	r.git(t, nil, "add", "CHANGELOG.md")
+	r.git(t, nil, "commit", "-m", "chore: proposal")
+	r.git(t, nil, "checkout", "main")
+	r.git(t, nil, "merge", "--no-ff", "proposal", "-m", "chore: merge release proposal")
+	versions, err := VersionMain(context.Background(), MainVersionOptions{WorkDir: r.dir, MainRef: "main", ControlPaths: []string{"CHANGELOG.md"}})
+	if err != nil || len(versions) != 1 || !versions[0].ControlOnly {
+		t.Fatal("merged control-only PR became another release candidate", versions, err)
+	}
+}

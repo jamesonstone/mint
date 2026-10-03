@@ -26,10 +26,11 @@ func TestJournalExactReadHumanAndCAS(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]string{"permission": "write"})
 		case "/repos/owner/repo/git/ref/heads/mint-release-state":
 			_ = json.NewEncoder(w).Encode(map[string]any{"object": map[string]string{"sha": sha(1)}})
-		case "/repos/owner/repo/contents/release-state.json":
-			if r.URL.Query().Get("ref") != sha(1) {
-				t.Error("moving journal read")
-			}
+		case "/repos/owner/repo/git/commits/" + sha(1):
+			_ = json.NewEncoder(w).Encode(map[string]any{"tree": map[string]string{"sha": sha(2)}})
+		case "/repos/owner/repo/git/trees/" + sha(2):
+			_ = json.NewEncoder(w).Encode(map[string]any{"tree": []any{map[string]string{"path": journalPath, "type": "blob", "sha": sha(3)}}})
+		case "/repos/owner/repo/git/blobs/" + sha(3):
 			_ = json.NewEncoder(w).Encode(map[string]string{"encoding": "base64", "content": base64.StdEncoding.EncodeToString(data)})
 		case "/repos/owner/repo/git/trees":
 			w.WriteHeader(201)
