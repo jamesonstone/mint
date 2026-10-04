@@ -334,3 +334,16 @@ Repository Actions are the primary interaction. Provide an allowlisted productio
 Rollback accepts a reason and optional deployed version. Omitted version resolves the previous distinct verified deployed artifact by durable deployment ancestry, never SemVer or map order. Unknown/ambiguous legacy ancestry fails with an explicit version selection action. Both rollback and roll-forward remain supported; recommend a corrective/revert hotfix first. Rollback keeps artifact/configuration verification and does not reverse data/schema. Production PR review and explicit human merge remain required.
 
 Low-level CLI operations remain adapters/recovery tools; normal users and Kit agents can initiate through repository Actions without baseline IDs, SHAs or manifests. Existing published-version and application activation holds remain. Kit distribution and downstream application adoption are separate deliverables; Mint supplies the reusable Action/workflow contract here.
+
+## Generic workflow simplification — GH-15
+
+Research and simplify the existing production workflow across project types. Keep immutable build evidence, independent current-head review, frozen merge selection, verified runtime outcomes and durable history. Do not add application-language, package-manager, infrastructure or deployment implementation assumptions.
+
+- Standard conventional titles `hotfix: ...`, `hotfix(component): ...` and existing `hotfix(GH-123): ...` all request isolated recovery; no issue syntax is authority.
+- Omitted control paths default to exactly the generated proposal files. Explicit policies must include them all; extra unsafe paths still fail. Bootstrap workflow policy is required only at bootstrap, with its source-build workflow defaulting to the producer.
+- Generated recovery workflows preserve the selected repository-relative config path, write only to the authenticated configured workflow destination, and create missing parent directories. No arbitrary Actions expressions or paths outside the repository may enter generated policy inputs.
+- Each production command exposes only relevant options. Keep existing adapter names callable, but distinguish everyday commands from adapter plumbing in help. Remove the unused outcome flag.
+- Candidate registration has one authoritative evidence path shared by direct registration and scan. Scanning downloads each manifest once and does not repeatedly search the durable candidate map. Replay conflict checks and all trust predicates remain.
+- Publish a short public workflow explanation and a ranked research note including deferred opportunities and reasons. No production activation or downstream Kit changes.
+
+Portability validation also binds authored hotfix queued-history checks to the configured default branch, and accepts GitHub REST workflow `path@ref` qualification without relaxing run provenance. Control workflow destinations must be top-level YAML files under `.github/workflows`.

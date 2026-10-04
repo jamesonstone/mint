@@ -38,13 +38,13 @@ approval-required runs for token-created PR events; those are not assumed passin
 Import a baseline once using `bootstrap --run-id ID`. An
 operator must first reconcile the currently running artifact/configuration and its
 successful deployment evidence; latest tags or arbitrary successful builds do not
-prove production. The configured legacy baseline workflow must upload one digest-attested `mint-baseline` archive after live verification; source-build identity is separately checked against `baseline_build_workflow`. A local JSON file is never bootstrap evidence. The imported candidate must identify exact source tag, digest,
+prove production. The configured legacy baseline workflow must upload one digest-attested `mint-baseline` archive after live verification; source-build identity is separately checked against `baseline_build_workflow` (defaults to `build_workflow`). These baseline workflow settings are needed only when importing production, not for routine release or recovery commands. A local JSON file is never bootstrap evidence. The imported candidate must identify exact source tag, digest,
 configuration hash and build. Never re-import to erase a failed/unknown intent.
 
 ## Adapter sequence
 
 1. Source build: exact checkout; `version-main` (or reviewed `version-hotfix`);
-   build once; persist immutable ECR digest or versioned S3 bundle; upload one
+   build once; persist an immutable artifact reference and content digest (for example, a container image, binary, or versioned bundle); upload one
    `mint-candidate` Actions artifact containing only `mint-candidate.json`.
 2. Trusted build completion: `candidate --run-id ID`; `scan` recovers missed main
    build events; `propose` updates the single accumulating normal production PR.
@@ -75,7 +75,7 @@ A candidate manifest uses the JSON fields defined by `promotion.Candidate`; its
 `artifact` contains `reference`, `digest` and `configuration_sha256`. A deployment
 manifest contains `intent_id`, `source_sha`, `artifact_digest`,
 `configuration_sha256`, and `verified: true`. Only successful authenticated
-producer runs can supply these manifests. Durable ECR/S3 objects must be retained
+producer runs can supply these manifests. Durable application artifacts must be retained
 for the rollback window and verified before promotion; Actions artifacts are
 transport evidence, not the durable application bundle.
 
@@ -88,7 +88,7 @@ installation, baseline IDs, full SHAs, or JSON manifests.
 - **Hotfix:** choose `hotfix`, supply a merged fix PR number or an issue number
   for a newly authored fix, and a reason. Exactly one source input is required.
 - **Automatic hotfix:** merge a reviewed same-repository main PR titled
-  `hotfix(GH-123): :firetruck: ...`. The trusted controller fetches its server
+  `hotfix: ...`, `hotfix(component): ...`, or `hotfix(GH-123): :firetruck: ...`. The trusted controller fetches its server
   identity and starts preparation. The emoji is display text, not routing.
 - **Rollback:** choose `rollback`, enter a reason, and optionally select a strict
   deployed version. Blank target selects the previous distinct verified deployed
@@ -176,3 +176,13 @@ must retain rollback objects for the configured recovery window. Missing objects
 ambiguous history, stale baselines and unknown runtime evidence fail closed with
 an explicit recovery action. Manual infrastructure changes require their own
 operational authorization and reconciliation.
+
+## Simple policy and command setup
+
+`control_paths` may be omitted: Mint uses `CHANGELOG.md`, `.mint/proposal.json`, and `.mint/summary.md`, the exact files it generates. An explicit list must include all three; historical `.mint/status.json` remains allowed. Partial, duplicate, or unsafe paths fail before use. Policy is one strict YAML document; YAML merge keys are unsupported.
+
+`baseline_workflow` is required for `bootstrap` only. `baseline_build_workflow` defaults to the configured producer, and may explicitly identify a legacy producer during migration. This default removes repetition without treating an ordinary successful build as proof of deployed production.
+
+For a custom policy file, generate with `--config config/release.yaml`. The generated Action passes that same repository-relative path to Mint. With `--output`, the destination must equal `control_workflow` (or `.github/workflows/mint-recovery.yaml` when omitted); Mint creates missing parent directories. The workflow must be a `.yml` or `.yaml` file directly under `.github/workflows`. Config paths cannot be absolute, escape the repository, or contain Actions expressions. Commit both policy and workflow before enabling them.
+
+Everyday `production --help` shows `status`, `hotfix`, `rollback`, and `workflow`. Existing adapter operations remain callable by name and expose their own relevant options; use `production <operation> --help` for integration work. Invalid options fail rather than being silently ignored. `status` still returns the full authoritative JSON journal for compatibility.

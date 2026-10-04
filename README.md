@@ -595,21 +595,11 @@ implemented.
 
 ## Reviewed production releases
 
-`mint release version-main` assigns source tags without publishing GitHub Releases.
-`mint release production` separates candidates, reviewed proposals, exact artifact
-promotion, verified history and production publication. See the
-[operator and adapter contract](docs/references/production-release-proposals.md)
-for configuration, activation, retries, hotfixes and rollback. Legacy release
-commands remain available for repositories using the original lifecycle.
+Developers merge code PRs as usual. Successful builds keep one **Release to Production** PR updated with all eligible changes since the last verified production release. Review and merge that PR to deploy its exact, already-built artifact through your project's deployment workflow. Mint verifies the outcome, records production history, publishes the release, and reports on the same PR. Closing the PR pauses it; reopening catches it up.
 
+For recovery, prefer a corrective or revert PR titled `hotfix: ...` or `hotfix(component): ...`; the existing `hotfix(GH-123): :firetruck: ...` form also works. After review and merge, the configured controller prepares an isolated fix against verified production. Alternatively, choose **Actions → Production release control → Run workflow** to request a hotfix or rollback. Rollback selects a retained deployed version, defaulting to the previous verified deployment. Both require a reviewed production approval PR. Conflicts or uncertain deployment outcomes stop for resolution.
 
-Production recovery uses repository Actions: **Production release control** ->
-**Run workflow** -> **hotfix** or **rollback**. A merged source PR titled
-`hotfix(GH-123): :firetruck: ...` can initiate isolated hotfix preparation
-through the same controller. Prefer a corrective or revert hotfix (roll-forward);
-rollback remains available by deployed version or previous verified deployment.
-Both require review and merge of their production approval PR before deployment.
-Outcomes are recorded on that same PR, with no follow-up status PR.
+This works with any project whose adapters produce immutable build evidence and verify deployment; Mint does not prescribe a language, package manager, artifact store, or runtime. See the [operator and adapter contract](docs/references/production-release-proposals.md) for setup and the [simplification audit](docs/references/mint-simplification-audit.md) for findings. Legacy release commands remain available for repositories using the original lifecycle.
 
 The CLI remains available for integrations:
 

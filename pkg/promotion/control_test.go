@@ -112,6 +112,26 @@ func TestControlPrefixUsesAuthoritativeMergedPR(t *testing.T) {
 		})
 	}
 }
+
+func TestControlConventionalHotfixTitles(t *testing.T) {
+	for _, title := range []string{"hotfix: repair login", "hotfix(api): repair login", "hotfix(GH-123): :firetruck: repair login", "hotfix!: breaking repair", "hotfix(api)!: breaking repair", "fix(api): ordinary fix", "hotfix(): empty scope", "hotfix(api): ", "hotfix api: invalid", "prefix hotfix: invalid"} {
+		t.Run(title, func(t *testing.T) {
+			_, pr := outcomeFixture()
+			pr.Title, pr.Body = title, "Reviewed source"
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(pr) }))
+			defer server.Close()
+			c := Client{APIURL: server.URL, Token: "test", Repository: "owner/repo"}
+			got, err := c.ControlEvent(context.Background(), controlConfig(), "pull_request_target", []byte(`{"action":"closed","repository":{"full_name":"owner/repo"},"pull_request":{"number":42}}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			valid := strings.HasPrefix(title, "hotfix:") || strings.HasPrefix(title, "hotfix!:") || strings.HasPrefix(title, "hotfix(GH-123):") || title == "hotfix(api): repair login" || title == "hotfix(api)!: breaking repair"
+			if (got.Operation == "hotfix") != valid {
+				t.Fatal(title, got)
+			}
+		})
+	}
+}
 func TestControlManualOperationAndInputAllowlist(t *testing.T) {
 	cfg := controlConfig()
 	for _, op := range []string{"hotfix", "rollback", "deploy", "publish", "retry", ""} {

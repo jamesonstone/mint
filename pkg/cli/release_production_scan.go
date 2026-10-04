@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/jamesonstone/mint/pkg/promotion"
 )
 
@@ -15,15 +14,12 @@ func (o *productionOperation) scan(ctx context.Context) (any, bool, error) {
 		return nil, false, err
 	}
 	registered := 0
+	knownRuns := make(map[int64]bool, len(o.snapshot.State.Candidates))
+	for _, candidate := range o.snapshot.State.Candidates {
+		knownRuns[candidate.RunID] = true
+	}
 	for _, run := range runs {
-		knownRun := false
-		for _, c := range o.snapshot.State.Candidates {
-			if c.RunID == run.ID {
-				knownRun = true
-				break
-			}
-		}
-		if knownRun {
+		if knownRuns[run.ID] {
 			continue
 		}
 		var candidate promotion.Candidate
@@ -32,17 +28,12 @@ func (o *productionOperation) scan(ctx context.Context) (any, bool, error) {
 		} else if err != nil {
 			return nil, false, err
 		}
-		if (candidate.Kind == "normal" && candidate.SourceSHA != run.HeadSHA) || candidate.RunID != run.ID {
-			return nil, false, fmt.Errorf("producer manifest/run identity conflict")
-		}
-		if _, known := o.snapshot.State.Candidates[candidate.SourceSHA]; known {
-			continue
-		}
-		o.flags.RunID = run.ID
-		if _, _, err := o.execute(ctx, "candidate"); err != nil {
+		if _, changed, err := o.registerCandidate(ctx, candidate, run); err != nil {
 			return nil, false, err
+		} else if changed {
+			registered++
 		}
-		registered++
+		knownRuns[run.ID] = true
 	}
 	return map[string]int{"registered": registered}, registered > 0, nil
 }

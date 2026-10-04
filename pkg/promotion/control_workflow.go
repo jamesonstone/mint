@@ -2,17 +2,32 @@ package promotion
 
 import (
 	"fmt"
+	"path"
 	"regexp"
+	"strings"
 )
 
 // RenderControlWorkflow generates the repository-native request entry point.
 // It uses trusted default-branch code and an immutable feature-bearing Mint pin.
-func RenderControlWorkflow(cfg Config, mintRef string) (string, error) {
+func RenderControlWorkflow(cfg Config, mintRef string, configPaths ...string) (string, error) {
 	if !shaPattern.MatchString(mintRef) {
 		return "", fmt.Errorf("use a published feature-bearing Mint commit SHA")
 	}
 	if !regexp.MustCompile(`^[A-Za-z0-9-]+$`).MatchString(cfg.HumanLogin) {
 		return "", fmt.Errorf("invalid control operator login")
+	}
+	if !ValidWorkflowPath(cfg.ControlWorkflowPath()) {
+		return "", fmt.Errorf("control_workflow must be a YAML file directly under .github/workflows")
+	}
+	configPath := ".mint.yaml"
+	if len(configPaths) > 1 {
+		return "", fmt.Errorf("provide one repository-relative configuration path")
+	}
+	if len(configPaths) == 1 {
+		configPath = configPaths[0]
+	}
+	if !SafeRepositoryPath(configPath) {
+		return "", fmt.Errorf("configuration path must be a safe repository-relative file path")
 	}
 	return fmt.Sprintf(`name: Production release control
 on:
@@ -68,6 +83,26 @@ jobs:
       - uses: jamesonstone/mint@%s
         with:
           command: production-control
+          production-config: '%s'
           github-token: ${{ github.token }}
-`, cfg.HumanLogin, mintRef), nil
+`, cfg.HumanLogin, mintRef, configPath), nil
+}
+
+// SafeRepositoryPath excludes traversal, absolute paths and Actions expressions
+// before a repository-owned filename is interpolated into generated YAML.
+func SafeRepositoryPath(value string) bool {
+	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$`).MatchString(value) || path.Clean(value) != value {
+		return false
+	}
+	for _, component := range strings.Split(value, "/") {
+		if component == "." || component == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// ValidWorkflowPath matches the location GitHub Actions discovers for workflows.
+func ValidWorkflowPath(value string) bool {
+	return SafeRepositoryPath(value) && path.Dir(value) == ".github/workflows" && (path.Ext(value) == ".yml" || path.Ext(value) == ".yaml")
 }

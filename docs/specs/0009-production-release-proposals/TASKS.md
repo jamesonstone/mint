@@ -15,3 +15,14 @@
 - [x] Add authenticated Actions-first controller and workflow generation.
 - [x] Validate updated UX locally and deliver existing Mint PR #14.
 - [ ] Observe updated hosted checks and adopt a published feature in downstream adapters.
+
+## GH-15 generic simplification
+
+- [x] Audit configuration, CLI, CI evidence registration and generic portability.
+- [x] Normalize policy and conventional recovery intent with regression tests.
+- [x] Preserve custom workflow configuration and authenticated destination.
+- [x] Scope command flags and share candidate registration evidence.
+- [x] Document concise workflow and ranked research findings.
+- [x] Validate and deliver a new ready PR without production activation.
+
+Local verification: full Go tests, vet and build PASS, including custom default branch, qualified run paths, one-download registration, scoped CLI options and custom-config workflow parsing. Delivery and hosted CI are recorded on the new PR; production adoption remains separate.

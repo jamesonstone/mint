@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-var hotfixTitle = regexp.MustCompile(`^hotfix\(GH-([1-9][0-9]*)\):\s+\S`)
+var hotfixTitle = regexp.MustCompile(`^hotfix(?:\([^)\n]+\))?!?:\s+\S`)
 
 // ControlRequest is a repository Actions request, not deployment authorization.
 type ControlRequest struct {
@@ -39,7 +39,7 @@ func (c Client) AuthorizeControlRun(ctx context.Context, cfg Config, id int64, e
 	if err != nil {
 		return err
 	}
-	if status != 200 || run.ID != id || run.Path != cfg.ControlWorkflowPath() || run.Event != event || run.Status != "in_progress" || run.HeadBranch != cfg.DefaultBranch || run.Repository.FullName != cfg.Repository || run.HeadRepository.FullName != cfg.Repository || run.Actor.Login != cfg.HumanLogin {
+	if status != 200 || run.ID != id || !WorkflowPathMatches(run.Path, cfg.ControlWorkflowPath()) || run.Event != event || run.Status != "in_progress" || run.HeadBranch != cfg.DefaultBranch || run.Repository.FullName != cfg.Repository || run.HeadRepository.FullName != cfg.Repository || run.Actor.Login != cfg.HumanLogin {
 		return fmt.Errorf("request is not an authorized active default-branch control run")
 	}
 	return nil
