@@ -11,6 +11,9 @@ func TestReviewedRollbackUsesExistingArtifactWithoutPublication(t *testing.T) {
 	if err := s.FinishDeployment(i.ID, "success", "https://deploy/1", p); err != nil {
 		t.Fatal(err)
 	}
+	if s.Baseline.PreviousID != "production-0" {
+		t.Fatal("normal deployment lost prior deployment identity")
+	}
 	if err := s.MarkPublished(i.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -30,6 +33,13 @@ func TestReviewedRollbackUsesExistingArtifactWithoutPublication(t *testing.T) {
 	}
 	if s.Baseline.Candidate.SourceSHA != sha(0) || s.Baseline.PublicationPending || s.Intents[intent.ID].Status != "deployed" || s.MainAnchor != sha(0) {
 		t.Fatal("rollback was incorrectly published or did not restore verified history")
+	}
+	if s.Baseline.PreviousID != i.ID {
+		t.Fatal("rollback lost the deployment it replaced")
+	}
+	target, err := s.ResolveRollbackTarget("")
+	if err != nil || target.ID != i.ID {
+		t.Fatal("previous deployment after rollback was inferred from version ordering", err)
 	}
 	if err := (Client{}).PublishIntent(t.Context(), s.Intents[intent.ID]); err == nil {
 		t.Fatal("rollback created a Release")

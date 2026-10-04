@@ -51,8 +51,8 @@ configuration hash and build. Never re-import to erase a failed/unknown intent.
    Commands authenticate the producer run, unique archive digest and strict JSON.
 3. Proposal close: `propose --event close` pauses it. Reopen: `--event reopen`
    resumes the same PR, refreshes latest selection and clears a prior pin. Preserve
-   `.mint/summary.md`; `--pin SOURCE_SHA` makes explicit selection sticky until
-   reopen. Only `CHANGELOG.md` and named `.mint` control files can change.
+   `.mint/summary.md`. Normal proposals always track the latest eligible candidate;
+   sticky normal pins are rejected. Hotfix selections remain explicit. Only `CHANGELOG.md` and named `.mint` control files can change.
 4. Explicitly dispatch native CI with `mint_pr` for token-authored proposal heads.
    `validate-review --pr NUMBER --token-env GITHUB_TOKEN` verifies declarations
    without requiring approval before CI. Freeze enforces every configured required
@@ -66,8 +66,10 @@ configuration hash and build. Never re-import to erase a failed/unknown intent.
    keep the lock. Failed/cancelled runs keep the previous production baseline.
 7. `publish --intent-id ID` publishes canonical notes and `mint-production.json`
    only after success is durable. A publication retry cannot redeploy. Conflicting
-   existing tags, notes or manifests fail closed. `status-pr --intent-id ID` opens
-   a separately reviewed changelog/status update, including failed outcomes.
+   existing tags, notes or manifests fail closed. `report --intent-id ID` attaches an idempotent machine-owned outcome comment
+   to the original merged release PR, including failed outcomes. No status PR,
+   branch or direct default-branch commit is created. `status-pr` remains a
+   deprecated compatibility alias with this same behavior.
 
 A candidate manifest uses the JSON fields defined by `promotion.Candidate`; its
 `artifact` contains `reference`, `digest` and `configuration_sha256`. A deployment
@@ -77,31 +79,100 @@ producer runs can supply these manifests. Durable ECR/S3 objects must be retaine
 for the rollback window and verified before promotion; Actions artifacts are
 transport evidence, not the durable application bundle.
 
-## Hotfixes and rollback
+## Repository Actions: hotfix and rollback
 
-An approved issue-form request is converted by the repository workflow into typed
-JSON `{ "Issue": 123, "BaselineID": "...", "Fixes": ["full SHA"] }`. Verify issue
-ownership/assignment; `prepare-hotfix --input request.json` creates GH-123 from
-current production, cherry-picks only explicit single-parent fixes and opens a
-human-reviewed source PR against its immutable production base branch. Empty fixes
-prepare a branch for newly authored code; metadata alone cannot build a candidate.
-Interrupted requests recover the same branch and PR. Conflicts preserve the local
-checkout for resolution. Never include queued main changes to repair a conflict.
+The routine user interface is the repository's **Production release control**
+workflow. Mint executes underneath it; operators and agents need no local Mint
+installation, baseline IDs, full SHAs, or JSON manifests.
 
-Merge/review the hotfix source separately. `version-hotfix --pr NUMBER` allocates
-an unused patch tag in production's deployed major/minor series, skipping main tag
-collisions. Build that merged source once and register its `kind: hotfix` candidate
-with the current `baseline_id` and `source_pr`. `propose --kind hotfix` makes the
-separate hotfix deployment proposal while the normal queue remains intact.
-Stale baseline, extra cherry-picked changes and concurrent promotion fail closed.
-Original patch IDs and source versions retain provenance. Later ordinary proposals
-require forward integration of every shipped fix (or an explicit actual inverse
-patch); equivalent fixes are not repeated in shipped notes. Evolved overlapping
-patches require reviewed reconciliation when exact Git proof cannot establish it.
+- **Hotfix:** choose `hotfix`, supply a merged fix PR number or an issue number
+  for a newly authored fix, and a reason. Exactly one source input is required.
+- **Automatic hotfix:** merge a reviewed same-repository main PR titled
+  `hotfix(GH-123): :firetruck: ...`. The trusted controller fetches its server
+  identity and starts preparation. The emoji is display text, not routing.
+- **Rollback:** choose `rollback`, enter a reason, and optionally select a strict
+  deployed version. Blank target selects the previous distinct verified deployed
+  artifact through deployment ancestry, never tag or build order. Legacy history
+  without ancestry requires an explicit known deployed version.
 
-`propose-rollback --pin PREVIOUS_SOURCE_SHA --summary "Reason"` selects only a
-previously verified production artifact and creates a separately reviewed
-control proposal. Normal freeze/start/finish apply. Successful rollback restores
-that version's shipped set and source baseline as a new history event, without
-retagging or another GitHub Release. Manual infrastructure/maintenance changes
-outside this lifecycle require separate operational authorization and reconciliation.
+Prefer roll-forward: repair or revert the offending code as a new hotfix and
+release a new version. Rollback remains supported when restoring a retained
+artifact is the appropriate recovery. Neither operation reverses database/data
+changes. Adapter configuration compatibility and artifact/runtime verification
+remain mandatory. Requesting preparation never authorizes merge or deployment.
+
+### Maintainer installation
+
+Generate the recovery entry point using a published feature-bearing immutable
+Mint SHA, then deliver it through the project's normal review process:
+
+```sh
+mint release production workflow --mint-ref "$PUBLISHED_MINT_SHA" \
+  --output .github/workflows/mint-recovery.yaml
+```
+
+That is the default trusted controller path. A custom filename must also set
+`control_workflow` to its exact `.github/workflows/...` path in `.mint.yaml`.
+The Action's `production-control` command authenticates the active default-branch
+workflow, configured human operator, repository, and event against GitHub.
+It reads request inputs as data; it never executes issue/PR text as code.
+The generated workflow defaults to hotfix and remains behind
+`MINT_RELEASE_ENABLED`. Installing it does not activate production or change
+repository settings.
+
+The recovery workflow complements the existing application candidate and
+production completion controllers. Those adapters must dispatch the default-branch
+producer with `hotfix_pr` when a registered production-base source PR merges,
+then register the exact candidate and reconcile its production PR. Keep this one
+owner for source completion to avoid duplicate dispatches. This generated entry
+point does not replace application builds, deployments, or completion handlers.
+
+### Hotfix isolation and review
+
+`hotfix --fix-pr NUMBER --reason "Reason"` is the equivalent CLI request.
+It verifies merged same-repository default-branch identity, required checks and
+independent source approval, and resolves squash, merge or rebase histories to
+exact reviewed single-parent fixes. Fetch full main history and the original PR
+head. Ambiguous/non-linear or altered merge resolutions require an isolated
+reviewed source fix, not guessed main changes.
+
+Mint allocates a separate human-assigned tracking issue and GH issue branch;
+it never overwrites the original fix PR's branch. Registered request markers
+bind PR number, merge SHA and production baseline, making manual/prefix replays
+converge. A stale registered baseline stops with an action to inspect the request.
+`hotfix --issue NUMBER --reason "Reason"` prepares a production-base source lane
+for newly authored code; the issue must be open, human-owned and assigned.
+
+The source PR is checked and reviewed against an immutable production base.
+Merging it causes the application adapter to build that exact source and make
+one hotfix production approval PR. Its human merge promotes the artifact.
+The normal queue and manual summary remain intact. Hotfix candidate baselines,
+shared production locking and patch provenance prevent queued-main inclusion
+and an ordinary release undoing a shipped fix without explicit reconciliation.
+Newly authored fixes still need reviewed forward integration into main.
+Cherry-pick conflicts publish a metadata-only recoverable source branch/PR;
+CI rejects it until all requested application fixes are present. Temporary
+runner paths are not the sole recovery surface.
+
+`prepare-hotfix --input request.json` remains a lower-level adapter accepting
+`Issue`, `BaselineID`, and `Fixes`. Prefer the PR/issue request surface for users.
+`version-hotfix --pr NUMBER` allocates an unused patch in production's deployed
+major/minor series. Generated source merges do not recursively trigger requests.
+
+### Rollback review and replay
+
+`rollback --reason "Reason" [--to vX.Y.Z]` is the equivalent CLI request.
+It creates one reviewed rollback proposal showing current and target versions,
+reason, artifact identity, a roll-forward recommendation, and compatibility/data
+limits. Low-level `propose-rollback --pin SOURCE_SHA --summary "Reason"` remains
+available. Replaying non-open proposals never modifies their merged branches.
+Actions rollback runs persist their initial selection; rerunning the same run
+cannot resolve a new "previous" version and undo a completed rollback.
+
+Normal freeze/start/finish gates apply. Successful rollback restores verified
+source/artifact contents as a new history event without retagging or publishing
+another GitHub Release. The outcome goes on the same release PR. Artifact storage
+must retain rollback objects for the configured recovery window. Missing objects,
+ambiguous history, stale baselines and unknown runtime evidence fail closed with
+an explicit recovery action. Manual infrastructure changes require their own
+operational authorization and reconciliation.

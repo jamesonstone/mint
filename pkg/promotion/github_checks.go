@@ -10,6 +10,7 @@ import (
 // PullRequest describes exact review identity and merged release declaration.
 type PullRequest struct {
 	Number   int     `json:"number"`
+	Title    string  `json:"title"`
 	State    string  `json:"state"`
 	Body     string  `json:"body"`
 	Merged   bool    `json:"merged"`

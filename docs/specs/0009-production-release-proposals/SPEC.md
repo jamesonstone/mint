@@ -105,7 +105,7 @@ artifact: <immutable image/bundle identity>
 previous_production_version: v0.140.2
 selection: latest
 
-Normal mode tracks the latest eligible version. If a team member explicitly selects an earlier version, represent that as selection: pinned so automation does not silently override their choice. On reopening a paused PR, the agreed default is to catch up to latest; document and visibly report any reset of a prior pin. Reject missing, unbuilt, foreign-repository, untrusted, or incompatible selections. Production attempts must validate source/tag/artifact correspondence.
+Normal mode MUST track the latest eligible version. Sticky normal pins are rejected; closing pauses and reopening catches up to latest. Explicit hotfix/rollback selections remain scoped exceptions. Reject missing, unbuilt, foreign-repository, untrusted, or incompatible selections. Production attempts must validate source/tag/artifact correspondence.
 
 Store summary separately from generated content, or use strictly delimited manual/generated blocks. Preserve manual text on ordinary updates, reopen, reruns, and recovery. Generate a deterministic factual fallback summary from PR metadata if no curated text exists; do not require an LLM or introduce secrets/services for summaries.
 
@@ -256,7 +256,7 @@ This specification preserves the approved requirements and material design decis
 
 GH-13 implements source versioning, authenticated run manifest registration,
 CAS journal, paginated current-head checks, reviewed proposals and immutable
-intents, deployment/publication retry separation, status PRs, isolated hotfix
+intents, deployment/publication retry separation, same-PR outcome reporting, isolated hotfix
 source preparation/recovery and verified rollback history. Native Go tests, vet
 and build pass. Full lint has pre-existing findings; changed-source lint is the
 patch gate. Hosted GitHub event and cloud acceptance remain UNOBSERVED.
@@ -321,3 +321,16 @@ independent human approval rejection for bots, explicit head validation, and hot
 source-build dispatch are tested locally. UI production reuses main.yaml; backend
 continues to reuse deploy.yaml. Source remains UNRELEASED; no repository Actions
 setting, credential, cloud or production mutation was performed.
+
+
+## Actions-first recovery revision — 2026-10-04
+
+The human requests a refactor of the existing implementation. Active normal release PRs MUST advance to every latest eligible candidate; remove sticky normal pinning. Closing pauses; reopening catches up. Exact source and artifact selection freeze at merge. Preserve normal queued changes during exceptions.
+
+There is one production approval PR per promotion. Replace status PR creation with idempotent observed-outcome comments on the original merged release PR; the journal remains durable authority. CHANGELOG notes link to observed outcomes without claiming deployment at merge.
+
+Repository Actions are the primary interaction. Provide an allowlisted production-control Action and a generated repository workflow with hotfix/rollback operations. Hotfix accepts an existing reviewed fix PR number or newly authored fix issue. Resolve verified production and exact fix commits internally; isolate from queued main. A merged same-repository main PR titled hotfix(GH-123): ... triggers preparation automatically; title is request intent, never identity or deployment authority. Authenticate requesting workflow/principal, source checks/review and registered request. Support squash, merge and rebase PRs, refusing ambiguous patch provenance. Deduplicate manual and prefix requests. Generated hotfix source completion must not recursively start another request.
+
+Rollback accepts a reason and optional deployed version. Omitted version resolves the previous distinct verified deployed artifact by durable deployment ancestry, never SemVer or map order. Unknown/ambiguous legacy ancestry fails with an explicit version selection action. Both rollback and roll-forward remain supported; recommend a corrective/revert hotfix first. Rollback keeps artifact/configuration verification and does not reverse data/schema. Production PR review and explicit human merge remain required.
+
+Low-level CLI operations remain adapters/recovery tools; normal users and Kit agents can initiate through repository Actions without baseline IDs, SHAs or manifests. Existing published-version and application activation holds remain. Kit distribution and downstream application adoption are separate deliverables; Mint supplies the reusable Action/workflow contract here.

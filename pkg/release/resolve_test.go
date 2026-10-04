@@ -68,6 +68,7 @@ func TestResolveReachableBaseBumps(t *testing.T) {
 		bump    Bump
 	}{
 		{subject: "fix: repair release", want: "v1.0.1", bump: BumpPatch},
+		{subject: "hotfix(GH-123): :firetruck: repair production login", want: "v1.0.1", bump: BumpPatch},
 		{subject: "feat: add release command", want: "v1.1.0", bump: BumpMinor},
 		{subject: "refactor!: replace release API", want: "v2.0.0", bump: BumpMajor},
 		{subject: "fix: body breaking", body: "BREAKING-CHANGE: output changed", want: "v2.0.0", bump: BumpMajor},

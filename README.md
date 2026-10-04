@@ -601,3 +601,24 @@ promotion, verified history and production publication. See the
 [operator and adapter contract](docs/references/production-release-proposals.md)
 for configuration, activation, retries, hotfixes and rollback. Legacy release
 commands remain available for repositories using the original lifecycle.
+
+
+Production recovery uses repository Actions: **Production release control** ->
+**Run workflow** -> **hotfix** or **rollback**. A merged source PR titled
+`hotfix(GH-123): :firetruck: ...` can initiate isolated hotfix preparation
+through the same controller. Prefer a corrective or revert hotfix (roll-forward);
+rollback remains available by deployed version or previous verified deployment.
+Both require review and merge of their production approval PR before deployment.
+Outcomes are recorded on that same PR, with no follow-up status PR.
+
+The CLI remains available for integrations:
+
+```sh
+mint release production hotfix --fix-pr 123 --reason "Repair production login"
+mint release production hotfix --issue 456 --reason "Author production fix"
+mint release production rollback --reason "Restore working login"
+mint release production rollback --to v1.2.3 --reason "Restore working login"
+```
+
+These commands are feature-branch implementation; adoption still requires a
+published feature-bearing Mint SHA and the project's existing activation gates.

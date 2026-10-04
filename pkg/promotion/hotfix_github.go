@@ -66,6 +66,10 @@ func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, ba
 	for _, fix := range source.Fixes {
 		body += "- Original fix: https://github.com/" + c.Repository + "/commit/" + fix + "\n"
 	}
+	if source.Conflict {
+		body += "\nPreparation encountered conflicts. The branch contains the complete request metadata and verified production base; partial fixes have not been committed.\n\n"
+		body += "Check out [the recovery branch](https://github.com/" + c.Repository + "/tree/" + source.Branch + ") and apply all requested fixes listed above, resolving conflicts against production. Preserve `.mint/hotfix.json`, commit the application changes, and push to this branch. Required CI will reject the metadata-only branch until the intended application patch is present. Review the completed source PR before merging.\n"
+	}
 	if len(source.Fixes) == 0 {
 		body += "Author only the intended fix on this branch. The baseline metadata alone is not an eligible application artifact.\n"
 	}

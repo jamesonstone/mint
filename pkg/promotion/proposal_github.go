@@ -139,7 +139,7 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 		return p, err
 	}
 	marker := "<!-- mint:entry:" + p.ID + " -->"
-	block := marker + "\n" + p.Notes + "\n<!-- mint:deployment:pending -->\n<!-- mint:entry:end -->\n\n"
+	block := marker + "\n" + p.Notes + "\nReviewed release proposal; deployment outcome is recorded on its release PR.\n<!-- mint:entry:end -->\n\n"
 	text := string(changelog)
 	if start := strings.Index(text, marker); start >= 0 {
 		end := strings.Index(text[start:], "<!-- mint:entry:end -->")

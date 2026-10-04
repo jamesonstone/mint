@@ -28,7 +28,7 @@ var groupDefinitions = []groupDefinition{
 	{
 		title: "fixes",
 		match: func(item commit) bool {
-			return !item.Breaking && item.Type == "fix"
+			return !item.Breaking && (item.Type == "fix" || item.Type == "hotfix")
 		},
 	},
 	{

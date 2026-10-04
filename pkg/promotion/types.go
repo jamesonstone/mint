@@ -52,6 +52,7 @@ type Candidate struct {
 
 // Baseline represents verified production, not a tag or a build.
 type Baseline struct {
+	PreviousID         string    `json:"previous_id,omitempty"`
 	MainAnchor         string    `json:"main_anchor,omitempty"`
 	ID                 string    `json:"id"`
 	Candidate          Candidate `json:"candidate"`
@@ -91,16 +92,17 @@ type Intent struct {
 
 // State is persisted atomically using the journal revision as a CAS fence.
 type State struct {
-	History     map[string]Baseline  `json:"history"`
-	MainAnchor  string               `json:"main_anchor"`
-	Schema      int                  `json:"schema_version"`
-	Repository  string               `json:"repository"`
-	Environment string               `json:"environment"`
-	Baseline    *Baseline            `json:"baseline"`
-	Candidates  map[string]Candidate `json:"candidates"`
-	Proposals   map[string]Proposal  `json:"proposals"`
-	Intents     map[string]Intent    `json:"intents"`
-	InFlight    string               `json:"in_flight,omitempty"`
+	ControlRequests map[string]Proposal  `json:"control_requests,omitempty"`
+	History         map[string]Baseline  `json:"history"`
+	MainAnchor      string               `json:"main_anchor"`
+	Schema          int                  `json:"schema_version"`
+	Repository      string               `json:"repository"`
+	Environment     string               `json:"environment"`
+	Baseline        *Baseline            `json:"baseline"`
+	Candidates      map[string]Candidate `json:"candidates"`
+	Proposals       map[string]Proposal  `json:"proposals"`
+	Intents         map[string]Intent    `json:"intents"`
+	InFlight        string               `json:"in_flight,omitempty"`
 }
 
 // NewState starts unactivated, without fabricating a production baseline.

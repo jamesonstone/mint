@@ -70,7 +70,7 @@ func evaluateCommit(commit rawCommit) commitEvaluation {
 		evaluation.Reason = "feature"
 		evaluation.Bump = BumpMinor
 		evaluation.Rank = bumpRankMinor
-	case "fix":
+	case "fix", "hotfix":
 		evaluation.Reason = "fix"
 	default:
 		evaluation.Reason = "conventional " + evaluation.Type

@@ -28,6 +28,7 @@ type HotfixSource struct {
 	BaselineID string   `json:"baseline_id"`
 	Fixes      []string `json:"fixes"`
 	PatchIDs   []string `json:"patch_ids"`
+	Conflict   bool     `json:"conflict,omitempty"`
 	WorkDir    string   `json:"-"`
 }
 
@@ -85,9 +86,6 @@ func PrepareHotfix(ctx context.Context, o HotfixOptions) (HotfixSource, error) {
 			return result, err
 		}
 		result.PatchIDs = append(result.PatchIDs, id)
-		if _, err := run("cherry-pick", "--no-commit", fix); err != nil {
-			return result, err
-		}
 	}
 	metadata := map[string]any{"schema_version": 1, "baseline_id": result.BaselineID, "baseline_sha": o.Baseline.Candidate.SourceSHA, "fixes": result.Fixes, "patch_ids": result.PatchIDs, "issue": o.Issue}
 	data, err := json.MarshalIndent(metadata, "", "  ")
@@ -109,6 +107,26 @@ func PrepareHotfix(ctx context.Context, o HotfixOptions) (HotfixSource, error) {
 	result.SourceSHA, err = run("rev-parse", "HEAD")
 	if err != nil {
 		return result, err
+	}
+	// Commit the complete request first. A conflict can then publish this
+	// metadata-only HEAD even when the local index contains partial fixes.
+	for _, fix := range o.Fixes {
+		if _, err := run("cherry-pick", "--no-commit", fix); err != nil {
+			unmerged, checkErr := run("diff", "--name-only", "--diff-filter=U")
+			result.Conflict = checkErr == nil && unmerged != ""
+			return result, err
+		}
+	}
+	if len(o.Fixes) > 0 {
+		// This commit has never been pushed. Keep the final prepared source
+		// as one combined commit directly on the production baseline.
+		if _, err := run("commit", "--amend", "--no-edit"); err != nil {
+			return result, err
+		}
+		result.SourceSHA, err = run("rev-parse", "HEAD")
+		if err != nil {
+			return result, err
+		}
 	}
 	parent, err := run("rev-parse", "HEAD^")
 	if err != nil || parent != o.Baseline.Candidate.SourceSHA {

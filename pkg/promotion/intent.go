@@ -103,7 +103,7 @@ func (s *State) FinishDeployment(id, outcome, evidenceURL string, proof Proof) e
 			s.MainAnchor = i.Candidate.SourceSHA
 		}
 		s.History[s.Baseline.ID] = *s.Baseline
-		s.Baseline = &Baseline{MainAnchor: s.MainAnchor, ID: id, Candidate: i.Candidate, DeploymentURL: evidenceURL, Shipped: shipped, PublicationPending: true}
+		s.Baseline = &Baseline{PreviousID: s.Baseline.ID, MainAnchor: s.MainAnchor, ID: id, Candidate: i.Candidate, DeploymentURL: evidenceURL, Shipped: shipped, PublicationPending: true}
 		i.Status = "publication_pending"
 	} else {
 		i.Status = "deployment_failed"

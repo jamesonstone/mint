@@ -105,5 +105,5 @@ See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 - **PAUSED**: no
 - **INTENT**: Separate source tags from reviewed production promotion and publication.
 - **APPROACH**: Pure lifecycle engine, Git/GitHub evidence adapters, CAS journal, exact artifact manifests, controlled proposals, hotfix provenance and rollback history.
-- **OPEN ITEMS**: Published feature release, downstream adapter validation, approved credentials and verified production baseline imports. No production activation observed.
+- **OPEN ITEMS**: Actions-first hosted checks; published feature release; downstream adoption of the request workflow and latest pin; verified production baseline imports. No production activation observed.
 - **POINTERS**: `docs/specs/0009-production-release-proposals/SPEC.md`, `docs/references/production-release-proposals.md`, `docs/programs/production-release-proposals/PROGRAM.md`

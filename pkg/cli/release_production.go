@@ -15,6 +15,8 @@ import (
 
 type productionFlags struct {
 	Config, Input, Output, APIURL, TokenEnv, Kind, Event, IntentID, MergeSHA, Outcome, Summary, Pin string
+	Version, Reason, MintRef                                                                        string
+	Issue, FixPR                                                                                    int
 	RunID                                                                                           int64
 	PR                                                                                              int
 }
@@ -27,12 +29,12 @@ type productionOperation struct {
 }
 
 func init() {
-	names := []string{"status", "candidate", "propose", "validate", "intent", "start", "finish", "published", "bootstrap", "prepare-hotfix", "publish", "version-hotfix", "propose-rollback", "status-pr", "validate-review", "scan"}
+	names := []string{"status", "candidate", "propose", "validate", "intent", "start", "finish", "published", "bootstrap", "prepare-hotfix", "publish", "version-hotfix", "propose-rollback", "status-pr", "validate-review", "scan", "hotfix", "rollback", "control", "workflow", "report"}
 	group := &cobra.Command{Use: "production", Short: "Reconcile reviewed production proposals and exact deployment intents"}
 	for _, name := range names {
 		var f productionFlags
 		operation := name
-		cmd := &cobra.Command{Use: operation, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error { return runProduction(cmd, operation, f) }}
+		cmd := &cobra.Command{Use: operation, Short: productionHelp(operation), Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error { return runProduction(cmd, operation, f) }}
 		flags := cmd.Flags()
 		flags.StringVar(&f.Config, "config", ".mint.yaml", "repository-owned release policy")
 		flags.StringVar(&f.Input, "input", "", "typed manifest JSON file")
@@ -47,6 +49,14 @@ func init() {
 		flags.StringVar(&f.Summary, "summary", "", "manual summary override")
 		flags.StringVar(&f.Pin, "pin", "", "explicit candidate SHA")
 		flags.Int64Var(&f.RunID, "run-id", 0, "server-verified workflow run")
+		flags.StringVar(&f.Version, "to", "", "previously deployed version; default previous verified deployment")
+		flags.StringVar(&f.Reason, "reason", "", "reason for the production recovery request")
+		flags.StringVar(&f.MintRef, "mint-ref", "", "published immutable Mint commit for generated Actions workflow")
+		flags.IntVar(&f.Issue, "issue", 0, "issue for a newly authored production fix")
+		flags.IntVar(&f.FixPR, "fix-pr", 0, "merged reviewed fix PR to isolate from queued main")
+		if operation == "status-pr" {
+			cmd.Deprecated = "use report; outcomes are attached to the original release PR"
+		}
 		flags.IntVar(&f.PR, "pr", 0, "exact trusted proposal/source PR number")
 		group.AddCommand(cmd)
 	}
@@ -77,6 +87,9 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 		return err
 	}
 	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin}
+	if operation == "workflow" {
+		return writeControlWorkflow(cmd, cfg, f)
+	}
 	if operation != "status" && operation != "validate" && operation != "validate-review" {
 		if err := client.VerifyRepository(cmd.Context()); err != nil {
 			return err
@@ -100,7 +113,7 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 			return err
 		}
 	}
-	if (operation == "propose" || operation == "propose-rollback") && mutated {
+	if (operation == "propose" || operation == "propose-rollback" || operation == "rollback" || (operation == "control" && oIsProposal(value))) && mutated {
 		p := value.(promotion.Proposal)
 		if p.State == "open" {
 			if err := client.DispatchChecks(cmd.Context(), cfg.ValidationWorkflow, p.Branch, p.PR); err != nil {
@@ -124,6 +137,12 @@ func (o *productionOperation) execute(ctx context.Context, operation string) (an
 	s := &o.snapshot.State
 	f := o.flags
 	switch operation {
+	case "hotfix":
+		return o.requestHotfix(ctx)
+	case "rollback":
+		return o.requestRollback(ctx)
+	case "control":
+		return o.control(ctx)
 	case "scan":
 		return o.scan(ctx)
 	case "validate-review":
@@ -184,9 +203,12 @@ func (o *productionOperation) execute(ctx context.Context, operation string) (an
 		if err != nil {
 			return nil, false, err
 		}
+		if p.State != "open" {
+			return p, false, nil
+		}
 		p, err = o.client.SyncProposal(ctx, o.config, s, p)
 		return p, true, err
-	case "status-pr":
+	case "status-pr", "report":
 		i, ok := s.Intents[f.IntentID]
 		if !ok {
 			return nil, false, fmt.Errorf("unknown intent")
@@ -223,4 +245,23 @@ func (o *productionOperation) execute(ctx context.Context, operation string) (an
 		return o.versionHotfix(ctx)
 	}
 	return nil, false, fmt.Errorf("unsupported production operation %s", strings.TrimSpace(operation))
+}
+
+func productionHelp(operation string) string {
+	switch operation {
+	case "hotfix":
+		return "Prepare an isolated fix by reviewed PR or new-fix issue"
+	case "rollback":
+		return "Propose restoring a verified deployed version; prefer a roll-forward hotfix"
+	case "control":
+		return "Handle authenticated repository Actions recovery requests"
+	case "workflow":
+		return "Generate the repository Actions hotfix/rollback entry point"
+	case "report", "status-pr":
+		return "Record deployment outcome on the original release PR"
+	case "status":
+		return "Inspect authoritative production state without mutation"
+	default:
+		return "Run the " + operation + " lifecycle adapter"
+	}
 }

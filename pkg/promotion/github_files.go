@@ -3,6 +3,7 @@ package promotion
 import (
 	"context"
 	"fmt"
+	"regexp"
 )
 
 // CheckProposalFiles prevents an application/control mixed PR from deploying as
@@ -40,19 +41,23 @@ func (c Client) CheckProposalFiles(ctx context.Context, number int, allowed []st
 	return nil
 }
 
-// VerifyIssue requires the exact governed human-owned hotfix request.
+// VerifyIssue requires a human-owned request or an authenticated generated
+// hotfix tracking issue. Both must be open and assigned to the configured human.
 func (c Client) VerifyIssue(ctx context.Context, number int, human string) error {
 	var issue struct {
-		Number    int
-		State     string
-		User      struct{ Login string }
-		Assignees []struct{ Login string }
+		Number      int
+		Body        string
+		PullRequest any `json:"pull_request"`
+		State       string
+		User        struct{ Login string }
+		Assignees   []struct{ Login string }
 	}
 	status, err := c.request(ctx, "GET", c.repoPath(fmt.Sprintf("issues/%d", number)), nil, &issue)
 	if err != nil {
 		return err
 	}
-	if status != 200 || issue.Number != number || issue.State != "open" || issue.User.Login != human {
+	generated := issue.User.Login == AutomationLogin && regexp.MustCompile(`^<!-- mint:hotfix-request:[1-9][0-9]*:[a-f0-9]{40} -->\n<!-- mint:hotfix-baseline:[^\n<>]+ -->\n`).MatchString(issue.Body)
+	if status != 200 || issue.Number != number || issue.State != "open" || issue.PullRequest != nil || (issue.User.Login != human && !generated) {
 		return fmt.Errorf("hotfix issue is not an open human-owned request")
 	}
 	for _, assignee := range issue.Assignees {

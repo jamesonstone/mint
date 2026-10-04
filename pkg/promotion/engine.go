@@ -47,8 +47,11 @@ func (s *State) RegisterCandidate(c Candidate, e BuildEvidence) error {
 }
 
 // SelectCandidate recomputes latest by source ancestry; event delivery order and
-// numeric version order never select production. A pinned selection is explicit.
+// numeric version order never select production. Normal proposals always track latest.
 func (s *State) SelectCandidate(kind, pin string, proof Proof) (Candidate, error) {
+	if kind == "normal" && pin != "" {
+		return Candidate{}, fmt.Errorf("normal releases always track the latest eligible candidate; close the release PR to pause updates")
+	}
 	var selected *Candidate
 	if pin != "" {
 		c, ok := s.Candidates[pin]
@@ -162,7 +165,14 @@ func (s *State) Reconcile(kind, event, pin, id, summary string, proof Proof) (Pr
 	if kind != "normal" && kind != "hotfix" {
 		return Proposal{}, fmt.Errorf("invalid proposal kind")
 	}
+	if kind == "normal" && pin != "" {
+		return Proposal{}, fmt.Errorf("normal releases always track the latest eligible candidate; close the release PR to pause updates")
+	}
 	prior, exists := s.Proposals[kind]
+	if kind == "normal" && prior.Selection == "pinned" {
+		prior.Selection = "latest"
+		s.Proposals[kind] = prior
+	}
 	if event == "close" {
 		if !exists || prior.State != "open" {
 			return Proposal{}, fmt.Errorf("no open proposal to pause")
@@ -181,7 +191,7 @@ func (s *State) Reconcile(kind, event, pin, id, summary string, proof Proof) (Pr
 		pin = ""
 		prior.Selection = "latest"
 	}
-	if pin == "" && prior.Selection == "pinned" && event != "reopen" {
+	if kind == "hotfix" && pin == "" && prior.Selection == "pinned" && event != "reopen" {
 		pin = prior.CandidateSHA
 	}
 	c, err := s.SelectCandidate(kind, pin, proof)

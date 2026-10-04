@@ -96,6 +96,9 @@ func (c Client) IsReleaseAuthor(login string) bool {
 
 // WorkflowRun contains server-attested run identity and conclusion.
 type WorkflowRun struct {
+	Actor struct {
+		Login string `json:"login"`
+	} `json:"actor"`
 	ID         int64  `json:"id"`
 	HeadSHA    string `json:"head_sha"`
 	HeadBranch string `json:"head_branch"`

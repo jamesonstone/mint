@@ -2,10 +2,8 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/jamesonstone/mint/pkg/promotion"
-	"reflect"
 	"strings"
 )
 
@@ -22,30 +20,6 @@ func (o *productionOperation) review(ctx context.Context) (any, bool, error) {
 		if strings.Contains(pr.Body, marker) {
 			return o.intent(ctx, false)
 		}
-	}
-	for _, i := range s.Intents {
-		marker := "<!-- mint:proposal:" + i.ID + ":" + i.Status + ":status -->"
-		if !strings.Contains(pr.Body, marker) {
-			continue
-		}
-		if !o.client.IsReleaseAuthor(pr.User.Login) || pr.Base.Ref != o.config.DefaultBranch {
-			return nil, false, fmt.Errorf("foreign deployment-status PR")
-		}
-		data, err := o.client.ReadFile(ctx, ".mint/status.json", pr.Head.SHA)
-		if err != nil {
-			return nil, false, err
-		}
-		var recorded promotion.Intent
-		if err := json.Unmarshal(data, &recorded); err != nil {
-			return nil, false, err
-		}
-		if !reflect.DeepEqual(recorded, i) {
-			return nil, false, fmt.Errorf("status PR differs from observed production outcome")
-		}
-		if err := o.client.CheckProposalFiles(ctx, pr.Number, o.config.ControlPaths); err != nil {
-			return nil, false, err
-		}
-		return recorded, false, nil
 	}
 	if strings.Contains(pr.Body, "<!-- mint:hotfix-source:") {
 		if s.Baseline == nil || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {

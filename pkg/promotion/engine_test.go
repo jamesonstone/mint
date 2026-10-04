@@ -98,21 +98,53 @@ func TestLatestOutOfOrderPauseReopenAndSummary(t *testing.T) {
 		t.Fatal(reopened, err)
 	}
 }
-func TestExplicitPinPersistsUntilReopen(t *testing.T) {
+func TestNormalPinRejectedAndLegacyPinTracksLatest(t *testing.T) {
 	s, p := fixture()
 	register(t, &s, candidate(1, "normal"))
 	register(t, &s, candidate(2, "normal"))
-	v, err := s.Reconcile("normal", "candidate", sha(1), "generation", "custom", p)
-	if err != nil || v.Selection != "pinned" {
+	if _, err := s.Reconcile("normal", "candidate", sha(1), "generation", "custom", p); err == nil || !strings.Contains(err.Error(), "pause") {
+		t.Fatal("normal pin accepted or missing pause guidance", err)
+	}
+	if _, err := s.SelectCandidate("normal", sha(1), p); err == nil {
+		t.Fatal("direct normal pin accepted")
+	}
+	s.Proposals["normal"] = Proposal{ID: "generation", Kind: "normal", State: "open", Selection: "pinned", CandidateSHA: sha(1), Summary: "custom"}
+	v, err := s.Reconcile("normal", "candidate", "", "", "", p)
+	if err != nil || v.CandidateSHA != sha(2) || v.Selection != "latest" || v.ID != "generation" || v.Summary != "custom" {
 		t.Fatal(v, err)
 	}
+	register(t, &s, candidate(3, "normal"))
 	v, err = s.Reconcile("normal", "candidate", "", "", "", p)
-	if err != nil || v.CandidateSHA != sha(1) {
-		t.Fatal("pin lost")
+	if err != nil || v.CandidateSHA != sha(3) || v.ID != "generation" {
+		t.Fatal(v, err)
 	}
-	_, _ = s.Reconcile("normal", "close", "", "", "", p)
+}
+func TestPausedLegacyNormalPinMigratesWithoutResuming(t *testing.T) {
+	s, p := fixture()
+	register(t, &s, candidate(2, "normal"))
+	s.Proposals["normal"] = Proposal{ID: "generation", Kind: "normal", State: "paused", Selection: "pinned", CandidateSHA: sha(1)}
+	v, err := s.Reconcile("normal", "candidate", "", "", "", p)
+	if err != nil || v.State != "paused" || v.CandidateSHA != sha(1) || v.Selection != "latest" {
+		t.Fatal(v, err)
+	}
 	v, err = s.Reconcile("normal", "reopen", "", "", "", p)
-	if err != nil || v.CandidateSHA != sha(2) || v.Selection != "latest" {
+	if err != nil || v.CandidateSHA != sha(2) || v.State != "open" {
+		t.Fatal(v, err)
+	}
+}
+func TestHotfixPinStillScopesExplicitCandidate(t *testing.T) {
+	s, p := fixture()
+	for _, n := range []int{1, 2} {
+		c := candidate(n, "hotfix")
+		c.BaselineID = s.Baseline.ID
+		register(t, &s, c)
+	}
+	v, err := s.Reconcile("hotfix", "candidate", sha(1), "hotfix-generation", "urgent fix", p)
+	if err != nil || v.CandidateSHA != sha(1) || v.Selection != "pinned" {
+		t.Fatal(v, err)
+	}
+	v, err = s.Reconcile("hotfix", "candidate", "", "", "", p)
+	if err != nil || v.CandidateSHA != sha(1) {
 		t.Fatal(v, err)
 	}
 }

@@ -483,3 +483,15 @@ evidence_files:
     - "docs/agents/GUARDRAILS.md"
     - "docs/agents/WORKFLOWS.md"
     - "docs/agents/TOOLING.md"
+
+
+# Reviewed production recovery (conditional reference)
+
+When assisting a Mint-managed production release, hotfix, rollback or recovery,
+read `docs/references/production-release-proposals.md` and the project's configured
+Actions workflow. Use repository Actions as the routine interface; the CLI is
+internal to it. Prefer a corrective/revert hotfix, retain version-based rollback,
+and follow source review and production merge authority. `production-control`
+handles trusted request events; low-level manifests/IDs are not user inputs.
+Verify installed published feature compatibility before assuming these commands
+exist. Source implementation and production activation are different evidence.

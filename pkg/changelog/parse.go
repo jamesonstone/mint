@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var conventionalCommitPattern = regexp.MustCompile(`^(feat|fix|perf|refactor|docs|test|chore|build|ci)(\(.+?\))?(!)?:\s(.+)$`)
+var conventionalCommitPattern = regexp.MustCompile(`^(feat|fix|hotfix|perf|refactor|docs|test|chore|build|ci)(\(.+?\))?(!)?:\s(.+)$`)
 var bodyIssuePattern = regexp.MustCompile(`(?i)\b(?:closes|fixes|resolves)\s+#(\d+)\b`)
 var subjectIssuePattern = regexp.MustCompile(`\s+\(#(\d+)\)$`)
 var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)

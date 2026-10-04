@@ -9,6 +9,7 @@ import (
 
 // Config is repository-owned release policy; issue content cannot override it.
 type Config struct {
+	ControlWorkflow       string   `yaml:"control_workflow"`
 	Schema                int      `yaml:"schema_version"`
 	Repository            string   `yaml:"repository"`
 	Environment           string   `yaml:"environment"`

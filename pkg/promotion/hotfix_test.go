@@ -88,7 +88,7 @@ func TestHotfixConflictPreservesRecoverableClone(t *testing.T) {
 	if source.WorkDir != "" {
 		defer func() { _ = os.RemoveAll(source.WorkDir) }()
 	}
-	if err == nil || source.WorkDir == "" {
+	if err == nil || source.WorkDir == "" || !source.Conflict || !shaPattern.MatchString(source.SourceSHA) {
 		t.Fatal("conflict was masked")
 	}
 	if !strings.Contains(err.Error(), source.WorkDir) {
