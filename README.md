@@ -9,6 +9,10 @@
 
 **Release Tooling CLI**
 
+<!-- BEGIN KIT-MANAGED README BADGES -->
+[![Last commit](https://img.shields.io/github/last-commit/jamesonstone/mint)](https://github.com/jamesonstone/mint/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/mint)](https://github.com/jamesonstone/mint/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/mint)](https://github.com/jamesonstone/mint/pulls) [![Release](https://img.shields.io/github/v/release/jamesonstone/mint)](https://github.com/jamesonstone/mint/releases)
+<!-- END KIT-MANAGED README BADGES -->
+
 🪙 Compute the next version, write the changelog, and mint the release.
 
 Mint is a release tooling CLI. The current implementation provides the same
@@ -622,3 +626,7 @@ mint release production rollback --to v1.2.3 --reason "Restore working login"
 
 These commands are feature-branch implementation; adoption still requires a
 published feature-bearing Mint SHA and the project's existing activation gates.
+
+## Maintainers
+
+Maintained with 🪖 and ❤️ by [Jameson](https://github.com/jamesonstone) (`jamesonstone`).
