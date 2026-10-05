@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/jamesonstone/mint/pkg/promotion"
@@ -13,7 +12,7 @@ import (
 
 type productionFlags struct {
 	Config, Input, Output, APIURL, TokenEnv, Kind, Event, IntentID, MergeSHA, Summary, Pin string
-	Version, Reason, MintRef                                                               string
+	Format, Environment, Version, Reason, MintRef                                          string
 	Issue, FixPR                                                                           int
 	RunID                                                                                  int64
 	PR                                                                                     int
@@ -28,6 +27,11 @@ type productionOperation struct {
 
 func init() {
 	releaseCmd.AddCommand(newProductionCommand())
+	generic := newProductionCommand()
+	generic.Use = "deployment"
+	generic.Short = "Inspect environments and request immutable deployments"
+	generic.Long = "Use repository Actions or a target-only .mint.yaml PR to request a deployment. Inspect desired, verified and observed state here. Project adapters own deployment operations."
+	rootCmd.AddCommand(generic)
 }
 func readJSON(path string, value any) error {
 	if path == "" {
@@ -49,7 +53,21 @@ func readJSON(path string, value any) error {
 	return nil
 }
 func runProduction(cmd *cobra.Command, operation string, f productionFlags) error {
-	cfg, err := promotion.LoadConfig(f.Config)
+	if operation == "status" && f.Format != "" && f.Format != "json" && f.Format != "markdown" {
+		return fmt.Errorf("status format must be json or markdown")
+	}
+	policy, err := promotion.LoadPolicy(f.Config)
+	if err != nil {
+		return err
+	}
+	if operation == "status" && policy.Schema == 2 && (f.Environment == "" || f.Format == "markdown") {
+		return runEnvironmentOverview(cmd, policy, f)
+	}
+	if operation == "control" && policy.Schema == 2 && !strings.HasPrefix(f.Event, "authorized-") {
+		return runPolicyControl(cmd, policy, f)
+	}
+	f.Event = strings.TrimPrefix(f.Event, "authorized-")
+	cfg, err := policy.ForEnvironment(f.Environment)
 	if err != nil {
 		return err
 	}
@@ -57,6 +75,22 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 		if err := cfg.ValidateBootstrap(); err != nil {
 			return err
 		}
+	}
+	if operation == "policy" {
+		return writeDeploymentJSON(cmd, cfg, f.Output)
+	}
+	if cfg.Mode != "deployment" && cfg.Schema == 2 && operation != "status" {
+		return fmt.Errorf("%s policy uses publishing commands; runtime deployment operations are unavailable", cfg.Mode)
+	}
+	if cfg.Schema == 2 {
+		if !promotion.SafeRepositoryPath(f.Config) {
+			return fmt.Errorf("schema 2 policy must use a safe repository-relative path")
+		}
+		cfg.PolicyPath = f.Config
+		cfg.ControlPaths = append(cfg.ControlPaths, f.Config)
+	}
+	if cfg.Schema == 2 && !cfg.Publish && (operation == "publish" || operation == "published") {
+		return fmt.Errorf("publication is disabled for this environment")
 	}
 	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin}
 	if operation == "workflow" {
@@ -67,29 +101,74 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 			return err
 		}
 	}
+	if cfg.Scope == "local" {
+		return runLocalEnvironment(cmd, operation, cfg, f)
+	}
 	snapshot, err := client.LoadJournal(cmd.Context(), cfg.Environment)
 	if err != nil {
 		return err
+	}
+	if cfg.Schema == 2 {
+		snapshot.State.Schema = 2
+		snapshot.State.Target = cfg.Target
+		snapshot.State.Configuration = cfg.Configuration
+		snapshot.State.Publish = cfg.Publish
+		snapshot.State.PolicyDigest, err = promotion.AuthorityDigest(cfg)
+		if err != nil {
+			return err
+		}
 	}
 	workDir, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 	op := productionOperation{config: cfg, client: client, snapshot: snapshot, flags: f, proof: promotion.GitProof{Context: cmd.Context(), WorkDir: workDir, DefaultBranch: cfg.DefaultBranch}}
+	if err := op.checkPrerequisites(cmd.Context(), operation); err != nil {
+		return err
+	}
 	value, mutated, err := op.execute(cmd.Context(), operation)
 	if err != nil {
 		return err
 	}
 	if mutated {
-		if _, err := client.SaveJournal(cmd.Context(), op.snapshot, "production "+operation); err != nil {
+		if _, err := client.SaveJournal(cmd.Context(), op.snapshot, cfg.Environment+" "+operation); err != nil {
 			return err
 		}
 	}
-	if (operation == "propose" || operation == "propose-rollback" || operation == "rollback" || (operation == "control" && oIsProposal(value))) && mutated {
-		p := value.(promotion.Proposal)
-		if p.State == "open" {
+	if operation == "control" && cfg.Schema == 2 {
+		if i, ok := value.(promotion.Intent); ok && i.Status == "publication_pending" {
+			if err := completeReconciledPublication(cmd, cfg, f, value); err != nil {
+				return err
+			}
+			updated, err := client.LoadJournal(cmd.Context(), cfg.Environment)
+			if err != nil {
+				return err
+			}
+			value = updated.State.Intents[i.ID]
+		}
+	}
+	if operation == "control" && cfg.Schema == 2 {
+		if err := advanceReconciledQueue(cmd, cfg, f, value); err != nil {
+			return err
+		}
+	}
+	if mutated && cfg.Schema == 2 && operation == "finish" && cfg.ObservationWorkflow != "" {
+		if err := client.DispatchObservation(cmd.Context(), cfg); err != nil {
+			return fmt.Errorf("deployment outcome recorded; follow-up observation request failed: %w", err)
+		}
+	}
+	if (operation == "recovery-propose" || operation == "propose" || operation == "propose-rollback" || operation == "rollback" || (operation == "control" && oIsProposal(value))) && mutated {
+		p, ok := value.(promotion.Proposal)
+		if ok && p.State == "open" {
 			if err := client.DispatchChecks(cmd.Context(), cfg.ValidationWorkflow, p.Branch, p.PR); err != nil {
 				return err
+			}
+		}
+	}
+	if mutated && cfg.Schema == 2 {
+		if i, ok := value.(promotion.Intent); ok && (operation == "policy-request" || (operation == "propose" && cfg.Deploy == "automatic") || (operation == "intent" && f.Event == "pull_request_target")) {
+			if err := client.DispatchIntent(cmd.Context(), cfg, i); err != nil {
+				return fmt.Errorf("frozen intent recorded; adapter dispatch failed: %w", err)
 			}
 		}
 	}
@@ -105,76 +184,6 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 	_, err = fmt.Fprintln(cmd.OutOrStdout(), string(data))
 	return err
 }
-func (o *productionOperation) execute(ctx context.Context, operation string) (any, bool, error) {
-	s := &o.snapshot.State
-	f := o.flags
-	switch operation {
-	case "hotfix":
-		return o.requestHotfix(ctx)
-	case "rollback":
-		return o.requestRollback(ctx)
-	case "control":
-		return o.control(ctx)
-	case "scan":
-		return o.scan(ctx)
-	case "validate-review":
-		return o.review(ctx)
-	case "status":
-		return s, false, nil
-	case "candidate":
-		return o.candidate(ctx)
-	case "propose-rollback":
-		if s.Baseline == nil {
-			return nil, false, fmt.Errorf("verified baseline required")
-		}
-		p, err := s.ReconcileRollback(f.Pin, "rollback-"+s.Baseline.ID, f.Summary)
-		if err != nil {
-			return nil, false, err
-		}
-		if p.State != "open" {
-			return p, false, nil
-		}
-		p, err = o.client.SyncProposal(ctx, o.config, s, p)
-		return p, true, err
-	case "status-pr", "report":
-		i, ok := s.Intents[f.IntentID]
-		if !ok {
-			return nil, false, fmt.Errorf("unknown intent")
-		}
-		p, err := o.client.SyncStatus(ctx, o.config, i)
-		return p, false, err
-	case "propose":
-		return o.propose(ctx)
-	case "validate", "intent":
-		return o.intent(ctx, operation == "intent")
-	case "start":
-		return o.start(ctx)
-	case "finish":
-		return o.finish(ctx)
-	case "published":
-		if err := o.client.VerifyPublication(ctx, s.Intents[f.IntentID]); err != nil {
-			return nil, false, err
-		}
-		return s, true, s.MarkPublished(f.IntentID)
-	case "publish":
-		i, ok := s.Intents[f.IntentID]
-		if !ok {
-			return nil, false, fmt.Errorf("unknown intent")
-		}
-		if err := o.client.PublishIntent(ctx, i); err != nil {
-			return nil, false, err
-		}
-		return i, true, s.MarkPublished(i.ID)
-	case "bootstrap":
-		return o.bootstrap(ctx)
-	case "prepare-hotfix":
-		return o.hotfix(ctx)
-	case "version-hotfix":
-		return o.versionHotfix(ctx)
-	}
-	return nil, false, fmt.Errorf("unsupported production operation %s", strings.TrimSpace(operation))
-}
-
 func productionHelp(operation string) string {
 	switch operation {
 	case "hotfix":

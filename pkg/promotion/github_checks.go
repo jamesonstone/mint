@@ -26,6 +26,7 @@ type PullRequest struct {
 		} `json:"repo"`
 	} `json:"head"`
 	Base struct {
+		SHA  string
 		Ref  string
 		Repo struct {
 			FullName string `json:"full_name"`

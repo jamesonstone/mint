@@ -13,10 +13,17 @@ var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 var versionPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
 // Artifact identifies an immutable object and its exact build configuration.
-type Artifact struct {
+type ArtifactObject struct {
 	Reference     string `json:"reference"`
 	Digest        string `json:"digest"`
 	Configuration string `json:"configuration_sha256"`
+}
+
+type Artifact struct {
+	Members       map[string]ArtifactObject `json:"members,omitempty"`
+	Reference     string                    `json:"reference"`
+	Digest        string                    `json:"digest"`
+	Configuration string                    `json:"configuration_sha256"`
 }
 
 // Change records reviewed logical provenance. PatchID must be independently
@@ -52,6 +59,8 @@ type Candidate struct {
 
 // Baseline represents verified production, not a tag or a build.
 type Baseline struct {
+	VerifiedAt         string    `json:"verified_at,omitempty"`
+	Configuration      string    `json:"runtime_configuration_sha256,omitempty"`
 	PreviousID         string    `json:"previous_id,omitempty"`
 	MainAnchor         string    `json:"main_anchor,omitempty"`
 	ID                 string    `json:"id"`
@@ -78,6 +87,10 @@ type Proposal struct {
 
 // Intent freezes exactly the reviewed merge declaration and canonical notes.
 type Intent struct {
+	PolicyDigest    string    `json:"policy_digest,omitempty"`
+	Publish         bool      `json:"publish,omitempty"`
+	Environment     string    `json:"environment,omitempty"`
+	Configuration   string    `json:"runtime_configuration_sha256,omitempty"`
 	Kind            string    `json:"kind"`
 	DeploymentRunID int64     `json:"deployment_run_id,omitempty"`
 	ID              string    `json:"id"`
@@ -92,6 +105,12 @@ type Intent struct {
 
 // State is persisted atomically using the journal revision as a CAS fence.
 type State struct {
+	PolicyDigest    string               `json:"policy_digest,omitempty"`
+	Observation     *Observation         `json:"observation,omitempty"`
+	Target          string               `json:"target,omitempty"`
+	Configuration   string               `json:"runtime_configuration_sha256,omitempty"`
+	Publish         bool                 `json:"publish,omitempty"`
+	Paused          bool                 `json:"paused,omitempty"`
 	ControlRequests map[string]Proposal  `json:"control_requests,omitempty"`
 	History         map[string]Baseline  `json:"history"`
 	MainAnchor      string               `json:"main_anchor"`
@@ -116,18 +135,21 @@ func DecodeState(data []byte, repository, environment string) (State, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return s, err
 	}
-	if s.Schema != 1 || s.Repository != repository || s.Environment != environment || s.Candidates == nil || s.Proposals == nil || s.Intents == nil {
+	if (s.Schema != 1 && s.Schema != 2) || s.Repository != repository || s.Environment != environment || s.Candidates == nil || s.Proposals == nil || s.Intents == nil {
 		return s, fmt.Errorf("invalid or foreign release journal")
 	}
 	if s.History == nil {
 		s.History = map[string]Baseline{}
 	}
 	if s.Baseline != nil {
-		s.History[s.Baseline.ID] = *s.Baseline
+		s.History[s.Baseline.ID] = cloneBaseline(*s.Baseline)
 	}
 	return s, nil
 }
 func validateCandidate(c Candidate) error {
+	if err := ValidateArtifact(c.Artifact); err != nil {
+		return err
+	}
 	if !shaPattern.MatchString(c.SourceSHA) || !versionPattern.MatchString(c.Version) || !digestPattern.MatchString(c.Artifact.Digest) || !digestPattern.MatchString(c.Artifact.Configuration) || c.Artifact.Reference == "" || c.RunID <= 0 || c.RunURL == "" {
 		return fmt.Errorf("candidate lacks exact source, version, artifact, configuration or build identity")
 	}

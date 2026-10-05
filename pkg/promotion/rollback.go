@@ -1,6 +1,9 @@
 package promotion
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 // ReconcileRollback selects only an already verified production artifact. The
 // rollback is separately reviewed against the current baseline and never mints
@@ -24,7 +27,7 @@ func (s *State) ReconcileRollback(sourceSHA, id, summary string) (Proposal, erro
 		return Proposal{}, fmt.Errorf("existing rollback must finish or be explicitly resumed before replacement")
 	}
 	p := Proposal{ID: id, Kind: "rollback", State: "open", Selection: "pinned", CandidateSHA: sourceSHA, BaselineID: s.Baseline.ID, Summary: summary, Notes: "## Rollback from " + s.Baseline.Candidate.Version + " to " + target.Candidate.Version + "\n\n" + summary + "\n\nExisting production artifact: `" + target.Candidate.Artifact.Digest + "`.\n\nPrefer a roll-forward hotfix when practical. Rollback restores application artifacts only; it does not reverse database or data changes. Verify compatibility before approval.\n"}
-	s.Candidates[sourceSHA] = target.Candidate
+	s.Candidates[sourceSHA] = cloneCandidate(target.Candidate)
 	s.Proposals["rollback"] = p
 	return p, nil
 }
@@ -36,19 +39,23 @@ func (s *State) proposalKind(i Intent) string {
 }
 func (s *State) finishRollback(i *Intent, evidenceURL string) error {
 	target, err := s.rollbackTargetMatching(func(b Baseline) bool {
-		return b.Candidate.SourceSHA == i.Candidate.SourceSHA && b.Candidate.Artifact == i.Candidate.Artifact
+		return b.Candidate.SourceSHA == i.Candidate.SourceSHA && reflect.DeepEqual(b.Candidate.Artifact, i.Candidate.Artifact)
 	})
 	if err != nil {
 		return fmt.Errorf("verified rollback target unavailable: %w", err)
 	}
-	s.History[s.Baseline.ID] = *s.Baseline
+	s.History[s.Baseline.ID] = cloneBaseline(*s.Baseline)
 	target.PreviousID = s.Baseline.ID
 	target.ID = i.ID
+	target.Configuration = i.Configuration
 	target.DeploymentURL = evidenceURL
 	target.PublicationPending = false
 	s.Baseline = &target
+	if s.Schema == 2 {
+		s.Paused = true
+	}
 	s.MainAnchor = target.MainAnchor
-	s.History[i.ID] = target
+	s.History[i.ID] = cloneBaseline(target)
 	i.Status = "deployed"
 	return nil
 }

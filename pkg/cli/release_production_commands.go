@@ -15,13 +15,19 @@ Integration adapters remain available by name; see the production adapter contra
 		operator bool
 	}{
 		{"status", nil, true},
+		{"policy", nil, true},
+		{"observe", []string{"run-id", "input"}, true},
+		{"resume", []string{"run-id"}, false},
+		{"policy-request", []string{"pr", "merge-sha"}, false},
+		{"validate-policy-request", []string{"pr"}, false},
 		{"hotfix", []string{"fix-pr", "issue", "reason"}, true},
 		{"rollback", []string{"to", "reason"}, true},
 		{"workflow", []string{"mint-ref"}, true},
 		{"candidate", []string{"run-id"}, false},
-		{"propose", []string{"kind", "event", "summary", "pin"}, false},
+		{"propose", []string{"kind", "event", "summary", "pin", "run-id"}, false},
 		{"validate", []string{"pr"}, false},
 		{"intent", []string{"pr", "merge-sha"}, false},
+		{"dispatch", []string{"intent-id"}, false},
 		{"start", []string{"intent-id", "run-id"}, false},
 		{"finish", []string{"intent-id", "run-id"}, false},
 		{"published", []string{"intent-id"}, false},
@@ -42,6 +48,10 @@ Integration adapters remain available by name; see the production adapter contra
 		cmd := &cobra.Command{Use: name, Short: productionHelp(name), Args: cobra.NoArgs, Hidden: !operation.operator,
 			RunE: func(cmd *cobra.Command, args []string) error { return runProduction(cmd, name, f) }}
 		flags := cmd.Flags()
+		if name == "status" {
+			flags.StringVar(&f.Format, "format", "json", "json or markdown environment overview")
+		}
+		flags.StringVar(&f.Environment, "environment", "", "configured environment; required for multi-environment policies")
 		flags.StringVar(&f.Config, "config", ".mint.yaml", "repository-owned release policy")
 		outputHelp := "write resulting JSON manifest"
 		if name == "workflow" {

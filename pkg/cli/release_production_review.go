@@ -14,6 +14,9 @@ func (o *productionOperation) review(ctx context.Context) (any, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	if value, handled, err := o.reviewPolicyChange(ctx, pr); handled || err != nil {
+		return value, false, err
+	}
 	s := o.snapshot.State
 	for _, p := range s.Proposals {
 		marker := "<!-- mint:proposal:" + p.ID + ":" + p.Kind + " -->"

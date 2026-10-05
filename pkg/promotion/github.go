@@ -96,7 +96,9 @@ func (c Client) IsReleaseAuthor(login string) bool {
 
 // WorkflowRun contains server-attested run identity and conclusion.
 type WorkflowRun struct {
-	Actor struct {
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Actor     struct {
 		Login string `json:"login"`
 	} `json:"actor"`
 	ID         int64  `json:"id"`
@@ -124,6 +126,19 @@ func (c Client) ObservedRun(ctx context.Context, id int64, path string) (Workflo
 	}
 	if status != 200 || run.ID != id || run.Repository.FullName != c.Repository || run.HeadRepository.FullName != c.Repository || !WorkflowPathMatches(run.Path, path) || (run.Event != "push" && run.Event != "workflow_dispatch") {
 		return run, fmt.Errorf("workflow run is not a successful trusted build")
+	}
+	return run, nil
+}
+
+// WorkflowRunIdentity authenticates callback identity without trusting event payloads.
+func (c Client) WorkflowRunIdentity(ctx context.Context, id int64) (WorkflowRun, error) {
+	var run WorkflowRun
+	status, err := c.request(ctx, "GET", c.repoPath(fmt.Sprintf("actions/runs/%d", id)), nil, &run)
+	if err != nil {
+		return run, err
+	}
+	if status != 200 || run.ID != id || id <= 0 || run.Repository.FullName != c.Repository || run.HeadRepository.FullName != c.Repository {
+		return run, fmt.Errorf("workflow callback does not belong to configured repository")
 	}
 	return run, nil
 }

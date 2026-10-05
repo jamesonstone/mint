@@ -7,16 +7,18 @@ import (
 
 // Declaration is the reviewed release-control document frozen from a merge SHA.
 type Declaration struct {
-	Schema      int       `json:"schema_version"`
-	Repository  string    `json:"repository"`
-	Environment string    `json:"environment"`
-	ProposalID  string    `json:"proposal_id"`
-	Kind        string    `json:"kind"`
-	BaselineID  string    `json:"baseline_id"`
-	Selection   string    `json:"selection"`
-	Candidate   Candidate `json:"candidate"`
-	Summary     string    `json:"summary"`
-	Notes       string    `json:"notes"`
+	PolicyDigest  string    `json:"policy_digest,omitempty"`
+	Configuration string    `json:"runtime_configuration_sha256,omitempty"`
+	Schema        int       `json:"schema_version"`
+	Repository    string    `json:"repository"`
+	Environment   string    `json:"environment"`
+	ProposalID    string    `json:"proposal_id"`
+	Kind          string    `json:"kind"`
+	BaselineID    string    `json:"baseline_id"`
+	Selection     string    `json:"selection"`
+	Candidate     Candidate `json:"candidate"`
+	Summary       string    `json:"summary"`
+	Notes         string    `json:"notes"`
 }
 
 // Declare excludes mutable PR/head metadata from the source declaration.
@@ -25,7 +27,7 @@ func (s State) Declare(p Proposal) (Declaration, error) {
 	if !ok {
 		return Declaration{}, fmt.Errorf("proposal candidate unavailable")
 	}
-	return Declaration{Schema: 1, Repository: s.Repository, Environment: s.Environment, ProposalID: p.ID, Kind: p.Kind, BaselineID: p.BaselineID, Selection: p.Selection, Candidate: c, Summary: p.Summary, Notes: p.Notes}, nil
+	return Declaration{PolicyDigest: s.PolicyDigest, Configuration: s.Configuration, Schema: s.Schema, Repository: s.Repository, Environment: s.Environment, ProposalID: p.ID, Kind: p.Kind, BaselineID: p.BaselineID, Selection: p.Selection, Candidate: cloneCandidate(c), Summary: p.Summary, Notes: p.Notes}, nil
 }
 
 // ValidateDeclaration binds the complete merged selection to trusted state.

@@ -27,7 +27,7 @@ func (s *State) RegisterCandidate(c Candidate, e BuildEvidence) error {
 	if err := validateCandidate(c); err != nil {
 		return err
 	}
-	if c.Repository != s.Repository || c.Environment != s.Environment || !e.Trusted || !e.Success || e.Repository != s.Repository || e.SourceSHA != c.SourceSHA || e.TagSHA != c.SourceSHA || e.ArtifactDigest != c.Artifact.Digest || e.Configuration != c.Artifact.Configuration || e.RunID != c.RunID {
+	if c.Repository != s.Repository || !s.AcceptsEnvironment(c.Environment) || !e.Trusted || !e.Success || e.Repository != s.Repository || e.SourceSHA != c.SourceSHA || e.TagSHA != c.SourceSHA || e.ArtifactDigest != c.Artifact.Digest || e.Configuration != c.Artifact.Configuration || e.RunID != c.RunID {
 		return fmt.Errorf("candidate build/tag/artifact evidence does not match")
 	}
 	if prior, ok := s.Candidates[c.SourceSHA]; ok {
@@ -42,15 +42,36 @@ func (s *State) RegisterCandidate(c Candidate, e BuildEvidence) error {
 	if c.Kind == "hotfix" && (s.Baseline == nil || c.BaselineID != s.Baseline.ID) {
 		return fmt.Errorf("hotfix built against stale or absent production")
 	}
-	s.Candidates[c.SourceSHA] = c
+	s.Candidates[c.SourceSHA] = cloneCandidate(c)
 	return nil
 }
 
 // SelectCandidate recomputes latest by source ancestry; event delivery order and
 // numeric version order never select production. Normal proposals always track latest.
 func (s *State) SelectCandidate(kind, pin string, proof Proof) (Candidate, error) {
-	if kind == "normal" && pin != "" {
+	if kind == "normal" && pin != "" && s.Schema == 1 {
 		return Candidate{}, fmt.Errorf("normal releases always track the latest eligible candidate; close the release PR to pause updates")
+	}
+	if s.Schema == 2 && kind == "normal" && s.Paused {
+		return Candidate{}, fmt.Errorf("environment paused after rollback; resume explicitly")
+	}
+	if s.Schema == 2 && kind == "normal" && s.Target != "" {
+		matched := ""
+		for sha, c := range s.Candidates {
+			if c.Version == s.Target && c.Kind == kind {
+				if matched != "" && matched != sha {
+					return Candidate{}, fmt.Errorf("target has ambiguous authenticated builds")
+				}
+				matched = sha
+			}
+		}
+		if matched == "" {
+			return Candidate{}, fmt.Errorf("target has no authenticated successful build")
+		}
+		if pin != "" && pin != matched {
+			return Candidate{}, fmt.Errorf("target conflicts with candidate pin")
+		}
+		pin = matched
 	}
 	var selected *Candidate
 	if pin != "" {
@@ -104,13 +125,13 @@ func (s *State) SelectCandidate(kind, pin string, proof Proof) (Candidate, error
 	if selected.Kind == "hotfix" && selected.BaselineID != s.Baseline.ID {
 		return Candidate{}, fmt.Errorf("pinned hotfix baseline is stale")
 	}
-	if selected.SourceSHA == s.Baseline.Candidate.SourceSHA {
+	if selected.SourceSHA == s.Baseline.Candidate.SourceSHA && (s.Schema == 1 || (reflect.DeepEqual(selected.Artifact, s.Baseline.Candidate.Artifact) && s.Configuration == s.Baseline.RuntimeConfiguration())) {
 		return Candidate{}, ErrAlreadyDeployed
 	}
 	if _, err := s.NewChanges(*selected, proof); err != nil {
 		return Candidate{}, err
 	}
-	return *selected, nil
+	return cloneCandidate(*selected), nil
 }
 
 // NewChanges excludes shipped logical equivalents only when the candidate tree
@@ -165,11 +186,11 @@ func (s *State) Reconcile(kind, event, pin, id, summary string, proof Proof) (Pr
 	if kind != "normal" && kind != "hotfix" {
 		return Proposal{}, fmt.Errorf("invalid proposal kind")
 	}
-	if kind == "normal" && pin != "" {
+	if kind == "normal" && pin != "" && s.Schema == 1 {
 		return Proposal{}, fmt.Errorf("normal releases always track the latest eligible candidate; close the release PR to pause updates")
 	}
 	prior, exists := s.Proposals[kind]
-	if kind == "normal" && prior.Selection == "pinned" {
+	if kind == "normal" && prior.Selection == "pinned" && s.Schema == 1 {
 		prior.Selection = "latest"
 		s.Proposals[kind] = prior
 	}
@@ -191,7 +212,7 @@ func (s *State) Reconcile(kind, event, pin, id, summary string, proof Proof) (Pr
 		pin = ""
 		prior.Selection = "latest"
 	}
-	if kind == "hotfix" && pin == "" && prior.Selection == "pinned" && event != "reopen" {
+	if (kind == "hotfix" || (s.Schema == 2 && kind == "normal" && s.Target == "")) && pin == "" && prior.Selection == "pinned" && event != "reopen" {
 		pin = prior.CandidateSHA
 	}
 	c, err := s.SelectCandidate(kind, pin, proof)
@@ -217,7 +238,7 @@ func (s *State) Reconcile(kind, event, pin, id, summary string, proof Proof) (Pr
 	prior.CandidateSHA = c.SourceSHA
 	prior.BaselineID = s.Baseline.ID
 	prior.State = "open"
-	if pin != "" {
+	if pin != "" || (s.Schema == 2 && kind == "normal" && s.Target != "") {
 		prior.Selection = "pinned"
 	}
 	prior.Notes = RenderNotes(s.Repository, c.Version, prior.Summary, changes, c.SourceDate)

@@ -29,8 +29,12 @@ type gitObject struct {
 
 // LoadJournal reads metadata independently of Actions artifact retention.
 func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSnapshot, error) {
+	branch, err := JournalBranch(environment)
+	if err != nil {
+		return JournalSnapshot{}, err
+	}
 	var ref gitObject
-	status, err := c.request(ctx, "GET", c.repoPath("git/ref/heads/"+journalBranch), nil, &ref)
+	status, err := c.request(ctx, "GET", c.repoPath("git/ref/heads/"+branch), nil, &ref)
 	if err != nil {
 		return JournalSnapshot{}, err
 	}
@@ -92,6 +96,10 @@ func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSna
 // SaveJournal commits metadata with a non-forcing CAS ref update. A concurrent
 // writer fails instead of overwriting evidence; replay reloads and reconciles.
 func (c Client) SaveJournal(ctx context.Context, snapshot JournalSnapshot, message string) (string, error) {
+	branch, err := JournalBranch(snapshot.State.Environment)
+	if err != nil || snapshot.State.Repository != c.Repository {
+		return "", fmt.Errorf("invalid or foreign journal identity")
+	}
 	data, err := json.MarshalIndent(snapshot.State, "", "  ")
 	if err != nil {
 		return "", err
@@ -101,7 +109,7 @@ func (c Client) SaveJournal(ctx context.Context, snapshot JournalSnapshot, messa
 		return "", err
 	}
 	if snapshot.Revision == "" {
-		status, err := c.request(ctx, "POST", c.repoPath("git/refs"), map[string]any{"ref": "refs/heads/" + journalBranch, "sha": commit}, nil)
+		status, err := c.request(ctx, "POST", c.repoPath("git/refs"), map[string]any{"ref": "refs/heads/" + branch, "sha": commit}, nil)
 		if err != nil {
 			return "", err
 		}
@@ -109,7 +117,7 @@ func (c Client) SaveJournal(ctx context.Context, snapshot JournalSnapshot, messa
 			return "", fmt.Errorf("journal initialization failed")
 		}
 	} else {
-		status, err := c.request(ctx, "PATCH", c.repoPath("git/refs/heads/"+journalBranch), map[string]any{"sha": commit, "force": false}, nil)
+		status, err := c.request(ctx, "PATCH", c.repoPath("git/refs/heads/"+branch), map[string]any{"sha": commit, "force": false}, nil)
 		if err != nil {
 			return "", err
 		}
@@ -171,4 +179,15 @@ func (c Client) ReadFile(ctx context.Context, path, sha string) ([]byte, error) 
 		return nil, fmt.Errorf("exact release declaration unavailable")
 	}
 	return base64.StdEncoding.DecodeString(file.Content)
+}
+
+// JournalBranch preserves the deployed production journal and isolates every other environment.
+func JournalBranch(environment string) (string, error) {
+	if !ValidEnvironmentName(environment) {
+		return "", fmt.Errorf("unsafe environment journal identity")
+	}
+	if environment == "production" {
+		return journalBranch, nil
+	}
+	return journalBranch + "-" + environment, nil
 }

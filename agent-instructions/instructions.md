@@ -495,3 +495,16 @@ and follow source review and production merge authority. `production-control`
 handles trusted request events; low-level manifests/IDs are not user inputs.
 Verify installed published feature compatibility before assuming these commands
 exist. Source implementation and production activation are different evidence.
+
+# Generic environment lifecycle (schema 2)
+
+For a project using a schema 2 `.mint.yaml`, read
+`docs/references/environment-lifecycle.md` before advising deployment or recovery.
+Use repository **Mint environment control** Actions to choose the environment and
+request promote, hotfix, rollback, resume, observe, or explicit reconciliation.
+An exact target-only policy PR can itself approve a deployment; authority changes
+must be reviewed separately. Keep one updating release PR per reviewed environment.
+Build artifacts once and promote their complete immutable identity, with separate
+runtime configuration. Describe desired, verified, and timestamped observed state
+separately. Package/artifact publishing and machine-local observations do not prove
+shared runtime deployment. Configuration alone never activates an environment.

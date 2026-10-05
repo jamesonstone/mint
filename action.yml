@@ -6,7 +6,7 @@ branding:
   color: yellow
 inputs:
   command:
-    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, production-control, none."
+    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, production-control, deployment-control, none."
     required: false
     default: version
   go-version:
@@ -231,6 +231,9 @@ runs:
             output="$("$MINT_PATH" release resolve --commitish "$MINT_COMMITISH" --github-output "$release_output")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
+          deployment-control)
+            output="$("$MINT_PATH" deployment control --config "$MINT_PRODUCTION_CONFIG" --event "$MINT_EVENT_NAME" --input "$MINT_EVENT_PATH" --run-id "$MINT_RUN_ID" --token-env MINT_GITHUB_TOKEN --api-url "$MINT_GITHUB_API_URL")"
+            ;;
           production-control)
             output="$("$MINT_PATH" release production control --config "$MINT_PRODUCTION_CONFIG" --event "$MINT_EVENT_NAME" --input "$MINT_EVENT_PATH" --run-id "$MINT_RUN_ID" --token-env MINT_GITHUB_TOKEN --api-url "$MINT_GITHUB_API_URL")"
             ;;
@@ -258,7 +261,7 @@ runs:
             output=""
             ;;
           *)
-            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, production-control, none."
+            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, production-control, deployment-control, none."
             exit 2
             ;;
         esac
