@@ -122,7 +122,7 @@ func (c Client) ObservedRun(ctx context.Context, id int64, path string) (Workflo
 	if err != nil {
 		return run, err
 	}
-	if status != 200 || run.ID != id || run.Repository.FullName != c.Repository || run.HeadRepository.FullName != c.Repository || run.Path != path || (run.Event != "push" && run.Event != "workflow_dispatch") {
+	if status != 200 || run.ID != id || run.Repository.FullName != c.Repository || run.HeadRepository.FullName != c.Repository || !WorkflowPathMatches(run.Path, path) || (run.Event != "push" && run.Event != "workflow_dispatch") {
 		return run, fmt.Errorf("workflow run is not a successful trusted build")
 	}
 	return run, nil

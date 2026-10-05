@@ -133,6 +133,9 @@ func (o *productionOperation) intent(ctx context.Context, freeze bool) (any, boo
 	return i, true, err
 }
 func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) {
+	if err := o.config.ValidateBootstrap(); err != nil {
+		return nil, false, err
+	}
 	s := &o.snapshot.State
 	if s.Baseline != nil {
 		return nil, false, fmt.Errorf("production baseline already exists; do not re-import")

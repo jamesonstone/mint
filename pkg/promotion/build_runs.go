@@ -23,7 +23,7 @@ func (c Client) SuccessfulBuilds(ctx context.Context, workflow, branch string) (
 			return nil, fmt.Errorf("successful build discovery unavailable")
 		}
 		for _, run := range list.Runs {
-			if run.HeadBranch == branch && run.Path == workflow && run.Repository.FullName == c.Repository && run.HeadRepository.FullName == c.Repository && run.Status == "completed" && run.Conclusion == "success" && (run.Event == "push" || run.Event == "workflow_dispatch") {
+			if run.HeadBranch == branch && WorkflowPathMatches(run.Path, workflow) && run.Repository.FullName == c.Repository && run.HeadRepository.FullName == c.Repository && run.Status == "completed" && run.Conclusion == "success" && (run.Event == "push" || run.Event == "workflow_dispatch") {
 				result = append(result, run)
 			}
 		}

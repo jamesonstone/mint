@@ -49,7 +49,10 @@ func (c Client) collectHotfixChanges(ctx context.Context, g GitProof, s State, c
 			if len(fields) > 2 && (commit != candidate.SourceSHA || fields[1] != meta.BaselineSHA) {
 				return nil, fmt.Errorf("authored hotfix merged queued or unrelated ancestry")
 			}
-			main, err := g.git(nil, "rev-parse", "origin/main")
+			if g.DefaultBranch == "" {
+				return nil, fmt.Errorf("authored hotfix requires the configured default branch for isolation proof")
+			}
+			main, err := g.git(nil, "rev-parse", "--verify", "refs/remotes/origin/"+g.DefaultBranch)
 			if err != nil {
 				return nil, err
 			}

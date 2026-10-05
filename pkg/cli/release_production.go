@@ -5,20 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jamesonstone/mint/pkg/promotion"
-	"github.com/jamesonstone/mint/pkg/release"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
-	"reflect"
 	"strings"
 )
 
 type productionFlags struct {
-	Config, Input, Output, APIURL, TokenEnv, Kind, Event, IntentID, MergeSHA, Outcome, Summary, Pin string
-	Version, Reason, MintRef                                                                        string
-	Issue, FixPR                                                                                    int
-	RunID                                                                                           int64
-	PR                                                                                              int
+	Config, Input, Output, APIURL, TokenEnv, Kind, Event, IntentID, MergeSHA, Summary, Pin string
+	Version, Reason, MintRef                                                               string
+	Issue, FixPR                                                                           int
+	RunID                                                                                  int64
+	PR                                                                                     int
 }
 type productionOperation struct {
 	config   promotion.Config
@@ -29,38 +27,7 @@ type productionOperation struct {
 }
 
 func init() {
-	names := []string{"status", "candidate", "propose", "validate", "intent", "start", "finish", "published", "bootstrap", "prepare-hotfix", "publish", "version-hotfix", "propose-rollback", "status-pr", "validate-review", "scan", "hotfix", "rollback", "control", "workflow", "report"}
-	group := &cobra.Command{Use: "production", Short: "Reconcile reviewed production proposals and exact deployment intents"}
-	for _, name := range names {
-		var f productionFlags
-		operation := name
-		cmd := &cobra.Command{Use: operation, Short: productionHelp(operation), Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error { return runProduction(cmd, operation, f) }}
-		flags := cmd.Flags()
-		flags.StringVar(&f.Config, "config", ".mint.yaml", "repository-owned release policy")
-		flags.StringVar(&f.Input, "input", "", "typed manifest JSON file")
-		flags.StringVar(&f.Output, "output", "", "write resulting JSON manifest")
-		flags.StringVar(&f.APIURL, "api-url", "https://api.github.com", "GitHub API URL")
-		flags.StringVar(&f.TokenEnv, "token-env", "GH_TOKEN", "job-scoped GitHub credential environment variable")
-		flags.StringVar(&f.Kind, "kind", "normal", "normal or hotfix proposal")
-		flags.StringVar(&f.Event, "event", "candidate", "candidate, close or reopen")
-		flags.StringVar(&f.IntentID, "intent-id", "", "frozen intent identity")
-		flags.StringVar(&f.MergeSHA, "merge-sha", "", "exact reviewed proposal merge SHA")
-		flags.StringVar(&f.Outcome, "outcome", "", "verified success or failure")
-		flags.StringVar(&f.Summary, "summary", "", "manual summary override")
-		flags.StringVar(&f.Pin, "pin", "", "explicit candidate SHA")
-		flags.Int64Var(&f.RunID, "run-id", 0, "server-verified workflow run")
-		flags.StringVar(&f.Version, "to", "", "previously deployed version; default previous verified deployment")
-		flags.StringVar(&f.Reason, "reason", "", "reason for the production recovery request")
-		flags.StringVar(&f.MintRef, "mint-ref", "", "published immutable Mint commit for generated Actions workflow")
-		flags.IntVar(&f.Issue, "issue", 0, "issue for a newly authored production fix")
-		flags.IntVar(&f.FixPR, "fix-pr", 0, "merged reviewed fix PR to isolate from queued main")
-		if operation == "status-pr" {
-			cmd.Deprecated = "use report; outcomes are attached to the original release PR"
-		}
-		flags.IntVar(&f.PR, "pr", 0, "exact trusted proposal/source PR number")
-		group.AddCommand(cmd)
-	}
-	releaseCmd.AddCommand(group)
+	releaseCmd.AddCommand(newProductionCommand())
 }
 func readJSON(path string, value any) error {
 	if path == "" {
@@ -86,6 +53,11 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 	if err != nil {
 		return err
 	}
+	if operation == "bootstrap" {
+		if err := cfg.ValidateBootstrap(); err != nil {
+			return err
+		}
+	}
 	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin}
 	if operation == "workflow" {
 		return writeControlWorkflow(cmd, cfg, f)
@@ -103,7 +75,7 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 	if err != nil {
 		return err
 	}
-	op := productionOperation{config: cfg, client: client, snapshot: snapshot, flags: f, proof: promotion.GitProof{Context: cmd.Context(), WorkDir: workDir}}
+	op := productionOperation{config: cfg, client: client, snapshot: snapshot, flags: f, proof: promotion.GitProof{Context: cmd.Context(), WorkDir: workDir, DefaultBranch: cfg.DefaultBranch}}
 	value, mutated, err := op.execute(cmd.Context(), operation)
 	if err != nil {
 		return err
@@ -150,51 +122,7 @@ func (o *productionOperation) execute(ctx context.Context, operation string) (an
 	case "status":
 		return s, false, nil
 	case "candidate":
-		var c promotion.Candidate
-		if err := o.client.RunManifest(ctx, f.RunID, "mint-candidate", &c); err != nil {
-			return nil, false, err
-		}
-		run, err := o.client.TrustedRun(ctx, f.RunID, o.config.BuildWorkflow)
-		if err != nil {
-			return nil, false, err
-		}
-		if c.Kind == "normal" && run.HeadBranch != o.config.DefaultBranch {
-			return nil, false, fmt.Errorf("normal candidate is not built from default branch")
-		}
-		if (c.Kind == "normal" && run.HeadSHA != c.SourceSHA) || run.ID != c.RunID || run.HeadBranch != o.config.DefaultBranch {
-			return nil, false, fmt.Errorf("candidate does not match successful build")
-		}
-		if err := o.proof.VerifyTag(c.Version, c.SourceSHA); err != nil {
-			return nil, false, err
-		}
-		if prior, exists := s.Candidates[c.SourceSHA]; exists {
-			if c.Repository != prior.Repository || c.Environment != prior.Environment || c.Version != prior.Version || c.Kind != prior.Kind || !reflect.DeepEqual(c.Artifact, prior.Artifact) || c.SourcePR != prior.SourcePR || c.BaselineID != prior.BaselineID {
-				return nil, false, fmt.Errorf("replayed source/build conflicts with immutable candidate")
-			}
-			return prior, false, nil
-		}
-		if c.Kind == "hotfix" {
-			if err := o.client.VerifyHotfixSource(ctx, c, o.config.RequiredChecks); err != nil {
-				return nil, false, err
-			}
-		}
-		identity, err := release.VersionIdentity(ctx, o.proof.WorkDir, c.SourceSHA, o.config.ControlPaths)
-		if err != nil {
-			return nil, false, err
-		}
-		c.ControlOnly = identity.ControlOnly
-		c.RunURL = run.HTMLURL
-		c.SourceDate, err = o.proof.SourceDate(c.SourceSHA)
-		if err != nil {
-			return nil, false, err
-		}
-		changes, err := o.client.CollectChanges(ctx, o.proof, *s, c, o.config.ControlPaths)
-		if err != nil {
-			return nil, false, err
-		}
-		c.Changes = changes
-		e := promotion.BuildEvidence{Repository: run.Repository.FullName, SourceSHA: c.SourceSHA, TagSHA: c.SourceSHA, ArtifactDigest: c.Artifact.Digest, Configuration: c.Artifact.Configuration, RunID: run.ID, Success: true, Trusted: true}
-		return c, true, s.RegisterCandidate(c, e)
+		return o.candidate(ctx)
 	case "propose-rollback":
 		if s.Baseline == nil {
 			return nil, false, fmt.Errorf("verified baseline required")

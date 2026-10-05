@@ -11,9 +11,10 @@ import (
 // GitProof independently verifies ancestry and hotfix patch provenance. The
 // checkout must be the selected source when checking retained shipped patches.
 type GitProof struct {
-	Context   context.Context
-	WorkDir   string
-	TargetSHA string
+	Context       context.Context
+	WorkDir       string
+	TargetSHA     string
+	DefaultBranch string
 }
 
 func (g GitProof) git(input []byte, args ...string) ([]byte, error) {
