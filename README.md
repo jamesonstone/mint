@@ -601,6 +601,44 @@ For recovery, prefer a corrective or revert PR titled `hotfix: ...` or `hotfix(c
 
 This works with any project whose adapters produce immutable build evidence and verify deployment; Mint does not prescribe a language, package manager, artifact store, or runtime. See the [operator and adapter contract](docs/references/production-release-proposals.md) for setup and the [simplification audit](docs/references/mint-simplification-audit.md) for findings. Legacy release commands remain available for repositories using the original lifecycle.
 
+```mermaid
+flowchart TD
+    subgraph normal[Normal release]
+        Code["Merge code PRs"] --> Build["Successful immutable builds"]
+        Build --> Queue["One Release to Production PR<br/>Updates with each eligible build"]
+        Queue -->|Close| Paused["Paused"]
+        Paused -->|Reopen and catch up| Queue
+    end
+
+    subgraph recovery[Production recovery]
+        Recover{"Choose recovery"}
+        Recover -->|"Prefer roll-forward"| Fix["Corrective or revert fix<br/>Hotfix PR title or Actions request"]
+        Fix --> Isolate["Prepare fix against verified production<br/>Keep ordinary queued changes separate"]
+        Isolate --> Source["Review and merge isolated source PR"]
+        Source --> FixBuild["Build exact hotfix source"]
+        FixBuild --> RecoveryPR["Recovery Release to Production PR"]
+        Recover -->|Rollback through Actions| Target["Select retained deployed artifact<br/>Default: previous verified deployment"]
+        Target --> RecoveryPR
+    end
+
+    Queue --> Approval["Review and merge production PR<br/>Freeze the exact artifact selection"]
+    RecoveryPR --> Approval
+    Approval --> Deploy["Project deployment workflow<br/>Promote selected artifact; do not rebuild"]
+    Deploy --> Verified{"Runtime verified?"}
+    Verified -->|"Failed or unknown"| Stop["Inspect and reconcile outcome<br/>Do not advance production history"]
+    Verified -->|Yes| History["Record verified production history"]
+    History --> Kind{"Promotion type?"}
+    Kind -->|"Normal release or hotfix"| Publish["Publish new version"]
+    Kind -->|Rollback| Report["Report outcome on the same production PR"]
+    Publish --> Report
+```
+
+**Roll-forward** ships corrected or reverted code as a new version; an isolated
+**hotfix** is its urgent path. **Rollback** restores a retained verified artifact
+without publishing another version or undoing database changes. Hotfixes must also
+be integrated into the default branch. Failed publication can be retried without
+redeploying; an unknown deployment outcome keeps production locked until reconciled.
+
 The CLI remains available for integrations:
 
 ```sh
