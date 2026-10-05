@@ -92,7 +92,7 @@ func runProduction(cmd *cobra.Command, operation string, f productionFlags) erro
 	if cfg.Schema == 2 && !cfg.Publish && (operation == "publish" || operation == "published") {
 		return fmt.Errorf("publication is disabled for this environment")
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin, Authorization: cfg.Authorization, Assignees: cfg.Assignees}
 	if operation == "workflow" {
 		return writeControlWorkflow(cmd, cfg, f)
 	}

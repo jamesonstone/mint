@@ -89,13 +89,10 @@ func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, ba
 			return none, fmt.Errorf("hotfix source PR creation failed")
 		}
 	}
-	status, err = c.request(ctx, "POST", c.repoPath(fmt.Sprintf("issues/%d/assignees", pull.Number)), map[string]any{"assignees": []string{c.HumanLogin}}, nil)
-	if err != nil {
+	if err := c.assign(ctx, pull.Number); err != nil {
 		return none, err
 	}
-	if status != 201 {
-		return none, fmt.Errorf("hotfix source PR assignment failed")
-	}
+
 	return pull, nil
 }
 

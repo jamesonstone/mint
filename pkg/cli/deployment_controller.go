@@ -27,7 +27,7 @@ func runPolicyControl(cmd *cobra.Command, policy promotion.Policy, f productionF
 	if err := json.Unmarshal(data, &event); err != nil {
 		return err
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees}
 	if err := client.VerifyRepository(cmd.Context()); err != nil {
 		return err
 	}

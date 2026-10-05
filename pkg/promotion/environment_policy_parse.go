@@ -59,6 +59,9 @@ func policyDocument(data []byte) (*yaml.Node, error) {
 	if err := validatePolicyNode(document.Content[0]); err != nil {
 		return nil, err
 	}
+	if err := validateAuthorizationNodes(document.Content[0]); err != nil {
+		return nil, err
+	}
 	return document.Content[0], nil
 }
 func validatePolicyNode(node *yaml.Node) error {
@@ -92,10 +95,13 @@ func validatePolicyNode(node *yaml.Node) error {
 }
 
 func (p *Policy) validate() error {
+	if err := validateAuthorization(p.Authorization, p.HumanLogin, p.Assignees); err != nil {
+		return err
+	}
 	if p.Mode != "deployment" && p.Mode != "artifact" && p.Mode != "package" {
 		return fmt.Errorf("policy mode must be deployment, artifact or package")
 	}
-	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(p.Repository) || !SafeRepositoryPath(p.DefaultBranch) || !regexp.MustCompile(`^[A-Za-z0-9-]+$`).MatchString(p.HumanLogin) || p.BuildWorkflow == "" || len(p.Environments) == 0 {
+	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(p.Repository) || !SafeRepositoryPath(p.DefaultBranch) || p.BuildWorkflow == "" || len(p.Environments) == 0 {
 		return fmt.Errorf("incomplete environment release policy")
 	}
 	for _, workflow := range []string{p.BuildWorkflow, p.ValidationWorkflow, p.ControlWorkflow, p.BaselineWorkflow, p.BaselineBuildWorkflow} {

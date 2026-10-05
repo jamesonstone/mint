@@ -23,7 +23,7 @@ func advanceReconciledQueueWith(cmd *cobra.Command, cfg promotion.Config, f prod
 	if intent.ID == "" || intent.Environment != cfg.Environment {
 		return fmt.Errorf("reconciled queue intent differs from environment")
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: cfg.Repository, HumanLogin: cfg.HumanLogin, Authorization: cfg.Authorization, Assignees: cfg.Assignees}
 	snapshot, err := client.LoadJournal(cmd.Context(), cfg.Environment)
 	if err != nil {
 		return err

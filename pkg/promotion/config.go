@@ -29,7 +29,9 @@ type Config struct {
 	Repository            string   `yaml:"repository"`
 	Environment           string   `yaml:"environment"`
 	DefaultBranch         string   `yaml:"default_branch"`
-	HumanLogin            string   `yaml:"human_login"`
+	HumanLogin            string   `yaml:"human_login,omitempty"`
+	Authorization         string   `yaml:"authorization,omitempty" json:"Authorization,omitempty"`
+	Assignees             []string `yaml:"assignees,omitempty" json:"Assignees,omitempty"`
 	BuildWorkflow         string   `yaml:"build_workflow"`
 	ValidationWorkflow    string   `yaml:"validation_workflow"`
 	BaselineWorkflow      string   `yaml:"baseline_workflow"`
@@ -59,8 +61,11 @@ func parseLegacyConfig(data []byte) (Config, error) {
 	if decoder.Decode(new(any)) != io.EOF {
 		return cfg, fmt.Errorf("release policy must contain exactly one YAML document")
 	}
-	if cfg.Schema != 1 || !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(cfg.Repository) || cfg.Environment != "production" || cfg.DefaultBranch == "" || cfg.HumanLogin == "" || cfg.BuildWorkflow == "" || cfg.ValidationWorkflow == "" || cfg.PromotionWorkflow == "" || len(cfg.RequiredChecks) == 0 {
+	if cfg.Schema != 1 || !regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`).MatchString(cfg.Repository) || cfg.Environment != "production" || cfg.DefaultBranch == "" || cfg.BuildWorkflow == "" || cfg.ValidationWorkflow == "" || cfg.PromotionWorkflow == "" || len(cfg.RequiredChecks) == 0 {
 		return cfg, fmt.Errorf("incomplete production release policy")
+	}
+	if err := validateAuthorization(cfg.Authorization, cfg.HumanLogin, cfg.Assignees); err != nil {
+		return cfg, err
 	}
 	if !ValidWorkflowPath(cfg.ControlWorkflowPath()) {
 		return cfg, fmt.Errorf("control_workflow must be a YAML file directly under .github/workflows")

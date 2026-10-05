@@ -50,7 +50,7 @@ func (c Client) EnsureHotfixRequestIssue(ctx context.Context, pr PullRequest, ba
 	}
 	var issue struct{ Number int }
 	body := marker + "\n" + baseMarker + "\n\nIsolate reviewed fix [#" + fmt.Sprint(pr.Number) + "](https://github.com/" + c.Repository + "/pull/" + fmt.Sprint(pr.Number) + ") against production `" + baseline.Candidate.Version + "`.\n\nReason: " + escapeMarkdown(reason) + "\n\nPreparation does not approve, merge, or deploy."
-	status, err := c.request(ctx, "POST", c.repoPath("issues"), map[string]any{"title": fmt.Sprintf("Production hotfix for PR #%d", pr.Number), "body": body, "assignees": []string{c.HumanLogin}}, &issue)
+	status, err := c.request(ctx, "POST", c.repoPath("issues"), c.withAssignments(map[string]any{"title": fmt.Sprintf("Production hotfix for PR #%d", pr.Number), "body": body, "assignees": c.assignmentLogins()}), &issue)
 	if err != nil {
 		return 0, err
 	}

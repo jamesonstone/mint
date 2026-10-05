@@ -24,7 +24,7 @@ func runBuildCallback(cmd *cobra.Command, policy promotion.Policy, f productionF
 	if event.WorkflowRun.ID <= 0 {
 		return fmt.Errorf("producer callback lacks a workflow run")
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees}
 	names := make([]string, 0, len(policy.Environments))
 	for name := range policy.Environments {
 		names = append(names, name)

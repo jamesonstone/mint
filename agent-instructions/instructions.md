@@ -508,3 +508,10 @@ Build artifacts once and promote their complete immutable identity, with separat
 runtime configuration. Describe desired, verified, and timestamped observed state
 separately. Package/artifact publishing and machine-local observations do not prove
 shared runtime deployment. Configuration alone never activates an environment.
+
+For team ownership, use `authorization: repository-write` rather than a personal
+`human_login`. Mint verifies current effective GitHub write access (including teams)
+for human requests and independent review. Optional `assignees` only route work;
+they never grant authority. Legacy named-operator policies keep their restrictions.
+Review an authorization migration separately from a deployment request, and pin a
+published release that supports the new fields before changing consumer policies.

@@ -14,8 +14,9 @@ import (
 
 // Client is the authenticated GitHub transport. Credentials are environment-only.
 type Client struct {
-	APIURL, Token, Repository, HumanLogin string
-	HTTP                                  *http.Client
+	APIURL, Token, Repository, HumanLogin, Authorization string
+	Assignees                                            []string
+	HTTP                                                 *http.Client
 }
 
 func (c Client) request(ctx context.Context, method, path string, body, out any) (int, error) {
@@ -88,10 +89,10 @@ func (c Client) VerifyRepository(ctx context.Context) error {
 const AutomationLogin = "github-actions[bot]"
 const AutomationEmail = "41898282+github-actions[bot]@users.noreply.github.com"
 
-// IsReleaseAuthor allows only the designated human and built-in Actions identity
-// for generated release controls. It never authorizes application source changes.
+// IsReleaseAuthor accepts a policy-authorized human or the built-in Actions
+// identity for generated controls. It never authorizes application source changes.
 func (c Client) IsReleaseAuthor(login string) bool {
-	return login == AutomationLogin || (c.HumanLogin != "" && login == c.HumanLogin)
+	return login == AutomationLogin || c.AuthorizeHuman(context.Background(), login) == nil
 }
 
 // WorkflowRun contains server-attested run identity and conclusion.
