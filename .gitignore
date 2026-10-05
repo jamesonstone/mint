@@ -45,3 +45,6 @@ bin/
 .kit/temp/
 .kit/*.tmp
 .kit/*.lock
+
+# Python companion bytecode
+__pycache__/

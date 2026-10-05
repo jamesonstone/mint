@@ -19,6 +19,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test ./...
+      - run: python3 -m unittest discover -s adapters/tests -v
       - run: go vet ./...
       - run: make build
       - name: Check Go formatting

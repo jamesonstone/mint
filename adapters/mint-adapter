@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+adapter_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+case "${1:-}" in
+  event) helper=mint-control.py ;;
+  manifest) helper=mint-manifest.py ;;
+  *) echo "usage: mint-adapter {event|manifest} operation [arguments]" >&2; exit 2 ;;
+esac
+shift
+exec python3 "$adapter_dir/$helper" "$@"

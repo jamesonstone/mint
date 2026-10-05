@@ -40,6 +40,10 @@ documents.
   implementation of Mint behavior.
 - Workflow-generation features may emit shell or YAML, but the validation and
   decision logic must remain in Go where it can be tested.
+- Schema 1 Actions compatibility adapters may route events and serialize provider
+  manifests in Python, but must delegate lifecycle eligibility and journal changes
+  to the Go CLI. Native Go authenticates the active workflow; providers establish
+  runtime evidence. This exception does not extend to the schema 2 controller.
 - User-facing commands should remain script-friendly: deterministic stdout,
   explicit flags, clear errors, and no hidden interactive prompts unless a
   future spec requires them.

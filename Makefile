@@ -19,6 +19,7 @@ install-git-hooks:
 
 test:
 	go test -v ./...
+	python3 -m unittest discover -s adapters/tests -v
 
 lint:
 	golangci-lint run ./...
