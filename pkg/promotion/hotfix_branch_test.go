@@ -40,15 +40,23 @@ func TestAuthoredHotfixIsolationUsesConfiguredDefaultBranch(t *testing.T) {
 	queued := git("rev-parse", "HEAD")
 	git("update-ref", "refs/remotes/origin/trunk", queued)
 	git("checkout", "-b", "production-fix", base)
+	metadata, err := json.Marshal(map[string]any{"baseline_id": "production-1", "baseline_sha": base, "fixes": []string{}, "patch_ids": []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, ".mint"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".mint/hotfix.json"), metadata, 0600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", ".mint/hotfix.json")
+	git("commit", "-m", "chore: prepare isolated correction")
 	if err := os.WriteFile(file, []byte("production fix"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	git("commit", "-am", "fix: isolated correction")
 	isolated := git("rev-parse", "HEAD")
-	metadata, err := json.Marshal(map[string]any{"baseline_id": "production-1", "baseline_sha": base, "fixes": []string{}, "patch_ids": []string{}})
-	if err != nil {
-		t.Fatal(err)
-	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/contents/.mint/hotfix.json") {
 			t.Error("unexpected request", r.URL.Path)
