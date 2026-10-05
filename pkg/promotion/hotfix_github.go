@@ -68,7 +68,7 @@ func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, ba
 	}
 	if source.Conflict {
 		body += "\nPreparation encountered conflicts. The branch contains the complete request metadata and verified production base; partial fixes have not been committed.\n\n"
-		body += "Check out [the recovery branch](https://github.com/" + c.Repository + "/tree/" + source.Branch + ") and apply all requested fixes listed above, resolving conflicts against production. Preserve `.mint/hotfix.json`, commit the application changes, and push to this branch. Required CI will reject the metadata-only branch until the intended application patch is present. Review the completed source PR before merging.\n"
+		body += "Check out [the recovery branch](https://github.com/" + c.Repository + "/tree/" + source.Branch + ") and apply all requested fixes listed above, resolving conflicts against production. Preserve `.mint/hotfix.json`, commit the complete resolved application patch once, and push normally to this branch. Do not amend the published preparation commit or merge queued default-branch changes. Required CI will reject the metadata-only branch until the intended application patch is present. The actual resolved patch requires independent source review and becomes the shipped provenance; it is not credited as an unchanged original fix. Review the completed source PR before merging.\n"
 	}
 	if len(source.Fixes) == 0 {
 		body += "Author only the intended fix on this branch. The baseline metadata alone is not an eligible application artifact.\n"

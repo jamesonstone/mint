@@ -132,34 +132,6 @@ func (o *productionOperation) intent(ctx context.Context, freeze bool) (any, boo
 	i, err := s.FreezeIntent(p, d.Candidate, pr.MergeSHA)
 	return i, true, err
 }
-func (o *productionOperation) finish(ctx context.Context) (any, bool, error) {
-	s := &o.snapshot.State
-	f := o.flags
-	i, ok := s.Intents[f.IntentID]
-	if !ok {
-		return nil, false, fmt.Errorf("unknown deployment intent")
-	}
-	run, err := o.client.ObservedRun(ctx, f.RunID, o.config.PromotionWorkflow)
-	if err != nil {
-		return nil, false, err
-	}
-	if run.Status != "completed" || run.HeadSHA != i.MergeSHA || i.DeploymentRunID != run.ID {
-		return nil, false, fmt.Errorf("deployment run does not identify the frozen intent")
-	}
-	outcome := "failure"
-	if run.Conclusion == "success" {
-		var manifest promotion.DeploymentManifest
-		if err := o.client.RunManifest(ctx, f.RunID, "mint-deployment", &manifest); err != nil {
-			return nil, false, err
-		}
-		if !manifest.Verified || manifest.IntentID != i.ID || manifest.SourceSHA != i.Candidate.SourceSHA || manifest.ArtifactDigest != i.Candidate.Artifact.Digest || manifest.Configuration != i.Candidate.Artifact.Configuration {
-			return nil, false, fmt.Errorf("deployment manifest failed exact artifact verification")
-		}
-		outcome = "success"
-	}
-	err = s.FinishDeployment(i.ID, outcome, run.HTMLURL, o.proof)
-	return s.Intents[i.ID], true, err
-}
 func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) {
 	s := &o.snapshot.State
 	if s.Baseline != nil {
