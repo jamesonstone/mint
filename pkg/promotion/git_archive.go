@@ -34,6 +34,11 @@ func (g GitProof) materialize(target string) (string, func(), error) {
 			cleanup()
 			return "", func() {}, err
 		}
+		// Git emits PAX metadata (including its commit ID). It is not a
+		// filesystem entry; tar.Reader applies any metadata to later headers.
+		if header.Typeflag == tar.TypeXGlobalHeader || header.Typeflag == tar.TypeXHeader {
+			continue
+		}
 		path := filepath.Clean(header.Name)
 		if filepath.IsAbs(path) || path == ".." || strings.HasPrefix(path, ".."+string(filepath.Separator)) {
 			cleanup()

@@ -63,7 +63,7 @@ configuration hash and build. Never re-import to erase a failed/unknown intent.
 6. Adapter promotes and verifies exact digest, configuration and running source;
    upload only `mint-deployment.json` as `mint-deployment`. A separate trusted
    completion workflow calls `finish --intent-id ID --run-id ID`. Unknown outcomes
-   keep the lock. Failed/cancelled runs keep the previous production baseline.
+   keep the lock. Failed/cancelled runs retain the deployment fence unless a digest-attested `mint-deployment` manifest verifies the unchanged prior baseline with `outcome: unchanged`; only then is a failed attempt safely finalized.
 7. `publish --intent-id ID` publishes canonical notes and `mint-production.json`
    only after success is durable. A publication retry cannot redeploy. Conflicting
    existing tags, notes or manifests fail closed. `report --intent-id ID` attaches an idempotent machine-owned outcome comment

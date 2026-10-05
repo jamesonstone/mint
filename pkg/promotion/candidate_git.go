@@ -85,21 +85,7 @@ func (c Client) CollectChanges(ctx context.Context, g GitProof, s State, candida
 				change.PR = pr.Number
 			}
 		}
-		reverse, reverseErr := g.git(nil, "diff", sha, sha+"^", "--", ".", ":(exclude).mint")
-		if reverseErr == nil {
-			ids, idErr := g.git(reverse, "patch-id", "--stable")
-			if idErr == nil {
-				parts := strings.Fields(string(ids))
-				if len(parts) > 0 {
-					for _, shipped := range s.Baseline.Shipped {
-						if shipped.PatchID == parts[0] {
-							change.Revert = true
-							change.Reverts = shipped.PatchID
-						}
-					}
-				}
-			}
-		}
+		attributeReviewedRevert(g, s, &change)
 		changes = append(changes, change)
 	}
 	return changes, nil

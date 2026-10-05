@@ -347,3 +347,6 @@ Research and simplify the existing production workflow across project types. Kee
 - Publish a short public workflow explanation and a ranked research note including deferred opportunities and reasons. No production activation or downstream Kit changes.
 
 Portability validation also binds authored hotfix queued-history checks to the configured default branch, and accepts GitHub REST workflow `path@ref` qualification without relaxing run provenance. Control workflow destinations must be top-level YAML files under `.github/workflows`.
+## Pre-merge adversarial recovery corrections — 2026-10-05
+
+Resolved cherry-pick conflicts must have reviewed baseline-isolated provenance and actual resolved application patch identity, without rewriting published source history. Hotfix revert events use independently computed inverse patch IDs to allow deliberate removal of shipped fixes. Completed adapter failures/cancellation never release the production fence solely from Actions conclusion: verified evidence must prove the prior baseline is still running before recording a safe failed attempt. Missing/partial/unknown runtime evidence retains the fence.
