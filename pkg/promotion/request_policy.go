@@ -63,29 +63,58 @@ func (c Client) PolicyParent(ctx context.Context, sha string) (string, error) {
 // CheckPolicyRequestSource compares authority before the entire reviewed PR,
 // as well as before its final merge commit. Rebase merges must not smuggle an
 // earlier authority change into the apparent parent of the final target edit.
-func (c Client) CheckPolicyRequestSource(ctx context.Context,pr PullRequest,path string,before Policy,environment string) error {
- commits,err:=c.hotfixPRCommits(ctx,pr.Number)
- if err!=nil { return err }
- if len(commits)==0 { return fmt.Errorf("reviewed policy request has no provable source history") }
- var first struct { SHA string; Parents []struct{SHA string} }
- status,err:=c.request(ctx,"GET",c.repoPath("git/commits/"+commits[0]),nil,&first)
- if err!=nil { return err }
- if status!=200 || first.SHA!=commits[0] || len(first.Parents)!=1 || !shaPattern.MatchString(first.Parents[0].SHA) { return fmt.Errorf("ambiguous policy request base; create a fresh target-only PR from the current default branch") }
- oldData,err:=c.ReadFile(ctx,path,first.Parents[0].SHA)
- if err!=nil { return err }
- newData,err:=c.ReadFile(ctx,path,pr.Head.SHA)
- if err!=nil { return err }
- sourceBefore,err:=ParsePolicy(oldData)
- if err!=nil { return err }
- sourceAfter,err:=ParsePolicy(newData)
- if err!=nil { return err }
- name,err:=PolicyRequestEnvironment(sourceBefore,sourceAfter)
- if err!=nil || name!=environment { return fmt.Errorf("whole reviewed PR changes deployment authority or a different request") }
- left,right:=sourceBefore,before
- left.Environments=make(map[string]EnvironmentPolicy,len(sourceBefore.Environments))
- right.Environments=make(map[string]EnvironmentPolicy,len(before.Environments))
- for name,env:=range sourceBefore.Environments { env.Target,env.Follow,env.Operation,env.Reason="","","","";left.Environments[name]=env }
- for name,env:=range before.Environments { env.Target,env.Follow,env.Operation,env.Reason="","","","";right.Environments[name]=env }
- if !reflect.DeepEqual(left,right) { return fmt.Errorf("policy authority changed within or since the reviewed PR; create and review a fresh target-only request") }
- return nil
+func (c Client) CheckPolicyRequestSource(ctx context.Context, pr PullRequest, path string, before Policy, environment string) error {
+	commits, err := c.hotfixPRCommits(ctx, pr.Number)
+	if err != nil {
+		return err
+	}
+	if len(commits) == 0 {
+		return fmt.Errorf("reviewed policy request has no provable source history")
+	}
+	var first struct {
+		SHA     string
+		Parents []struct{ SHA string }
+	}
+	status, err := c.request(ctx, "GET", c.repoPath("git/commits/"+commits[0]), nil, &first)
+	if err != nil {
+		return err
+	}
+	if status != 200 || first.SHA != commits[0] || len(first.Parents) != 1 || !shaPattern.MatchString(first.Parents[0].SHA) {
+		return fmt.Errorf("ambiguous policy request base; create a fresh target-only PR from the current default branch")
+	}
+	oldData, err := c.ReadFile(ctx, path, first.Parents[0].SHA)
+	if err != nil {
+		return err
+	}
+	newData, err := c.ReadFile(ctx, path, pr.Head.SHA)
+	if err != nil {
+		return err
+	}
+	sourceBefore, err := ParsePolicy(oldData)
+	if err != nil {
+		return err
+	}
+	sourceAfter, err := ParsePolicy(newData)
+	if err != nil {
+		return err
+	}
+	name, err := PolicyRequestEnvironment(sourceBefore, sourceAfter)
+	if err != nil || name != environment {
+		return fmt.Errorf("whole reviewed PR changes deployment authority or a different request")
+	}
+	left, right := sourceBefore, before
+	left.Environments = make(map[string]EnvironmentPolicy, len(sourceBefore.Environments))
+	right.Environments = make(map[string]EnvironmentPolicy, len(before.Environments))
+	for name, env := range sourceBefore.Environments {
+		env.Target, env.Follow, env.Operation, env.Reason = "", "", "", ""
+		left.Environments[name] = env
+	}
+	for name, env := range before.Environments {
+		env.Target, env.Follow, env.Operation, env.Reason = "", "", "", ""
+		right.Environments[name] = env
+	}
+	if !reflect.DeepEqual(left, right) {
+		return fmt.Errorf("policy authority changed within or since the reviewed PR; create and review a fresh target-only request")
+	}
+	return nil
 }
