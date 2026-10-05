@@ -98,3 +98,12 @@ See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 ## LAST UPDATED
 
 2026-07-02 17:25:34 EDT
+
+### production-release-proposals
+
+- **STATUS**: source implementation and native validation; delivery in progress
+- **PAUSED**: no
+- **INTENT**: Separate source tags from reviewed production promotion and publication.
+- **APPROACH**: Pure lifecycle engine, Git/GitHub evidence adapters, CAS journal, exact artifact manifests, controlled proposals, hotfix provenance and rollback history.
+- **OPEN ITEMS**: Actions-first hosted checks; published feature release; downstream adoption of the request workflow and latest pin; verified production baseline imports. No production activation observed.
+- **POINTERS**: `docs/specs/0009-production-release-proposals/SPEC.md`, `docs/references/production-release-proposals.md`, `docs/programs/production-release-proposals/PROGRAM.md`

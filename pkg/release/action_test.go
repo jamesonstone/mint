@@ -21,6 +21,13 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 
 	action := string(data)
 	for _, want := range []string{
+		"production-control",
+		"MINT_EVENT_PATH",
+		"MINT_EVENT_NAME",
+		"MINT_RUN_ID",
+		"release production control --config",
+		"--input \"$MINT_EVENT_PATH\"",
+		"--token-env MINT_GITHUB_TOKEN",
 		"release-resolve",
 		"release-select-tag",
 		"release-tag",
