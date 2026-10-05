@@ -27,7 +27,7 @@ func runAdapterCallbackWith(cmd *cobra.Command, policy promotion.Policy, f produ
 	if event.WorkflowRun.ID <= 0 {
 		return false, fmt.Errorf("adapter callback lacks a workflow run")
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees}
 	source, err := client.WorkflowRunIdentity(cmd.Context(), event.WorkflowRun.ID)
 	if err != nil {
 		return false, err

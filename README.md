@@ -44,6 +44,10 @@ CLI principles:
 - 🧱 project-owned Docker/GHCR/ECR/deployment boundaries
 - 🧩 public GitHub Action integration that keeps `mint` as the core CLI
 
+Team-owned lifecycle policies use `authorization: repository-write`, with optional
+separate `assignees`. Mint checks effective GitHub repository access instead of
+requiring one personal operator. See the [authorization contract](docs/references/environment-lifecycle.md#team-ownership-and-request-authority).
+
 ## Agent Instructions
 
 Coding agents should use

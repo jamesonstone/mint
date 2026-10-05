@@ -24,8 +24,10 @@ until the upstream release exists, approvals are granted, and adapters are teste
 
 Use job-scoped `GITHUB_TOKEN`, exposed as `GH_TOKEN` for Mint and gh. Installation
 credentials are checked against the configured repository, never `GET /user`.
-Generated release controls allow only the designated human or `github-actions[bot]`;
-application source authorship and independent human review remain governed.
+Legacy `human_login` policies allow only the designated human or `github-actions[bot]`
+for generated controls. Team policies instead use `authorization: repository-write`
+with optional separate `assignees`; see the environment lifecycle reference.
+Application source authorship and independent human review remain governed.
 The control job needs contents/issues/pull-requests/Actions write and checks read.
 Version/build jobs need contents write and Actions/pull-requests/checks read.
 Intent freezing needs contents write and Actions/pull-requests/checks read; native
@@ -114,7 +116,7 @@ mint release production workflow --mint-ref "$PUBLISHED_MINT_SHA" \
 That is the default trusted controller path. A custom filename must also set
 `control_workflow` to its exact `.github/workflows/...` path in `.mint.yaml`.
 The Action's `production-control` command authenticates the active default-branch
-workflow, configured human operator, repository, and event against GitHub.
+workflow, repository, event and configured actor authorization against GitHub.
 It reads request inputs as data; it never executes issue/PR text as code.
 The generated workflow defaults to hotfix and remains behind
 `MINT_RELEASE_ENABLED`. Installing it does not activate production or change

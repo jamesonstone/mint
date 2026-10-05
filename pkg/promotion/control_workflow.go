@@ -13,7 +13,7 @@ func RenderControlWorkflow(cfg Config, mintRef string, configPaths ...string) (s
 	if !shaPattern.MatchString(mintRef) {
 		return "", fmt.Errorf("use a published feature-bearing Mint commit SHA")
 	}
-	if !regexp.MustCompile(`^[A-Za-z0-9-]+$`).MatchString(cfg.HumanLogin) {
+	if err := validateAuthorization(cfg.Authorization, cfg.HumanLogin, cfg.Assignees); err != nil {
 		return "", fmt.Errorf("invalid control operator login")
 	}
 	if !ValidWorkflowPath(cfg.ControlWorkflowPath()) {
@@ -28,6 +28,10 @@ func RenderControlWorkflow(cfg Config, mintRef string, configPaths ...string) (s
 	}
 	if !SafeRepositoryPath(configPath) {
 		return "", fmt.Errorf("configuration path must be a safe repository-relative file path")
+	}
+	actorGate := ""
+	if cfg.Authorization == "" {
+		actorGate = " && github.actor == '" + cfg.HumanLogin + "'"
 	}
 	return fmt.Sprintf(`name: Production release control
 on:
@@ -68,7 +72,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   request:
-    if: vars.MINT_RELEASE_ENABLED == 'true' && github.actor == '%s'
+    if: vars.MINT_RELEASE_ENABLED == 'true'%s
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -85,7 +89,7 @@ jobs:
           command: production-control
           production-config: '%s'
           github-token: ${{ github.token }}
-`, cfg.HumanLogin, mintRef, configPath), nil
+`, actorGate, mintRef, configPath), nil
 }
 
 // SafeRepositoryPath excludes traversal, absolute paths and Actions expressions

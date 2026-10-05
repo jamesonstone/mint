@@ -14,6 +14,20 @@ func AuthorityDigest(cfg Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if cfg.Assignees != nil {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(data, &fields); err != nil {
+			return "", err
+		}
+		fields["Assignees"], err = json.Marshal(cfg.Assignees)
+		if err != nil {
+			return "", err
+		}
+		data, err = json.Marshal(fields)
+		if err != nil {
+			return "", err
+		}
+	}
 	return fmt.Sprintf("sha256:%x", sha256.Sum256(data)), nil
 }
 

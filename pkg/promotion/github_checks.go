@@ -2,6 +2,7 @@ package promotion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -112,6 +113,14 @@ func (c Client) CheckHead(ctx context.Context, pr PullRequest, required []string
 			return fmt.Errorf("review changes remain requested")
 		}
 		if !strings.HasSuffix(actor, "[bot]") && actor != pr.User.Login && review.State == "APPROVED" && review.Commit == pr.Head.SHA {
+			if c.Authorization != "" {
+				if err := c.AuthorizeHuman(ctx, actor); err != nil {
+					if errors.Is(err, ErrInsufficientRepositoryPermission) {
+						continue
+					}
+					return err
+				}
+			}
 			approved = true
 		}
 	}

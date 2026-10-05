@@ -41,8 +41,8 @@ func (c Client) CheckProposalFiles(ctx context.Context, number int, allowed []st
 	return nil
 }
 
-// VerifyIssue requires a human-owned request or an authenticated generated
-// hotfix tracking issue. Both must be open and assigned to the configured human.
+// VerifyIssue requires an open authorized human request or authenticated
+// generated tracking issue. Legacy policies additionally require human assignment.
 func (c Client) VerifyIssue(ctx context.Context, number int, human string) error {
 	var issue struct {
 		Number      int
@@ -57,8 +57,11 @@ func (c Client) VerifyIssue(ctx context.Context, number int, human string) error
 		return err
 	}
 	generated := issue.User.Login == AutomationLogin && regexp.MustCompile(`^<!-- mint:hotfix-request:[1-9][0-9]*:[a-f0-9]{40} -->\n<!-- mint:hotfix-baseline:[^\n<>]+ -->\n`).MatchString(issue.Body)
-	if status != 200 || issue.Number != number || issue.State != "open" || issue.PullRequest != nil || (issue.User.Login != human && !generated) {
+	if status != 200 || issue.Number != number || issue.State != "open" || issue.PullRequest != nil || (!generated && ((c.Authorization == "" && issue.User.Login != human) || (c.Authorization != "" && c.AuthorizeHuman(ctx, issue.User.Login) != nil))) {
 		return fmt.Errorf("hotfix issue is not an open human-owned request")
+	}
+	if c.Authorization != "" {
+		return nil
 	}
 	for _, assignee := range issue.Assignees {
 		if assignee.Login == human {

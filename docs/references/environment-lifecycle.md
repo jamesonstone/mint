@@ -28,7 +28,7 @@ mode: deployment
 repository: owner/application
 default_environment: live
 default_branch: main
-human_login: operator
+authorization: repository-write
 build_workflow: .github/workflows/build.yaml
 validation_workflow: .github/workflows/checks.yaml
 control_workflow: .github/workflows/mint-environments.yaml
@@ -77,6 +77,41 @@ existing publication implementation. For deployment projects, select at most one
 shared environment with `publish: true` as the canonical release publisher; other
 environments deploy without independently publishing the same version. Schema 1
 production policy and the existing command namespace remain supported.
+
+## Team ownership and request authority
+
+Use `authorization: repository-write` for a team-owned project. Mint checks the
+actor's current effective repository permission with GitHub: write, maintain or
+admin access permits a human request. Team-derived repository access is included;
+read/triage access, bots and unavailable or mismatched permission evidence do not
+permit requests. Mint still authenticates the active default-branch controller run,
+exact PR head, required checks and independent human review. In this mode the
+reviewer must also have repository write access and must not be the PR author.
+
+Assignment is optional and independent:
+
+```yaml
+authorization: repository-write
+# Optional routing only; this does not grant deployment authority.
+assignees: [release-coordinator]
+```
+
+Omit `assignees` for an unassigned team workflow, or use `assignees: []` to request
+no assignment explicitly. No personal login is needed. GitHub team access manages
+who can act; Mint does not create memberships or modify repository permissions.
+
+Existing `human_login` policies retain their named-operator authorization and,
+unless assignment is specified separately, their existing assignee. Do not combine
+`human_login` with `authorization`. Migrating to repository permissions is a
+reviewed authority change, not a target-only deployment request. Both schema 1 and
+schema 2 accept the new policy in the feature-bearing release; an older Mint pin
+must be upgraded before removing its required `human_login` field.
+
+The [GitHub permission API](https://docs.github.com/en/rest/collaborators/collaborators#get-repository-permissions-for-a-user)
+reports effective access across repository, team, organization and enterprise
+grants. Mint uses the base permission, so a custom role with base write access is
+supported without hard-coding the organization's role names. Its API lookup needs
+repository Metadata read, available to repository installation credentials.
 
 ## Everyday interaction and recovery
 

@@ -72,7 +72,7 @@ func (c Client) EnsureProposalIssue(ctx context.Context, p Proposal) (int, error
 		}
 	}
 	var issue struct{ Number int }
-	status, err := c.request(ctx, "POST", c.repoPath("issues"), map[string]any{"title": "Production release proposal " + p.Kind, "body": marker + "\nTracks a reviewed exact production selection. Closing the associated release PR pauses it.", "assignees": []string{c.HumanLogin}}, &issue)
+	status, err := c.request(ctx, "POST", c.repoPath("issues"), c.withAssignments(map[string]any{"title": "Production release proposal " + p.Kind, "body": marker + "\nTracks a reviewed exact production selection. Closing the associated release PR pauses it.", "assignees": c.assignmentLogins()}), &issue)
 	if err != nil {
 		return 0, err
 	}
@@ -213,12 +213,9 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 	p.PR = pr.Number
 	p.HeadSHA = head
 	s.Proposals[p.Kind] = p
-	status, err = c.request(ctx, "POST", c.repoPath(fmt.Sprintf("issues/%d/assignees", p.PR)), map[string]any{"assignees": []string{c.HumanLogin}}, nil)
-	if err != nil {
+	if err := c.assign(ctx, p.PR); err != nil {
 		return p, err
 	}
-	if status != 201 {
-		return p, fmt.Errorf("proposal assignment failed")
-	}
+
 	return p, nil
 }

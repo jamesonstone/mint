@@ -41,10 +41,11 @@ func (c Client) AuthorizeControlRun(ctx context.Context, cfg Config, id int64, e
 	if err != nil {
 		return err
 	}
-	if status != 200 || run.ID != id || !WorkflowPathMatches(run.Path, cfg.ControlWorkflowPath()) || run.Event != event || run.Status != "in_progress" || run.HeadBranch != cfg.DefaultBranch || run.Repository.FullName != cfg.Repository || run.HeadRepository.FullName != cfg.Repository || run.Actor.Login != cfg.HumanLogin {
+	if status != 200 || run.ID != id || !WorkflowPathMatches(run.Path, cfg.ControlWorkflowPath()) || run.Event != event || run.Status != "in_progress" || run.HeadBranch != cfg.DefaultBranch || run.Repository.FullName != cfg.Repository || run.HeadRepository.FullName != cfg.Repository {
 		return fmt.Errorf("request is not an authorized active default-branch control run")
 	}
-	return nil
+	c.Authorization, c.HumanLogin = cfg.Authorization, cfg.HumanLogin
+	return c.AuthorizeHuman(ctx, run.Actor.Login)
 }
 
 // ControlEvent reads only typed request fields, then fetches authoritative PR

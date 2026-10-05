@@ -12,7 +12,9 @@ type Policy struct {
 	Mode                  string                       `yaml:"mode"`
 	Repository            string                       `yaml:"repository"`
 	DefaultBranch         string                       `yaml:"default_branch"`
-	HumanLogin            string                       `yaml:"human_login"`
+	HumanLogin            string                       `yaml:"human_login,omitempty"`
+	Authorization         string                       `yaml:"authorization,omitempty" json:"Authorization,omitempty"`
+	Assignees             []string                     `yaml:"assignees,omitempty" json:"Assignees,omitempty"`
 	BuildWorkflow         string                       `yaml:"build_workflow"`
 	ValidationWorkflow    string                       `yaml:"validation_workflow,omitempty"`
 	ControlWorkflow       string                       `yaml:"control_workflow,omitempty"`
@@ -91,9 +93,9 @@ func (p Policy) ForEnvironment(name string) (Config, error) {
 	if baselineBuild == "" {
 		baselineBuild = p.BuildWorkflow
 	}
-	return Config{Operation: env.Operation, Reason: env.Reason, Schema: p.Schema, Mode: p.Mode, Repository: p.Repository, Environment: name, DefaultBranch: p.DefaultBranch, HumanLogin: p.HumanLogin, BuildWorkflow: p.BuildWorkflow, ValidationWorkflow: validation, ControlWorkflow: p.ControlWorkflow, BaselineWorkflow: baseline, BaselineBuildWorkflow: baselineBuild, PromotionWorkflow: env.PromotionWorkflow, ObservationWorkflow: env.ObservationWorkflow, RequiredChecks: append([]string(nil), checks...), ControlPaths: append([]string(nil), p.ControlPaths...), Scope: env.Scope, Deploy: env.Deploy, Follow: env.Follow, Target: env.Target, ImageTag: env.ImageTag, Configuration: env.Configuration, Requires: append([]string(nil), env.Requires...), Publish: env.Publish, ArtifactRepository: p.Artifact.Repository}, nil
+	return Config{Operation: env.Operation, Reason: env.Reason, Schema: p.Schema, Mode: p.Mode, Repository: p.Repository, Environment: name, DefaultBranch: p.DefaultBranch, HumanLogin: p.HumanLogin, Authorization: p.Authorization, Assignees: cloneAssignees(p.Assignees), BuildWorkflow: p.BuildWorkflow, ValidationWorkflow: validation, ControlWorkflow: p.ControlWorkflow, BaselineWorkflow: baseline, BaselineBuildWorkflow: baselineBuild, PromotionWorkflow: env.PromotionWorkflow, ObservationWorkflow: env.ObservationWorkflow, RequiredChecks: append([]string(nil), checks...), ControlPaths: append([]string(nil), p.ControlPaths...), Scope: env.Scope, Deploy: env.Deploy, Follow: env.Follow, Target: env.Target, ImageTag: env.ImageTag, Configuration: env.Configuration, Requires: append([]string(nil), env.Requires...), Publish: env.Publish, ArtifactRepository: p.Artifact.Repository}, nil
 }
 
 func legacyPolicy(cfg Config) Policy {
-	return Policy{Schema: 1, Mode: "deployment", Repository: cfg.Repository, DefaultBranch: cfg.DefaultBranch, HumanLogin: cfg.HumanLogin, BuildWorkflow: cfg.BuildWorkflow, ValidationWorkflow: cfg.ValidationWorkflow, ControlWorkflow: cfg.ControlWorkflow, BaselineWorkflow: cfg.BaselineWorkflow, BaselineBuildWorkflow: cfg.BaselineBuildWorkflow, RequiredChecks: cfg.RequiredChecks, ControlPaths: cfg.ControlPaths, Environments: map[string]EnvironmentPolicy{"production": {Scope: "shared", Deploy: "reviewed", Follow: "latest", PromotionWorkflow: cfg.PromotionWorkflow, Publish: true}}}
+	return Policy{Schema: 1, Mode: "deployment", Repository: cfg.Repository, DefaultBranch: cfg.DefaultBranch, HumanLogin: cfg.HumanLogin, Authorization: cfg.Authorization, Assignees: cloneAssignees(cfg.Assignees), BuildWorkflow: cfg.BuildWorkflow, ValidationWorkflow: cfg.ValidationWorkflow, ControlWorkflow: cfg.ControlWorkflow, BaselineWorkflow: cfg.BaselineWorkflow, BaselineBuildWorkflow: cfg.BaselineBuildWorkflow, RequiredChecks: cfg.RequiredChecks, ControlPaths: cfg.ControlPaths, Environments: map[string]EnvironmentPolicy{"production": {Scope: "shared", Deploy: "reviewed", Follow: "latest", PromotionWorkflow: cfg.PromotionWorkflow, Publish: true}}}
 }
