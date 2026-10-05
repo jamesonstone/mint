@@ -149,6 +149,13 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 		text = text[:start] + text[start+end+len("<!-- mint:entry:end -->"):]
 	}
 	files := map[string]string{".mint/proposal.json": string(data) + "\n", ".mint/summary.md": p.Summary + "\n", "CHANGELOG.md": block + text}
+	policyText, policyChanged, err := c.proposalPolicy(ctx, cfg, *s, p, base.Object.SHA)
+	if err != nil {
+		return p, err
+	}
+	if policyChanged {
+		files[cfg.PolicyPath] = policyText
+	}
 	var ref gitObject
 	status, err = c.request(ctx, "GET", c.repoPath("git/ref/heads/"+p.Branch), nil, &ref)
 	if err != nil {
@@ -190,7 +197,7 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 		return p, fmt.Errorf("proposal ref update failed")
 	}
 	body := proposalMarker(p) + "\n\n" + p.Notes + "\nProduction deployment pending.\n\nBaseline: `" + p.BaselineID + "`\n\nArtifact: `" + declaration.Candidate.Artifact.Reference + "` (`" + declaration.Candidate.Artifact.Digest + "`)\n\nValidation: " + declaration.Candidate.RunURL
-	payload := map[string]any{"title": "Release to production: " + declaration.Candidate.Version, "body": body, "head": p.Branch, "base": cfg.DefaultBranch, "draft": false}
+	payload := map[string]any{"title": "Release to " + cfg.Environment + ": " + declaration.Candidate.Version, "body": body, "head": p.Branch, "base": cfg.DefaultBranch, "draft": false}
 	var pr PullRequest
 	if p.PR == 0 {
 		status, err = c.request(ctx, "POST", c.repoPath("pulls"), payload, &pr)

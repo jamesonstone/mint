@@ -597,63 +597,46 @@ The Makefile mirrors Kit's local build pattern. Additional release-domain
 behavior should be added through feature specs before product commands are
 implemented.
 
-## Reviewed production releases
+## Environment lifecycle
 
-Developers merge code PRs as usual. Successful builds keep one **Release to Production** PR updated with all eligible changes since the last verified production release. Review and merge that PR to deploy its exact, already-built artifact through your project's deployment workflow. Mint verifies the outcome, records production history, publishes the release, and reports on the same PR. Closing the PR pauses it; reopening catches it up.
+Merge source PRs as usual; Mint registers each successful trusted build once and reuses its immutable artifact digest, or complete digest bundle, across the environments described in `.mint.yaml`. Environments can have any name and follow the latest eligible build or select an exact version. Policy determines whether deployment waits for an explicit request, proceeds automatically, or requires review. In a reviewed environment, one release PR **will update** with eligible builds until approval freezes its exact artifact and runtime configuration. A target-only policy PR can itself provide that approval. The project adapter deploys and verifies the frozen selection; Mint records the result and reports on the same PR. A configured canonical shared environment can publish the release.
 
-For recovery, prefer a corrective or revert PR titled `hotfix: ...` or `hotfix(component): ...`; the existing `hotfix(GH-123): :firetruck: ...` form also works. After review and merge, the configured controller prepares an isolated fix against verified production. Alternatively, choose **Actions → Production release control → Run workflow** to request a hotfix or rollback. Rollback selects a retained deployed version, defaulting to the previous verified deployment. Both require a reviewed production approval PR. Conflicts or uncertain deployment outcomes stop for resolution.
-
-This works with any project whose adapters produce immutable build evidence and verify deployment; Mint does not prescribe a language, package manager, artifact store, or runtime. See the [operator and adapter contract](docs/references/production-release-proposals.md) for setup and the [simplification audit](docs/references/mint-simplification-audit.md) for findings. Legacy release commands remain available for repositories using the original lifecycle.
+For recovery, prefer rolling forward with corrected or reverted source. A `hotfix(GH-123): :firetruck: ...` source PR or an Actions hotfix request starts the isolated hotfix path; rollback instead selects a retained verified artifact, using the current trusted runtime configuration. Use **Actions → Mint environment control → Run workflow** to select an environment and **promote**, **hotfix**, **rollback**, **resume**, **observe**, or **reconcile**. A successful rollback pauses latest-following releases until a fresh resume request. Observations show timestamped runtime evidence separately from desired policy and verified history; an uncertain deployment remains locked until explicit reconciliation proves its outcome. Deployment, artifact, and package projects share policy vocabulary without requiring a production environment or inventing runtime state for publication-only projects.
 
 ```mermaid
 flowchart TD
-    subgraph normal[Normal release]
-        Code["Merge code PRs"] --> Build["Successful immutable builds"]
-        Build --> Queue["One Release to Production PR<br/>Updates with each eligible build"]
-        Queue -->|Close| Paused["Paused"]
-        Paused -->|Reopen and catch up| Queue
-    end
-
-    subgraph recovery[Production recovery]
-        Recover{"Choose recovery"}
-        Recover -->|"Prefer roll-forward"| Fix["Corrective or revert fix<br/>Hotfix PR title or Actions request"]
-        Fix --> Isolate["Prepare fix against verified production<br/>Keep ordinary queued changes separate"]
-        Isolate --> Source["Review and merge isolated source PR"]
-        Source --> FixBuild["Build exact hotfix source"]
-        FixBuild --> RecoveryPR["Recovery Release to Production PR"]
-        Recover -->|Rollback through Actions| Target["Select retained deployed artifact<br/>Default: previous verified deployment"]
-        Target --> RecoveryPR
-    end
-
-    Queue --> Approval["Review and merge production PR<br/>Freeze the exact artifact selection"]
-    RecoveryPR --> Approval
-    Approval --> Deploy["Project deployment workflow<br/>Promote selected artifact; do not rebuild"]
-    Deploy --> Verified{"Runtime verified?"}
-    Verified -->|"Failed or unknown"| Stop["Inspect and reconcile outcome<br/>Do not advance production history"]
-    Verified -->|Yes| History["Record verified production history"]
-    History --> Kind{"Promotion type?"}
-    Kind -->|"Normal release or hotfix"| Publish["Publish new version"]
-    Kind -->|Rollback| Report["Report outcome on the same production PR"]
-    Publish --> Report
+    Source["Merge source PR"] --> Build["Build once: exact digest or complete bundle"]
+    Build --> Policy{"Environment policy"}
+    Policy -->|manual| Request["Actions promote request"]
+    Policy -->|reviewed| Review["One updating release PR"]
+    Policy -->|automatic| Freeze["Freeze exact selection and configuration"]
+    Request --> Review
+    YAML["Target-only policy PR"] --> Approval["Review exact head and merge"]
+    Review --> Approval
+    Approval --> Freeze
+    Freeze --> Adapter["Project adapter deploys and verifies"]
+    Adapter -->|verified| History["Record history; optional canonical publication"]
+    History --> Report["Report outcome on the original PR"]
+    Adapter -->|uncertain| Lock["Retain deployment fence"]
+    Lock --> Observe["Fresh trusted observation"]
+    Observe --> Reconcile["Explicit Actions reconcile"]
+    Reconcile -->|exact approved state| History
+    Reconcile -->|exact previous state| Unchanged["Record unchanged failure; release fence"]
+    Unchanged --> Report
+    Fix["Prefer roll-forward: corrective or revert PR"] --> Build
+    Hotfix["Hotfix title or Actions request"] --> Isolated["Review isolated source fix"]
+    Isolated --> Build
+    Rollback["Actions rollback: retained verified artifact"] --> Review
+    History -->|successful rollback| Pause["Pause latest following"]
+    Pause --> Resume["Fresh Actions resume request"]
+    Resume --> Policy
 ```
 
-**Roll-forward** ships corrected or reverted code as a new version; an isolated
-**hotfix** is its urgent path. **Rollback** restores a retained verified artifact
-without publishing another version or undoing database changes. Hotfixes must also
-be integrated into the default branch. Failed publication can be retried without
-redeploying; an unknown deployment outcome keeps production locked until reconciled.
-
-The CLI remains available for integrations:
-
-```sh
-mint release production hotfix --fix-pr 123 --reason "Repair production login"
-mint release production hotfix --issue 456 --reason "Author production fix"
-mint release production rollback --reason "Restore working login"
-mint release production rollback --to v1.2.3 --reason "Restore working login"
-```
-
-These commands are feature-branch implementation; adoption still requires a
-published feature-bearing Mint SHA and the project's existing activation gates.
+See the [environment policy and adapter contract](docs/references/environment-lifecycle.md)
+for configuration, recovery, evidence, and activation requirements. Schema 1 and
+`mint release production` remain compatible; `mint deployment status --environment
+<name> --format markdown` exposes the generic environment view. Installing Mint or
+merging policy does not activate cloud resources or migrate existing consumers.
 
 ## Maintainers
 

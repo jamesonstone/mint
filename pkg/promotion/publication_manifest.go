@@ -17,14 +17,16 @@ import (
 // publication retries. Its deployment evidence is already durable in the journal.
 func ReleaseManifest(i Intent) ([]byte, error) {
 	return json.MarshalIndent(struct {
-		IntentID   string    `json:"intent_id"`
-		MergeSHA   string    `json:"merge_sha"`
-		BaselineID string    `json:"baseline_id"`
-		Candidate  Candidate `json:"candidate"`
-		RunID      int64     `json:"deployment_run_id"`
-		URL        string    `json:"deployment_url"`
-		Notes      string    `json:"notes"`
-	}{i.ID, i.MergeSHA, i.BaselineID, i.Candidate, i.DeploymentRunID, i.DeploymentURL, i.Notes}, "", "  ")
+		Environment   string    `json:"environment,omitempty"`
+		Configuration string    `json:"runtime_configuration_sha256,omitempty"`
+		IntentID      string    `json:"intent_id"`
+		MergeSHA      string    `json:"merge_sha"`
+		BaselineID    string    `json:"baseline_id"`
+		Candidate     Candidate `json:"candidate"`
+		RunID         int64     `json:"deployment_run_id"`
+		URL           string    `json:"deployment_url"`
+		Notes         string    `json:"notes"`
+	}{i.Environment, i.Configuration, i.ID, i.MergeSHA, i.BaselineID, i.Candidate, i.DeploymentRunID, i.DeploymentURL, i.Notes}, "", "  ")
 }
 func (c Client) attachReleaseManifest(ctx context.Context, id int64, i Intent, upload bool) error {
 	data, err := ReleaseManifest(i)

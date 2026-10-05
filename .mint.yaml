@@ -1,0 +1,13 @@
+schema_version: 2
+mode: package
+repository: jamesonstone/mint
+default_branch: main
+human_login: jamesonstone
+build_workflow: .github/workflows/release.yaml
+# Mint publishes its own GitHub release; it has no running service baseline.
+environments:
+  distribution:
+    scope: shared
+    deploy: manual
+    follow: latest
+    publish: true

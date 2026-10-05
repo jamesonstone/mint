@@ -5,12 +5,25 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"io"
-	"os"
 	"regexp"
 )
 
 // Config is repository-owned release policy; issue content cannot override it.
 type Config struct {
+	PolicyPath            string   `yaml:"-" json:"-"`
+	Operation             string   `yaml:"-"`
+	Reason                string   `yaml:"-"`
+	Mode                  string   `yaml:"-"`
+	Scope                 string   `yaml:"-"`
+	Deploy                string   `yaml:"-"`
+	Follow                string   `yaml:"-"`
+	Target                string   `yaml:"-"`
+	Configuration         string   `yaml:"-"`
+	ObservationWorkflow   string   `yaml:"-"`
+	Requires              []string `yaml:"-"`
+	Publish               bool     `yaml:"-"`
+	ArtifactRepository    string   `yaml:"-"`
+	ImageTag              string   `yaml:"-"`
 	ControlWorkflow       string   `yaml:"control_workflow"`
 	Schema                int      `yaml:"schema_version"`
 	Repository            string   `yaml:"repository"`
@@ -28,11 +41,16 @@ type Config struct {
 
 // LoadConfig rejects unknown fields and unscoped release policies.
 func LoadConfig(path string) (Config, error) {
-	var cfg Config
-	data, err := os.ReadFile(path)
+	policy, err := LoadPolicy(path)
 	if err != nil {
-		return cfg, err
+		return Config{}, err
 	}
+	return policy.ForEnvironment("")
+}
+
+func parseLegacyConfig(data []byte) (Config, error) {
+	var cfg Config
+
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {

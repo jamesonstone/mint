@@ -144,10 +144,12 @@ func (c Client) downloadArchive(ctx context.Context, id int64) ([]byte, error) {
 // DeploymentManifest is emitted only after the application adapter verifies the
 // exact artifact and running production identity.
 type DeploymentManifest struct {
-	Outcome        string `json:"outcome,omitempty"`
-	IntentID       string `json:"intent_id"`
-	SourceSHA      string `json:"source_sha"`
-	ArtifactDigest string `json:"artifact_digest"`
-	Configuration  string `json:"configuration_sha256"`
-	Verified       bool   `json:"verified"`
+	Environment    string    `json:"environment,omitempty"`
+	Artifact       *Artifact `json:"artifact,omitempty"`
+	Outcome        string    `json:"outcome,omitempty"`
+	IntentID       string    `json:"intent_id"`
+	SourceSHA      string    `json:"source_sha"`
+	ArtifactDigest string    `json:"artifact_digest"`
+	Configuration  string    `json:"configuration_sha256"`
+	Verified       bool      `json:"verified"`
 }

@@ -21,6 +21,14 @@ func (o *productionOperation) control(ctx context.Context) (any, bool, error) {
 	}
 	o.flags.FixPR, o.flags.Issue, o.flags.Version, o.flags.Reason = r.FixPR, r.Issue, r.Version, r.Reason
 	switch r.Operation {
+	case "promote":
+		return o.requestPromotion(ctx, r.Version, r.Reason)
+	case "resume":
+		return o.snapshot.State.Resume(fmt.Sprintf("resume-control-%d", o.flags.RunID))
+	case "reconcile":
+		return o.reconcileDeployment(ctx, r.IntentID, r.ObservationRunID)
+	case "observe":
+		return map[string]string{"state": "observation requested"}, false, o.client.DispatchObservation(ctx, o.config)
 	case "hotfix":
 		return o.requestHotfix(ctx)
 	case "rollback":

@@ -21,6 +21,8 @@ Mint is a document-first release tooling CLI and GitHub Action. It turns reposit
 
 See `docs/CONSTITUTION.md` for project-wide constraints and principles.
 
+| 0010 | environment-lifecycle | `docs/specs/0010-environment-lifecycle` | implementation | no | 2026-10-05 | Generic environment policy, immutable promotion, observations and consumer upgrades tracked by GH-17. |
+
 ## FEATURE SUMMARIES
 
 ### init-project

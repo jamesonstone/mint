@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jamesonstone/mint/pkg/promotion"
+	"reflect"
 	"strings"
 )
 
@@ -57,11 +58,14 @@ func (o *productionOperation) propose(ctx context.Context) (any, bool, error) {
 		if d.ProposalID != prior.ID || d.Repository != s.Repository {
 			return nil, false, fmt.Errorf("manual declaration changed proposal identity")
 		}
-		if f.Kind != "normal" && d.Selection == "pinned" {
+		if (f.Kind != "normal" || s.Schema == 2) && d.Selection == "pinned" {
 			f.Pin = d.Candidate.SourceSHA
 		}
 	}
 	generation := fmt.Sprintf("%s-%s", f.Kind, s.Baseline.ID)
+	if s.Schema == 2 {
+		generation = s.Environment + ":" + generation
+	}
 	p, err := s.Reconcile(f.Kind, f.Event, f.Pin, generation, f.Summary, o.proof)
 	if errors.Is(err, promotion.ErrNoEligible) || errors.Is(err, promotion.ErrAlreadyDeployed) {
 		return map[string]string{"state": "idle"}, false, nil
@@ -71,6 +75,17 @@ func (o *productionOperation) propose(ctx context.Context) (any, bool, error) {
 	}
 	if p.State == "paused" {
 		return p, true, nil
+	}
+	if s.Schema == 2 && o.config.Deploy == "automatic" && p.PR == 0 {
+		if err := o.client.AuthorizeAmbientRun(ctx, o.config, o.flags.RunID, o.flags.Event); err != nil {
+			return nil, false, err
+		}
+		run, err := o.client.AmbientRun(ctx, o.config, o.flags.RunID, o.flags.Event)
+		if err != nil {
+			return nil, false, err
+		}
+		i, err := s.FreezeIntent(p, s.Candidates[p.CandidateSHA], run.HeadSHA)
+		return i, err == nil, err
 	}
 	p, err = o.client.SyncProposal(ctx, o.config, s, p)
 	return p, true, err
@@ -107,6 +122,9 @@ func (o *productionOperation) intent(ctx context.Context, freeze bool) (any, boo
 				return frozen, false, nil
 			}
 		}
+	}
+	if s.Schema == 2 && s.Target != "" && d.Candidate.Version != s.Target {
+		return nil, false, fmt.Errorf("reviewed candidate differs from the configured target")
 	}
 	p, err := s.ValidateDeclaration(d)
 	if err != nil {
@@ -148,7 +166,7 @@ func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) 
 	if err != nil {
 		return nil, false, err
 	}
-	if run.HeadBranch != o.config.DefaultBranch || baseline.ID == "" || baseline.Candidate.Repository != s.Repository || baseline.Candidate.Environment != s.Environment || baseline.DeploymentURL != run.HTMLURL {
+	if run.HeadBranch != o.config.DefaultBranch || baseline.ID == "" || baseline.Candidate.Repository != s.Repository || !s.AcceptsEnvironment(baseline.Candidate.Environment) || baseline.DeploymentURL != run.HTMLURL {
 		return nil, false, fmt.Errorf("baseline is not bound to verified deployment evidence")
 	}
 	build, err := o.client.TrustedRun(ctx, baseline.Candidate.RunID, o.config.BaselineBuildWorkflow)
@@ -163,6 +181,9 @@ func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) 
 	}
 	if err := o.proof.VerifyTag(baseline.Candidate.Version, baseline.Candidate.SourceSHA); err != nil {
 		return nil, false, err
+	}
+	if s.Schema == 2 && baseline.Configuration != s.Configuration {
+		return nil, false, fmt.Errorf("bootstrap runtime configuration differs from environment policy")
 	}
 	baseline.MainAnchor = baseline.Candidate.SourceSHA
 	s.History[baseline.ID] = baseline
@@ -231,8 +252,20 @@ func (o *productionOperation) start(ctx context.Context) (any, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	if run.HeadSHA != i.MergeSHA || run.Status != "in_progress" {
+	if run.Status != "in_progress" || (s.Schema == 1 && run.HeadSHA != i.MergeSHA) {
 		return nil, false, fmt.Errorf("active promotion run must identify the exact merged intent")
+	}
+	if s.Schema == 2 {
+		if run.HeadBranch != o.config.DefaultBranch {
+			return nil, false, fmt.Errorf("promotion adapter must use trusted default-branch code")
+		}
+		var request promotion.DeploymentManifest
+		if err := o.client.RunManifest(ctx, run.ID, "mint-request", &request); err != nil {
+			return nil, false, err
+		}
+		if request.IntentID != i.ID || request.Environment != s.Environment || request.SourceSHA != i.Candidate.SourceSHA || request.Configuration != i.Configuration || request.Artifact == nil || !reflect.DeepEqual(*request.Artifact, i.Candidate.Artifact) {
+			return nil, false, fmt.Errorf("adapter request differs from frozen environment intent")
+		}
 	}
 	if i.DeploymentRunID != 0 && i.Status == "deploying" && i.DeploymentRunID != run.ID {
 		return nil, false, fmt.Errorf("prior deployment outcome must be reconciled before retry")

@@ -2,6 +2,7 @@ package promotion
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -30,7 +31,7 @@ func (s *State) ResolveRollbackTarget(version string) (Baseline, error) {
 			return Baseline{}, fmt.Errorf("previous verified deployment history is missing; specify a verified version")
 		}
 		if !sameDeployedArtifact(b, *s.Baseline) {
-			return b, nil
+			return cloneBaseline(b), nil
 		}
 		previous = b.PreviousID
 	}
@@ -38,11 +39,11 @@ func (s *State) ResolveRollbackTarget(version string) (Baseline, error) {
 }
 
 func sameDeployedArtifact(a, b Baseline) bool {
-	return a.Candidate.SourceSHA == b.Candidate.SourceSHA && a.Candidate.Artifact == b.Candidate.Artifact
+	return a.Candidate.SourceSHA == b.Candidate.SourceSHA && reflect.DeepEqual(a.Candidate.Artifact, b.Candidate.Artifact)
 }
 
 func (s *State) verifiedRollbackBaseline(b Baseline) bool {
-	return b.ID != "" && b.DeploymentURL != "" && b.Candidate.Repository == s.Repository && b.Candidate.Environment == s.Environment && validateCandidate(b.Candidate) == nil
+	return b.ID != "" && b.DeploymentURL != "" && b.Candidate.Repository == s.Repository && s.AcceptsEnvironment(b.Candidate.Environment) && validateCandidate(b.Candidate) == nil
 }
 
 // Repeated deployments of one immutable version are equivalent targets. Sort
@@ -72,5 +73,5 @@ func (s *State) rollbackTargetMatching(matches func(Baseline) bool) (Baseline, e
 	if sameDeployedArtifact(*target, *s.Baseline) {
 		return Baseline{}, fmt.Errorf("rollback target is already deployed")
 	}
-	return *target, nil
+	return cloneBaseline(*target), nil
 }

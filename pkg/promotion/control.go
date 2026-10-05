@@ -13,11 +13,13 @@ var hotfixTitle = regexp.MustCompile(`^hotfix(?:\([^)\n]+\))?!?:\s+\S`)
 
 // ControlRequest is a repository Actions request, not deployment authorization.
 type ControlRequest struct {
-	Operation string `json:"operation"`
-	FixPR     int    `json:"fix_pr"`
-	Issue     int    `json:"issue"`
-	Version   string `json:"target_version"`
-	Reason    string `json:"reason"`
+	Operation        string `json:"operation"`
+	IntentID         string `json:"intent_id"`
+	ObservationRunID int64  `json:"observation_run_id"`
+	FixPR            int    `json:"fix_pr"`
+	Issue            int    `json:"issue"`
+	Version          string `json:"target_version"`
+	Reason           string `json:"reason"`
 }
 
 // ControlWorkflowPath allows existing adapters to select their trusted controller.
@@ -63,15 +65,24 @@ func (c Client) ControlEvent(ctx context.Context, cfg Config, event string, data
 		return ControlRequest{}, fmt.Errorf("foreign control event")
 	}
 	if event == "workflow_dispatch" {
-		r := ControlRequest{Operation: e.Inputs["operation"], Reason: e.Inputs["reason"], Version: e.Inputs["target_version"]}
+		if cfg.Schema == 2 && e.Inputs["environment"] != cfg.Environment {
+			return ControlRequest{}, fmt.Errorf("request environment does not match selected policy")
+		}
+		r := ControlRequest{Operation: e.Inputs["operation"], Reason: e.Inputs["reason"], Version: e.Inputs["target_version"], IntentID: e.Inputs["intent_id"]}
 		var err error
+		if e.Inputs["observation_run_id"] != "" {
+			r.ObservationRunID, err = strconv.ParseInt(e.Inputs["observation_run_id"], 10, 64)
+			if err != nil || r.ObservationRunID <= 0 {
+				return r, fmt.Errorf("observation run must be a positive integer")
+			}
+		}
 		if r.FixPR, err = optionalNumber(e.Inputs["fix_pr"]); err != nil {
 			return r, err
 		}
 		if r.Issue, err = optionalNumber(e.Inputs["issue"]); err != nil {
 			return r, err
 		}
-		if r.Operation != "hotfix" && r.Operation != "rollback" {
+		if r.Operation != "hotfix" && r.Operation != "rollback" && (cfg.Schema != 2 || (r.Operation != "promote" && r.Operation != "resume" && r.Operation != "observe" && r.Operation != "reconcile")) {
 			return r, fmt.Errorf("select hotfix or rollback; roll-forward hotfix is recommended when practical")
 		}
 		return r, nil
