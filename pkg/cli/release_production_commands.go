@@ -99,5 +99,6 @@ Integration adapters remain available by name; see the production adapter contra
 		}
 		group.AddCommand(cmd)
 	}
+	group.AddCommand(newAdapterPolicyCommand())
 	return group
 }

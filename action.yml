@@ -175,6 +175,9 @@ runs:
         cd "$GITHUB_ACTION_PATH"
         go build -ldflags "-X github.com/jamesonstone/mint/pkg/cli.Version=$mint_version" -o "$mint_dir/mint" ./cmd/mint
 
+        cp "$GITHUB_ACTION_PATH"/adapters/mint-* "$mint_dir/"
+        chmod +x "$mint_dir/mint-adapter"
+
         echo "$mint_dir" >> "$GITHUB_PATH"
         echo "mint-path=$mint_dir/mint" >> "$GITHUB_OUTPUT"
     - name: Run Mint CLI

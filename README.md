@@ -645,3 +645,8 @@ merging policy does not activate cloud resources or migrate existing consumers.
 ## Maintainers
 
 Maintained with 🪖 and ❤️ by [Jameson](https://github.com/jamesonstone) (`jamesonstone`).
+
+Existing schema 1 integrations can use the pinned Mint Action to install shared
+[event and manifest adapters](docs/references/compatibility-adapters.md), keeping
+only provider operations in the application repository. Schema 2 continues to use
+the native environment controller.
