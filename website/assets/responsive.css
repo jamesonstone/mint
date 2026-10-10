@@ -1,0 +1,125 @@
+@media (min-width: 1600px) {
+  body {
+    font-size: 16px;
+  }
+  .layout {
+    gap: 52px;
+  }
+  h1 {
+    font-size: 48px;
+  }
+}
+@media (max-width: 1190px) {
+  .layout {
+    grid-template-columns: 215px minmax(0, 760px);
+    gap: 32px;
+  }
+  aside.toc {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .topbar {
+    height: 70px;
+    padding: 0 20px;
+  }
+  .topbar nav {
+    gap: 16px;
+    font-size: 11px;
+  }
+  .brand {
+    font-size: 21px;
+  }
+  .brand span {
+    display: none;
+  }
+  .layout {
+    display: block;
+    padding: 24px 20px 0;
+  }
+  .sidebar {
+    position: static;
+    max-height: none;
+    margin-bottom: 30px;
+  }
+  .sidebar .eyebrow,
+  .sidebar-note {
+    display: none;
+  }
+  .sidebar nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .sidebar nav a {
+    font-size: 10px;
+    padding: 7px 9px;
+    background: #f1f6f2;
+  }
+  .page-meta {
+    margin-top: 28px;
+  }
+  .page-meta a {
+    font-size: 9px;
+  }
+  h1 {
+    font-size: 32px;
+  }
+  h2 {
+    font-size: 21px;
+    margin-top: 40px;
+  }
+  body {
+    font-size: 14px;
+  }
+  article > p:first-of-type {
+    font-size: 15px;
+  }
+  .flow {
+    padding: 20px 12px;
+    font-size: 10px;
+  }
+  pre {
+    padding: 16px;
+    font-size: 11px;
+  }
+  .page-turn {
+    font-size: 10px;
+  }
+  footer {
+    font-size: 9px;
+  }
+}
+@media print {
+  .topbar,
+  .sidebar,
+  .toc,
+  .page-meta,
+  .page-turn,
+  footer,
+  .hero-actions {
+    display: none;
+  }
+  .layout {
+    display: block;
+    padding: 0;
+  }
+  body {
+    font-size: 11px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  h2 {
+    font-size: 18px;
+  }
+  pre {
+    white-space: pre-wrap;
+  }
+  a {
+    color: inherit;
+  }
+  .table-wrap {
+    overflow: visible;
+  }
+}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="$description" />
+    <meta name="theme-color" content="#ecf8f1" />
+    <title>$title · Mint</title>
+    <link rel="canonical" href="$canonical" />
+    <link rel="icon" href="assets/mint.svg" type="image/svg+xml" />
+    <link
+      rel="preload"
+      href="assets/fonts/JetBrainsMono-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="assets/style.css" />
+    <link rel="stylesheet" href="assets/content.css" />
+    <link rel="stylesheet" href="assets/responsive.css" />
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+    <header class="topbar">
+      <a class="brand" href="index.html" aria-label="Mint documentation home"
+        ><img src="assets/mint.svg" width="32" height="32" alt="" />mint<span>
+          / docs</span
+        ></a
+      >
+      <nav aria-label="Resources">
+        <a href="llms.txt">llms.txt</a
+        ><a href="https://github.com/jamesonstone/mint">GitHub ↗</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <p class="eyebrow">THE RELEASE TOOLKIT</p>
+        <nav aria-label="Documentation">$navigation</nav>
+        <div class="sidebar-note">Build once.<br />Promote with evidence.</div>
+      </aside>
+      <main id="content" tabindex="-1">
+        <div class="page-meta">
+          <span class="eyebrow">$category</span
+          ><a href="$source">Markdown source ↗</a>
+        </div>
+        <article>$content</article>
+        <nav class="page-turn" aria-label="Adjacent guides">$previous$next</nav>
+        <footer>
+          Mint documentation ·
+          <a href="https://github.com/jamesonstone/mint">Source & releases</a> ·
+          <a href="assets/fonts/OFL.txt">Font license</a>
+        </footer>
+      </main>
+      <aside class="toc" aria-label="On this page">
+        <p class="eyebrow">ON THIS PAGE</p>
+        $toc
+      </aside>
+    </div>
+  </body>
+</html>
