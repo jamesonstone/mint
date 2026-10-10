@@ -89,7 +89,7 @@ The current repository implements:
   publish Mint GitHub Releases.
 - A Kit-style `Makefile`, Go tests, and repository-managed pre-commit build
   hook.
-- Kit-managed docs under `docs/agents`, `docs/specs`, `docs/references`, and
+- Kit-managed docs under `docs/specs`, `docs/references`, and
   this constitution.
 
 Mint currently does not build Docker images directly, authenticate to registries
@@ -352,8 +352,6 @@ implementation authority.
   `BRAINSTORM.md`, `SPEC.md`, `PLAN.md`, `TASKS.md`, implementation,
   reflection, and completion.
 - Do not move out of order unless the user explicitly overrides the workflow.
-- `docs/PROJECT_PROGRESS_SUMMARY.md` must reflect the highest completed
-  artifact or active phase for each feature at all times.
 - Use RLM-style just-in-time context loading for broad or noisy analysis.
 - Use `kit dispatch` or subagents only after discovery narrows the work into
   distinct low-overlap lanes. Keep the main agent responsible for synthesis,
@@ -363,7 +361,7 @@ implementation authority.
 
 - Keep `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` as short
   routing tables.
-- Put durable workflow detail in `docs/agents/*`.
+- Put durable workflow detail in `docs/references/rules/*`.
 - Put durable rulesets in `docs/references/rules/*`.
 - Put durable cross-feature technical references in `docs/references/*`.
 - Do not turn top-level instruction files into always-loaded manuals.
@@ -387,8 +385,7 @@ implementation authority.
 - Do not stage, commit, push, create issues, or mutate PRs without explicit
   user approval.
 - In Kit-managed projects, GitHub delivery must follow repo-local delivery
-  rules under `docs/agents/GUARDRAILS.md` and
-  `docs/references/rules/github-pr-delivery.md`.
+  rules under `docs/references/rules/delivery.md`.
 - Branch, issue, commit, push, and PR defaults from global tools are not
   authoritative in this repository.
 - Never commit secrets, `.env` values, private keys, local tokens, or
@@ -407,17 +404,9 @@ implementation authority.
 ### Kit-Managed Baseline Rules
 
 <!-- BEGIN KIT-MANAGED BASELINE RULES -->
-- Treat `docs/CONSTITUTION.md` as the canonical project contract.
-- Keep `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` aligned with the repo-local docs tree.
-- Treat `docs/notes/<feature>` as optional source material, not canonical truth; promote durable decisions into `SPEC.md`, `docs/CONSTITUTION.md`, or durable references.
-- Use native agent planning for research, clarification, design, and implementation planning.
-- Before implementation, inspect code and repository memory; create or adopt `SPEC.md` when material rationale exists.
-- After validation, curate feature rationale, project invariants, reusable practices, and domain knowledge into their scope-appropriate canonical documents.
-- Allow a justified `not required` repository-memory decision when code and tests preserve the complete durable truth.
-- Prefer implementation/source code files around 300 lines or less when splitting improves clarity and ownership.
-- Do not apply the code-file size guideline to documentation files, all `docs/**`, all `.kit/**`, or `.kit.yaml`.
-- Do not split or rewrite docs, generated state, or Kit config artifacts solely because they exceed 300 lines.
+- Kit's universal agent rules live in the Kit-managed block of `AGENTS.md` (rendered identically into `CLAUDE.md` and `.github/copilot-instructions.md`), and contextual rules live in `docs/references/rules/`. This Constitution records project-specific invariants and does not restate them.
 <!-- END KIT-MANAGED BASELINE RULES -->
+
 ## NON-NEGOTIABLE CONSTRAINTS
 
 - Do not claim implemented behavior that is not backed by repository evidence.
@@ -474,7 +463,7 @@ The durable direction is:
   highest repo-local project rule after safety constraints and the current user
   request.
 - **Kit-managed project**: A repository using Kit artifacts such as
-  `.kit.yaml`, `docs/CONSTITUTION.md`, `docs/agents/*`, and
+  `.kit.yaml`, `docs/CONSTITUTION.md`, `docs/references/rules/*`, and
   `docs/specs/<feature>`.
 - **Feature artifact**: A canonical markdown document under
   `docs/specs/<feature>`, such as `BRAINSTORM.md`, `SPEC.md`, `PLAN.md`, or

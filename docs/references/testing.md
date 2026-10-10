@@ -22,3 +22,9 @@
 - For release resolver changes, use temporary Git repositories with deterministic commits, dates, and tags.
 - For release tag changes, cover same-commit tag reuse, conflicting tag failure, missing target/tag validation, and no tag movement.
 - For GitHub Release publishing changes, use local HTTP test servers and never create live releases during unit tests.
+
+## Public documentation
+
+- Install `website/requirements.txt` in an activated Python environment, then run `make docs-check` for site regression tests and local HTML/Markdown/CSS links and anchors.
+- Use `make docs-serve` for local rendered desktop/mobile review. Run `actionlint .github/workflows/docs.yaml` for publishing changes.
+- Validate functional changes against `docs/references/rules/mint-documentation.md`; verify the public site and `llms.txt` after successful Pages deployment.

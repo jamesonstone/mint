@@ -10,7 +10,7 @@
 **Release Tooling CLI**
 
 <!-- BEGIN KIT-MANAGED README BADGES -->
-[![Last commit](https://img.shields.io/github/last-commit/jamesonstone/mint)](https://github.com/jamesonstone/mint/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/mint)](https://github.com/jamesonstone/mint/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/mint)](https://github.com/jamesonstone/mint/pulls) [![Release](https://img.shields.io/github/v/release/jamesonstone/mint)](https://github.com/jamesonstone/mint/releases)
+[![Last commit](https://img.shields.io/github/last-commit/jamesonstone/mint)](https://github.com/jamesonstone/mint/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/mint)](https://github.com/jamesonstone/mint/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/mint)](https://github.com/jamesonstone/mint/pulls) [![CI](https://github.com/jamesonstone/mint/actions/workflows/ci.yaml/badge.svg)](https://github.com/jamesonstone/mint/actions/workflows/ci.yaml) [![Release](https://img.shields.io/github/v/release/jamesonstone/mint)](https://github.com/jamesonstone/mint/releases)
 <!-- END KIT-MANAGED README BADGES -->
 
 🪙 Compute the next version, write the changelog, and mint the release.
@@ -651,9 +651,4 @@ merging policy does not activate cloud resources or migrate existing consumers.
 
 ## Maintainers
 
-Maintained with 🪖 and ❤️ by [Jameson](https://github.com/jamesonstone) (`jamesonstone`).
-
-Existing schema 1 integrations can use the pinned Mint Action to install shared
-[event and manifest adapters](docs/references/compatibility-adapters.md), keeping
-only provider operations in the application repository. Schema 2 continues to use
-the native environment controller.
+Maintained by the [jamesonstone](https://github.com/jamesonstone) team.
