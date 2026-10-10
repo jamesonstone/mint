@@ -4,13 +4,9 @@ artifact: "spec"
 workflow_version: 3
 phase: "implement"
 feature:
-  id: "0012"
+  id: "0013"
   slug: "documentation-site"
-  dir: "0012-documentation-site"
-references:
-  - path: "../../references/environment-lifecycle.md"
-    status: active
-    read_policy: conditional
+  dir: "0013-documentation-site"
 skills: []
 ---
 # Documentation site
@@ -37,8 +33,24 @@ Site regression checks, local link/anchor checks, root/project base URLs, browse
 
 ## Outcome
 
-Implementation is scoped to issue #23 and GH-23. Repository owner must merge after review and enable Pages with GitHub Actions as source before live publishing. Repository settings and merge are prohibited by local delivery rules.
+Implementation is scoped to issue #23 and GH-23. The repository owner explicitly authorized merge and Pages activation. PR #24 merged and live publication was verified. Future merges and settings changes require their own authorized scope.
 
 ## Additional information
 
 No additional requirements or cross-repository dependencies.
+
+## CONTEXT
+
+Issue #23 and PR #24 introduced the public Mint documentation. The site is live at https://jamesonstone.io/mint/; the default GitHub URL redirects to that inherited domain.
+
+## ACCEPTED PLAN
+
+Inspect implementation; author eight public guides; build accessible static HTML and Markdown/LLM outputs; validate and deliver a ready PR; merge and enable Pages only with explicit authorization.
+
+## DISCOVERIES
+
+GitHub Pages inherits the owner site domain. Source identity, deployment history and live observations require separate claims. Feature 0012 was already allocated to consumer adapters, so this feature uses 0013.
+
+## REPOSITORY MEMORY
+
+This spec preserves site architecture and publication boundaries. `docs/references/rules/mint-documentation.md` requires guide updates for functional changes.
