@@ -38,3 +38,15 @@ tidy:
 	go mod tidy
 
 all: fmt vet test build
+
+# Activate .venv-docs first; see website/README.md.
+.PHONY: docs-build docs-check docs-serve
+docs-build:
+	python3 scripts/build_docs.py
+
+docs-check:
+	python3 -m unittest discover -s scripts -p 'test_*.py'
+	python3 scripts/build_docs.py
+
+docs-serve: docs-build
+	python3 -m http.server 8000 --bind 127.0.0.1 --directory _site

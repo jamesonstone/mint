@@ -48,3 +48,7 @@ bin/
 
 # Python companion bytecode
 __pycache__/
+
+# Public documentation build and local Python environment
+_site/
+.venv-docs/

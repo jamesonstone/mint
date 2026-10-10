@@ -601,6 +601,13 @@ The Makefile mirrors Kit's local build pattern. Additional release-domain
 behavior should be added through feature specs before product commands are
 implemented.
 
+## Documentation
+
+Read the [Mint documentation](https://jamesonstone.github.io/mint/) for integration,
+named sandbox environments, semantic versioning, CHANGELOG, Release PRs, and recovery.
+Agents can start with [llms.txt](https://jamesonstone.github.io/mint/llms.txt).
+For local previews and GitHub Pages setup, see [website/README.md](website/README.md).
+
 ## Environment lifecycle
 
 Merge source PRs as usual; Mint registers each successful trusted build once and reuses its immutable artifact digest, or complete digest bundle, across the environments described in `.mint.yaml`. Environments can have any name and follow the latest eligible build or select an exact version. Policy determines whether deployment waits for an explicit request, proceeds automatically, or requires review. In a reviewed environment, one release PR **will update** with eligible builds until approval freezes its exact artifact and runtime configuration. A target-only policy PR can itself provide that approval. The project adapter deploys and verifies the frozen selection; Mint records the result and reports on the same PR. A configured canonical shared environment can publish the release.
