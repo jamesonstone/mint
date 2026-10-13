@@ -14,6 +14,7 @@ type releaseTagFlags struct {
 	remote       string
 	push         bool
 	githubOutput string
+	scope        scopeFlags
 }
 
 var releaseTagCommandFlags releaseTagFlags
@@ -45,6 +46,7 @@ func bindReleaseTagFlags(cmd *cobra.Command, values *releaseTagFlags) {
 	flags.StringVar(&values.remote, "remote", release.DefaultTagRemote, "Git remote used when pushing the tag")
 	flags.BoolVar(&values.push, "push", true, "push refs/tags/<tag> to the configured remote")
 	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
+	bindScopeFlags(flags, &values.scope, false)
 }
 
 func runReleaseTag(cmd *cobra.Command, values releaseTagFlags) error {
@@ -54,6 +56,7 @@ func runReleaseTag(cmd *cobra.Command, values releaseTagFlags) error {
 		NotesFile: values.notesFile,
 		Remote:    values.remote,
 		Push:      values.push,
+		Scope:     values.scope.scope(),
 	})
 	if err != nil {
 		return err

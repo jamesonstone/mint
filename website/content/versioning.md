@@ -26,6 +26,43 @@ Resolution reads Git history; it does not push tags, publish images, or deploy. 
 
 Fetch full history and tags in CI. Shallow history cannot reliably establish the base or evaluated range.
 
+## Component releases in one repository
+
+A repository can release several components on independent version lines. Give
+each component a tag prefix and the paths it owns:
+
+```bash
+mint release resolve --tag-prefix backend/ --path backend
+mint release resolve --tag-prefix frontend/ --path frontend --path shared/ui
+```
+
+- Tags take the form `<prefix>vMAJOR.MINOR.PATCH`, for example `backend/v1.4.0`.
+  A prefix contains letters, digits, `.`, `_`, `/`, or `-` and must be safe in a
+  Git ref.
+- Each scope only sees its own tags. Unprefixed resolution ignores `backend/…`
+  tags, and a `backend/` scope ignores `v…` and `frontend/…` tags, so existing
+  whole-repository releases keep working beside component releases.
+- `--path` is a repeatable Git pathspec. Only commits that touch those paths
+  count toward the bump, the commit count, and the release notes. A commit that
+  touches two components counts for both.
+- `select-tag`, `tag`, `github`, and `publish` accept `--tag-prefix` and reject
+  tags outside the scope. `publish` also accepts `--path` and writes the bare
+  `X.Y.Z` to the version file.
+- In the GitHub Action, set `tag-prefix` and `paths` (one pathspec per line):
+
+```yaml
+- uses: jamesonstone/mint@v1
+  with:
+    command: release-publish
+    tag-prefix: backend/
+    paths: |
+      backend
+```
+
+Without a prefix or paths, behavior is unchanged. `mint release version-main`
+and the schema 2 environment lifecycle still use one unprefixed version line;
+component-aware promotion is planned, not yet supported.
+
 ## Source version versus deployed release
 
 `mint release version-main` serially allocates one version for every untagged first-parent default-branch commit, oldest first. Controllers must use current authoritative main rather than an old triggering event SHA. Occupied tags, including isolated hotfix tags, are skipped by advancing patch until a free version is found.

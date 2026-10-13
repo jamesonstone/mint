@@ -12,6 +12,7 @@ import (
 type releaseResolveFlags struct {
 	commitish    string
 	githubOutput string
+	scope        scopeFlags
 }
 
 type releaseWorkflowFlags struct {
@@ -30,6 +31,7 @@ type releaseGitHubFlags struct {
 	tokenEnv     string
 	apiURL       string
 	githubOutput string
+	scope        scopeFlags
 }
 
 var releaseResolveCommandFlags releaseResolveFlags
@@ -106,6 +108,7 @@ func bindReleaseResolveFlags(cmd *cobra.Command, values *releaseResolveFlags) {
 	flags := cmd.Flags()
 	flags.StringVar(&values.commitish, "commitish", release.DefaultCommitish, "Git ref to resolve")
 	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
+	bindScopeFlags(flags, &values.scope, true)
 }
 
 func bindReleaseWorkflowFlags(cmd *cobra.Command, values *releaseWorkflowFlags) {
@@ -119,18 +122,20 @@ func bindReleaseGitHubFlags(cmd *cobra.Command, values *releaseGitHubFlags) {
 	flags := cmd.Flags()
 	flags.StringVar(&values.owner, "owner", "", "GitHub repository owner")
 	flags.StringVar(&values.repo, "repo", "", "GitHub repository name")
-	flags.StringVar(&values.tag, "tag", "", "strict vX.Y.Z SemVer tag to release")
+	flags.StringVar(&values.tag, "tag", "", "strict vX.Y.Z SemVer tag to release, with --tag-prefix when set")
 	flags.StringVar(&values.target, "target", "", "commitish where GitHub should create the tag when missing")
 	flags.StringVar(&values.title, "title", "", "release title; defaults to --tag")
 	flags.StringVar(&values.notesFile, "notes-file", "", "optional file containing release notes")
 	flags.StringVar(&values.tokenEnv, "token-env", "", "environment variable containing a GitHub token; falls back to MINT_GITHUB_TOKEN, GITHUB_TOKEN, then GH_TOKEN")
 	flags.StringVar(&values.apiURL, "api-url", release.DefaultGitHubAPIBaseURL, "GitHub API base URL")
 	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
+	bindScopeFlags(flags, &values.scope, false)
 }
 
 func runReleaseResolve(cmd *cobra.Command, values releaseResolveFlags) error {
 	result, err := release.Resolve(cmd.Context(), release.Options{
 		Commitish: values.commitish,
+		Scope:     values.scope.scope(),
 	})
 	if err != nil {
 		return err
@@ -191,6 +196,7 @@ func runReleaseGitHub(cmd *cobra.Command, values releaseGitHubFlags) error {
 		Notes:      notes,
 		Token:      githubToken(values.tokenEnv),
 		APIBaseURL: values.apiURL,
+		Scope:      values.scope.scope(),
 	})
 	if err != nil {
 		return err

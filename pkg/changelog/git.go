@@ -43,13 +43,17 @@ func commitishAuthorDate(ctx context.Context, workDir string, ref string) (time.
 	return date, nil
 }
 
-func loadCommits(ctx context.Context, workDir string, prevTag string, currentTag string) ([]rawCommit, error) {
+func loadCommits(ctx context.Context, workDir string, prevTag string, currentTag string, paths []string) ([]rawCommit, error) {
 	rangeSpec := currentTag
 	if prevTag != "" {
 		rangeSpec = prevTag + ".." + currentTag
 	}
 
-	out, err := runGit(ctx, workDir, "log", "--format=%x1e%H%x1f%aI%x1f%s%x1f%b", rangeSpec)
+	args := []string{"log", "--format=%x1e%H%x1f%aI%x1f%s%x1f%b", rangeSpec}
+	if len(paths) > 0 {
+		args = append(append(args, "--"), paths...)
+	}
+	out, err := runGit(ctx, workDir, args...)
 	if err != nil {
 		return nil, err
 	}

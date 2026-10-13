@@ -85,6 +85,14 @@ inputs:
     description: Version file path written by command release-publish.
     required: false
     default: .version
+  tag-prefix:
+    description: "Component tag prefix for changelog and release commands, for example backend/ for backend/vX.Y.Z tags. Empty means unprefixed vX.Y.Z tags."
+    required: false
+    default: ""
+  paths:
+    description: "Newline-separated Git pathspecs for changelog, release-resolve, and release-publish. Only commits touching these paths count toward the component's version and notes. Empty means the whole repository."
+    required: false
+    default: ""
 outputs:
   mint-path:
     description: Absolute path to the built Mint CLI on the runner.
@@ -208,8 +216,20 @@ runs:
         MINT_GITHUB_CONTEXT_TOKEN: ${{ github.token }}
         MINT_GITHUB_API_URL: ${{ inputs.github-api-url }}
         MINT_VERSION_FILE: ${{ inputs.version-file }}
+        MINT_TAG_PREFIX: ${{ inputs.tag-prefix }}
+        MINT_PATHS: ${{ inputs.paths }}
       run: |
         set -euo pipefail
+
+        scope_prefix=(--tag-prefix "$MINT_TAG_PREFIX")
+        scope_paths=()
+        while IFS= read -r scope_path || [ -n "$scope_path" ]; do
+          scope_path="${scope_path#"${scope_path%%[![:space:]]*}"}"
+          scope_path="${scope_path%"${scope_path##*[![:space:]]}"}"
+          if [ -n "$scope_path" ]; then
+            scope_paths+=(--path "$scope_path")
+          fi
+        done <<< "$MINT_PATHS"
 
         release_output="$RUNNER_TEMP/mint-release-output"
         rm -f "$release_output"
@@ -228,10 +248,10 @@ runs:
             output="$("$MINT_PATH" --help)"
             ;;
           changelog)
-            output="$("$MINT_PATH" --prev-tag "$MINT_PREV_TAG" --current-tag "$MINT_CURRENT_TAG" --current-ref "$MINT_CURRENT_REF" --owner "$MINT_OWNER" --repo "$MINT_REPO" --output "$MINT_OUTPUT_FILE")"
+            output="$("$MINT_PATH" --prev-tag "$MINT_PREV_TAG" --current-tag "$MINT_CURRENT_TAG" --current-ref "$MINT_CURRENT_REF" --owner "$MINT_OWNER" --repo "$MINT_REPO" --output "$MINT_OUTPUT_FILE" "${scope_prefix[@]}" ${scope_paths[@]+"${scope_paths[@]}"})"
             ;;
           release-resolve)
-            output="$("$MINT_PATH" release resolve --commitish "$MINT_COMMITISH" --github-output "$release_output")"
+            output="$("$MINT_PATH" release resolve --commitish "$MINT_COMMITISH" --github-output "$release_output" "${scope_prefix[@]}" ${scope_paths[@]+"${scope_paths[@]}"})"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           deployment-control)
@@ -245,19 +265,19 @@ runs:
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           release-select-tag)
-            output="$("$MINT_PATH" release select-tag --commitish "$MINT_COMMITISH" --requested-tag "$MINT_REQUESTED_TAG" --github-output "$release_output")"
+            output="$("$MINT_PATH" release select-tag --commitish "$MINT_COMMITISH" --requested-tag "$MINT_REQUESTED_TAG" --github-output "$release_output" "${scope_prefix[@]}")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           release-tag)
-            output="$("$MINT_PATH" release tag --tag "$MINT_RELEASE_TAG" --target "$MINT_TARGET_SHA" --notes-file "$MINT_RELEASE_NOTES_FILE" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output")"
+            output="$("$MINT_PATH" release tag --tag "$MINT_RELEASE_TAG" --target "$MINT_TARGET_SHA" --notes-file "$MINT_RELEASE_NOTES_FILE" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output" "${scope_prefix[@]}")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           github-release)
-            output="$("$MINT_PATH" release github --owner "$MINT_OWNER" --repo "$MINT_REPO" --tag "$MINT_RELEASE_TAG" --target "$MINT_TARGET_SHA" --title "$MINT_RELEASE_TITLE" --notes-file "$MINT_RELEASE_NOTES_FILE" --api-url "$MINT_GITHUB_API_URL" --github-output "$release_output")"
+            output="$("$MINT_PATH" release github --owner "$MINT_OWNER" --repo "$MINT_REPO" --tag "$MINT_RELEASE_TAG" --target "$MINT_TARGET_SHA" --title "$MINT_RELEASE_TITLE" --notes-file "$MINT_RELEASE_NOTES_FILE" --api-url "$MINT_GITHUB_API_URL" --github-output "$release_output" "${scope_prefix[@]}")"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           release-publish)
-            output="$("$MINT_PATH" release publish --commitish "$MINT_COMMITISH" --owner "$MINT_OWNER" --repo "$MINT_REPO" --title "$MINT_RELEASE_TITLE" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --api-url "$MINT_GITHUB_API_URL" --github-output "$release_output" --version-file "$MINT_VERSION_FILE")"
+            output="$("$MINT_PATH" release publish --commitish "$MINT_COMMITISH" --owner "$MINT_OWNER" --repo "$MINT_REPO" --title "$MINT_RELEASE_TITLE" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --api-url "$MINT_GITHUB_API_URL" --github-output "$release_output" --version-file "$MINT_VERSION_FILE" "${scope_prefix[@]}" ${scope_paths[@]+"${scope_paths[@]}"})"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           none)

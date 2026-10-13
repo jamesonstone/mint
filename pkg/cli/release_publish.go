@@ -18,6 +18,7 @@ type releasePublishFlags struct {
 	apiURL       string
 	githubOutput string
 	versionFile  string
+	scope        scopeFlags
 }
 
 var releasePublishCommandFlags releasePublishFlags
@@ -53,6 +54,7 @@ func bindReleasePublishFlags(cmd *cobra.Command, values *releasePublishFlags) {
 	flags.StringVar(&values.apiURL, "api-url", release.DefaultGitHubAPIBaseURL, "GitHub API base URL")
 	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
 	flags.StringVar(&values.versionFile, "version-file", release.DefaultVersionFile, "path to write the resolved runtime version without the v prefix")
+	bindScopeFlags(flags, &values.scope, true)
 }
 
 func runReleasePublish(cmd *cobra.Command, values releasePublishFlags) error {
@@ -66,6 +68,7 @@ func runReleasePublish(cmd *cobra.Command, values releasePublishFlags) error {
 		Remote:      values.remote,
 		PushTag:     values.push,
 		VersionFile: values.versionFile,
+		Scope:       values.scope.scope(),
 	})
 	if err != nil {
 		return err

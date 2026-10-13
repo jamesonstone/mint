@@ -21,6 +21,8 @@ type PublishOptions struct {
 	PushTag     bool
 	VersionFile string
 	HTTPClient  *http.Client
+	// Scope publishes one component: prefixed tag, path-scoped notes.
+	Scope Scope
 }
 
 // PublishResult contains release resolution, Git tag, and GitHub Release state.
@@ -36,6 +38,7 @@ func PublishRelease(ctx context.Context, opts PublishOptions) (PublishResult, er
 	resolved, err := Resolve(ctx, Options{
 		Commitish: opts.Commitish,
 		WorkDir:   opts.WorkDir,
+		Scope:     opts.Scope,
 	})
 	if err != nil {
 		return PublishResult{}, err
@@ -48,7 +51,7 @@ func PublishRelease(ctx context.Context, opts PublishOptions) (PublishResult, er
 	if opts.WorkDir != "" && !filepath.IsAbs(versionFile) {
 		versionFile = filepath.Join(opts.WorkDir, versionFile)
 	}
-	if err := WriteVersionFile(versionFile, resolved.VersionTag); err != nil {
+	if err := WriteScopedVersionFile(versionFile, resolved.VersionTag, opts.Scope); err != nil {
 		return PublishResult{}, err
 	}
 
@@ -65,6 +68,7 @@ func PublishRelease(ctx context.Context, opts PublishOptions) (PublishResult, er
 		Remote:    opts.Remote,
 		Push:      opts.PushTag,
 		WorkDir:   opts.WorkDir,
+		Scope:     opts.Scope,
 	})
 	if err != nil {
 		return PublishResult{}, err
@@ -84,6 +88,7 @@ func PublishRelease(ctx context.Context, opts PublishOptions) (PublishResult, er
 		Token:      opts.Token,
 		APIBaseURL: opts.APIBaseURL,
 		HTTPClient: opts.HTTPClient,
+		Scope:      opts.Scope,
 	})
 	if err != nil {
 		return PublishResult{}, err

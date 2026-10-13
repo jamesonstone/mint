@@ -16,6 +16,11 @@ type Options struct {
 	OutputFile    string
 	WorkDir       string
 	WarningWriter io.Writer
+	// TagPrefix scopes tags to one component, for example "backend/" for
+	// backend/v1.2.0. Headers keep the bare X.Y.Z version.
+	TagPrefix string
+	// Paths limits entries to commits touching these Git pathspecs.
+	Paths []string
 }
 
 type Result struct {

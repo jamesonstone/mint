@@ -24,6 +24,8 @@ type TagOptions struct {
 	Remote    string
 	Push      bool
 	WorkDir   string
+	// Scope sets the accepted tag prefix; Paths are not used for tagging.
+	Scope Scope
 }
 
 // TagResult describes release Git tag creation or reuse.
@@ -95,8 +97,11 @@ func normalizeTagOptions(opts TagOptions) (TagOptions, error) {
 	normalized.NotesFile = strings.TrimSpace(normalized.NotesFile)
 	normalized.Remote = strings.TrimSpace(normalized.Remote)
 
-	if _, ok := parseSemVerTag(normalized.Tag); !ok {
-		return TagOptions{}, validationError("tag", "must be a strict vX.Y.Z SemVer tag")
+	if err := normalized.Scope.Validate(); err != nil {
+		return TagOptions{}, err
+	}
+	if _, ok := normalized.Scope.parseTag(normalized.Tag); !ok {
+		return TagOptions{}, validationError("tag", "%s", normalized.Scope.tagRule())
 	}
 	if normalized.Target == "" {
 		return TagOptions{}, validationError("target", "target commitish is required")

@@ -37,7 +37,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 	var base semverTag
 	hasBase := false
 	for _, sha := range splitLines(history) {
-		tags, err := semVerTagsPointingAt(ctx, opts.WorkDir, sha)
+		tags, err := semVerTagsPointingAt(ctx, opts.WorkDir, sha, Scope{})
 		if err != nil {
 			return nil, err
 		}
@@ -59,14 +59,14 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 	results := []MainVersion{}
 	for i := len(pending) - 1; i >= 0; i-- {
 		sha := pending[i]
-		commits, err := loadCommits(ctx, opts.WorkDir, sha+"^", sha)
+		commits, err := loadCommits(ctx, opts.WorkDir, sha+"^", sha, Scope{})
 		if err != nil {
 			// Only a true root commit has no parent; do not swallow other Git failures.
 			parents, parentErr := runGit(ctx, opts.WorkDir, "rev-list", "--parents", "-n", "1", sha)
 			if parentErr != nil || len(strings.Fields(string(parents))) != 1 {
 				return nil, err
 			}
-			commits, err = loadCommits(ctx, opts.WorkDir, "", sha)
+			commits, err = loadCommits(ctx, opts.WorkDir, "", sha, Scope{})
 		}
 		if err != nil {
 			return nil, err
@@ -75,7 +75,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 		if rank < bumpRankPatch {
 			rank = bumpRankPatch
 		}
-		version := nextVersion(base, hasBase, rank)
+		version := nextVersion(base, hasBase, rank, Scope{})
 		next, _ := parseSemVerTag(version)
 		for occupied[version] {
 			next.Patch++

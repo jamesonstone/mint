@@ -3,6 +3,7 @@ package changelog
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 func Generate(ctx context.Context, options Options) (Result, error) {
@@ -32,9 +33,17 @@ func Generate(ctx context.Context, options Options) (Result, error) {
 		if err := validateTag(ctx, normalized.WorkDir, normalized.PrevTag); err != nil {
 			return Result{}, err
 		}
+		if normalized.TagPrefix != "" && !strings.HasPrefix(normalized.PrevTag, normalized.TagPrefix) {
+			return Result{}, fmt.Errorf("previous tag %s does not start with prefix %s", normalized.PrevTag, normalized.TagPrefix)
+		}
+	}
+	for _, path := range normalized.Paths {
+		if strings.TrimSpace(path) == "" || strings.HasPrefix(path, "-") {
+			return Result{}, fmt.Errorf("paths must be non-empty Git pathspecs without a leading dash")
+		}
 	}
 
-	rawCommits, err := loadCommits(ctx, normalized.WorkDir, normalized.PrevTag, rangeEnd)
+	rawCommits, err := loadCommits(ctx, normalized.WorkDir, normalized.PrevTag, rangeEnd, normalized.Paths)
 	if err != nil {
 		return Result{}, err
 	}
@@ -42,7 +51,7 @@ func Generate(ctx context.Context, options Options) (Result, error) {
 		return Result{}, fmt.Errorf("no commits in range %s..%s", normalized.PrevTag, rangeEnd)
 	}
 
-	version, err := versionFromTag(normalized.CurrentTag)
+	version, err := versionFromTag(normalized.CurrentTag, normalized.TagPrefix)
 	if err != nil {
 		return Result{}, err
 	}

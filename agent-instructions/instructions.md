@@ -77,6 +77,8 @@ implemented_surface:
           - "--owner"
           - "--repo"
           - "--output"
+          - "--tag-prefix"
+          - "--path"
         output:
           stdout: "added <tag> with <N> commits, <M> breaking"
           files:
@@ -89,6 +91,9 @@ implemented_surface:
         core_flags:
           - "--commitish"
           - "--github-output"
+          - "--tag-prefix"
+          - "--path"
+        component_scope: "--tag-prefix backend/ --path backend resolves backend/vX.Y.Z from commits touching backend only; tags outside the scope are ignored."
         outputs:
           stdout: "resolved version tag"
           github_output:
@@ -109,6 +114,7 @@ implemented_surface:
           - "--commitish"
           - "--requested-tag"
           - "--github-output"
+          - "--tag-prefix"
         outputs:
           stdout: "selected version tag"
           github_output:
@@ -131,6 +137,7 @@ implemented_surface:
           - "--remote"
           - "--push"
           - "--github-output"
+          - "--tag-prefix"
         invariants:
           - "Validate tag as strict vX.Y.Z."
           - "Validate target commit exists."
@@ -166,6 +173,7 @@ implemented_surface:
           - "--token-env"
           - "--api-url"
           - "--github-output"
+          - "--tag-prefix"
         token_lookup_order:
           default:
             - "MINT_GITHUB_TOKEN"
@@ -199,6 +207,8 @@ implemented_surface:
           - "--token-env"
           - "--api-url"
           - "--github-output"
+          - "--tag-prefix"
+          - "--path"
         does_not:
           - "Build Docker images."
           - "Authenticate to container registries."
@@ -249,6 +259,9 @@ implemented_surface:
         - "go-version"
         - "commitish"
         - "requested-tag"
+      component_scope:
+        - "tag-prefix"
+        - "paths (newline-separated pathspecs; changelog, release-resolve, release-publish)"
       changelog:
         - "prev-tag"
         - "current-tag"

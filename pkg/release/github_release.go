@@ -29,6 +29,8 @@ type GitHubReleaseOptions struct {
 	Token      string
 	APIBaseURL string
 	HTTPClient *http.Client
+	// Scope sets the accepted tag prefix.
+	Scope Scope
 }
 
 // GitHubReleaseResult contains the published or existing GitHub Release.
@@ -136,8 +138,11 @@ func normalizeGitHubReleaseOptions(opts GitHubReleaseOptions) (GitHubReleaseOpti
 	if normalized.Repo == "" {
 		return GitHubReleaseOptions{}, validationError("repo", "GitHub repository name is required")
 	}
-	if _, ok := parseSemVerTag(normalized.Tag); !ok {
-		return GitHubReleaseOptions{}, validationError("tag", "must be a strict vX.Y.Z SemVer tag")
+	if err := normalized.Scope.Validate(); err != nil {
+		return GitHubReleaseOptions{}, err
+	}
+	if _, ok := normalized.Scope.parseTag(normalized.Tag); !ok {
+		return GitHubReleaseOptions{}, validationError("tag", "%s", normalized.Scope.tagRule())
 	}
 	if normalized.Target == "" {
 		return GitHubReleaseOptions{}, validationError("target", "target commitish is required")
@@ -257,8 +262,12 @@ func gitHubAPIURL(baseURL *url.URL, parts ...string) string {
 		escaped = append(escaped, url.PathEscape(part))
 	}
 
+	// Path holds the decoded form and RawPath the single-escaped form, so a part
+	// such as backend/v1.2.3 is sent once as backend%2Fv1.2.3.
 	prefix := strings.TrimRight(clone.Path, "/")
-	clone.Path = prefix + "/" + strings.Join(escaped, "/")
+	rawPrefix := strings.TrimRight(clone.EscapedPath(), "/")
+	clone.Path = prefix + "/" + strings.Join(parts, "/")
+	clone.RawPath = rawPrefix + "/" + strings.Join(escaped, "/")
 	return clone.String()
 }
 

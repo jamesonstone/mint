@@ -15,6 +15,9 @@ const (
 type Options struct {
 	Commitish string
 	WorkDir   string
+	// Scope limits resolution to one component; the zero value is the whole
+	// repository with unprefixed tags.
+	Scope Scope
 }
 
 // Result contains release metadata returned by Resolve.

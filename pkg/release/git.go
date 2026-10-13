@@ -30,7 +30,7 @@ func shortCommit(ctx context.Context, workDir string, sha string) (string, error
 	return strings.TrimSpace(string(out)), nil
 }
 
-func semVerTagsPointingAt(ctx context.Context, workDir string, target string) ([]semverTag, error) {
+func semVerTagsPointingAt(ctx context.Context, workDir string, target string, scope Scope) ([]semverTag, error) {
 	out, err := runGit(ctx, workDir, "tag", "--points-at", target)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func semVerTagsPointingAt(ctx context.Context, workDir string, target string) ([
 
 	var tags []semverTag
 	for _, name := range splitLines(out) {
-		tag, ok := parseSemVerTag(name)
+		tag, ok := scope.parseTag(name)
 		if !ok {
 			continue
 		}
@@ -48,7 +48,7 @@ func semVerTagsPointingAt(ctx context.Context, workDir string, target string) ([
 	return tags, nil
 }
 
-func reachableSemVerTags(ctx context.Context, workDir string, target string) ([]semverTag, error) {
+func reachableSemVerTags(ctx context.Context, workDir string, target string, scope Scope) ([]semverTag, error) {
 	out, err := runGit(ctx, workDir, "tag", "--merged", target)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func reachableSemVerTags(ctx context.Context, workDir string, target string) ([]
 
 	var tags []semverTag
 	for _, name := range splitLines(out) {
-		tag, ok := parseSemVerTag(name)
+		tag, ok := scope.parseTag(name)
 		if !ok {
 			continue
 		}
@@ -78,13 +78,14 @@ func tagCommit(ctx context.Context, workDir string, tag string) (string, error) 
 	return strings.TrimSpace(string(out)), nil
 }
 
-func loadCommits(ctx context.Context, workDir string, baseTag string, target string) ([]rawCommit, error) {
+func loadCommits(ctx context.Context, workDir string, baseTag string, target string, scope Scope) ([]rawCommit, error) {
 	rangeSpec := target
 	if baseTag != "" {
 		rangeSpec = baseTag + ".." + target
 	}
 
-	out, err := runGit(ctx, workDir, "log", "--reverse", "--format=%x1e%H%x1f%aI%x1f%s%x1f%b", rangeSpec)
+	args := append([]string{"log", "--reverse", "--format=%x1e%H%x1f%aI%x1f%s%x1f%b", rangeSpec}, scope.pathspecArgs()...)
+	out, err := runGit(ctx, workDir, args...)
 	if err != nil {
 		return nil, err
 	}

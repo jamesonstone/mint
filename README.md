@@ -34,6 +34,7 @@ CLI principles:
 - 🧰 Kit-style command structure
 - 📄 documented behavior before release automation expands
 - 🪙 deterministic SemVer release resolution from Git history
+- 🧩 component-scoped releases (`backend/v1.2.0`) with path-filtered history for monorepos
 - 🔎 read-only release tag selection for deployment handoff workflows
 - ⚡ small root surface while the domain model is still forming
 - 🔍 explicit build and verification commands

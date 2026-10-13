@@ -7,6 +7,9 @@ import (
 // Resolve computes release metadata from reachable Git history without
 // mutating repository state.
 func Resolve(ctx context.Context, opts Options) (Result, error) {
+	if err := opts.Scope.Validate(); err != nil {
+		return Result{}, err
+	}
 	commitish := opts.Commitish
 	if commitish == "" {
 		commitish = DefaultCommitish
@@ -22,7 +25,7 @@ func Resolve(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, err
 	}
 
-	targetTags, err := semVerTagsPointingAt(ctx, opts.WorkDir, target)
+	targetTags, err := semVerTagsPointingAt(ctx, opts.WorkDir, target, opts.Scope)
 	if err != nil {
 		return Result{}, err
 	}
@@ -40,7 +43,7 @@ func Resolve(ctx context.Context, opts Options) (Result, error) {
 		return result, nil
 	}
 
-	base, hasBase, err := resolveBaseTag(ctx, opts.WorkDir, target)
+	base, hasBase, err := resolveBaseTag(ctx, opts.WorkDir, target, opts.Scope)
 	if err != nil {
 		return Result{}, err
 	}
@@ -50,13 +53,13 @@ func Resolve(ctx context.Context, opts Options) (Result, error) {
 		baseTag = base.Name
 	}
 
-	commits, err := loadCommits(ctx, opts.WorkDir, baseTag, target)
+	commits, err := loadCommits(ctx, opts.WorkDir, baseTag, target, opts.Scope)
 	if err != nil {
 		return Result{}, err
 	}
 
 	if len(commits) == 0 {
-		versionTag := "v0.0.0"
+		versionTag := opts.Scope.FormatTag(0, 0, 0)
 		if hasBase {
 			versionTag = base.Name
 		}
@@ -74,7 +77,7 @@ func Resolve(ctx context.Context, opts Options) (Result, error) {
 	}
 
 	evaluations, bump, rank := evaluateCommits(commits)
-	versionTag := nextVersion(base, hasBase, rank)
+	versionTag := nextVersion(base, hasBase, rank, opts.Scope)
 	result := Result{
 		VersionTag:   versionTag,
 		VersionBump:  bump,
@@ -89,8 +92,8 @@ func Resolve(ctx context.Context, opts Options) (Result, error) {
 	return result, nil
 }
 
-func resolveBaseTag(ctx context.Context, workDir string, target string) (semverTag, bool, error) {
-	tags, err := reachableSemVerTags(ctx, workDir, target)
+func resolveBaseTag(ctx context.Context, workDir string, target string, scope Scope) (semverTag, bool, error) {
+	tags, err := reachableSemVerTags(ctx, workDir, target, scope)
 	if err != nil {
 		return semverTag{}, false, err
 	}
@@ -98,7 +101,7 @@ func resolveBaseTag(ctx context.Context, workDir string, target string) (semverT
 	return tag, ok, nil
 }
 
-func nextVersion(base semverTag, hasBase bool, rank int) string {
+func nextVersion(base semverTag, hasBase bool, rank int, scope Scope) string {
 	major := 0
 	minor := 0
 	patch := 0
@@ -111,17 +114,17 @@ func nextVersion(base semverTag, hasBase bool, rank int) string {
 	switch rank {
 	case bumpRankMajor:
 		if !hasBase {
-			return "v1.0.0"
+			return scope.FormatTag(1, 0, 0)
 		}
-		return formatSemVer(major+1, 0, 0)
+		return scope.FormatTag(major+1, 0, 0)
 	case bumpRankMinor:
-		return formatSemVer(major, minor+1, 0)
+		return scope.FormatTag(major, minor+1, 0)
 	case bumpRankPatch:
-		return formatSemVer(major, minor, patch+1)
+		return scope.FormatTag(major, minor, patch+1)
 	default:
 		if hasBase {
 			return base.Name
 		}
-		return "v0.0.0"
+		return scope.FormatTag(0, 0, 0)
 	}
 }

@@ -68,8 +68,11 @@ func shortHash(hash string) string {
 	return hash[:7]
 }
 
-func versionFromTag(tag string) (string, error) {
-	version := strings.TrimPrefix(tag, "v")
+func versionFromTag(tag string, tagPrefix string) (string, error) {
+	if !strings.HasPrefix(tag, tagPrefix) {
+		return "", fmt.Errorf("tag %s does not start with prefix %s", tag, tagPrefix)
+	}
+	version := strings.TrimPrefix(strings.TrimPrefix(tag, tagPrefix), "v")
 	if !semverPattern.MatchString(version) {
 		return "", fmt.Errorf("version %s is not semver", version)
 	}

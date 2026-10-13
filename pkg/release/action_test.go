@@ -69,6 +69,11 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 		"tag_reused:",
 		"tag_pushed:",
 		"Unsupported mint action command",
+		"tag-prefix:",
+		"paths:",
+		"MINT_TAG_PREFIX",
+		"MINT_PATHS",
+		"scope_paths+=(--path \"$scope_path\")",
 	} {
 		if !strings.Contains(action, want) {
 			t.Fatalf("action.yml missing %q:\n%s", want, action)

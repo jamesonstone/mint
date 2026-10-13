@@ -38,6 +38,27 @@ The heading uses the current version and links to its GitHub Release. The date c
 
 The changelog parser requires a valid Conventional Commit header and warns about unrecognized entries. `docs`, `test`, and `chore` are excluded even if marked breaking; `style` is not a recognized changelog type. The changelog parser recognizes the space form `BREAKING CHANGE:`; the version resolver also recognizes `BREAKING-CHANGE:`. Do not confuse changelog inclusion with version impact: the version resolver still treats other and non-conventional changes as patch changes.
 
+## Per-component changelogs
+
+For a component released with a tag prefix, write its own changelog and limit
+entries to its paths:
+
+```bash
+mint --prev-tag backend/v1.3.0 --current-tag backend/v1.4.0 --current-ref HEAD \
+  --owner acme --repo app --output backend/CHANGELOG.md \
+  --tag-prefix backend/ --path backend
+```
+
+The header keeps the bare version and links to the prefixed tag:
+
+```text
+## [1.4.0](https://github.com/acme/app/releases/tag/backend/v1.4.0) - 2026-10-13
+```
+
+Mint rejects a current or previous tag that does not start with the prefix.
+In the GitHub Action, use the `tag-prefix` and `paths` inputs with
+`command: changelog`.
+
 ## Existing changelogs and retries
 
 The command prepends a release block while preserving older entries and file permissions. Existing `##` headings must use Mint's parseable release-heading format. It rejects duplicate versions, malformed release headings, missing range refs, and empty ranges rather than silently overwriting history.

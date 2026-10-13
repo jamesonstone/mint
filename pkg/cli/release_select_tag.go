@@ -11,6 +11,7 @@ type releaseSelectTagFlags struct {
 	commitish    string
 	requestedTag string
 	githubOutput string
+	scope        scopeFlags
 }
 
 var releaseSelectTagCommandFlags releaseSelectTagFlags
@@ -40,12 +41,14 @@ func bindReleaseSelectTagFlags(cmd *cobra.Command, values *releaseSelectTagFlags
 	flags.StringVar(&values.commitish, "commitish", release.DefaultCommitish, "Git ref to inspect")
 	flags.StringVar(&values.requestedTag, "requested-tag", "", "optional strict vX.Y.Z SemVer tag supplied by the caller")
 	flags.StringVar(&values.githubOutput, "github-output", "", "optional path to a GitHub Actions output file")
+	bindScopeFlags(flags, &values.scope, false)
 }
 
 func runReleaseSelectTag(cmd *cobra.Command, values releaseSelectTagFlags) error {
 	result, err := release.SelectTag(cmd.Context(), release.SelectTagOptions{
 		Commitish:    values.commitish,
 		RequestedTag: values.requestedTag,
+		Scope:        values.scope.scope(),
 	})
 	if err != nil {
 		return err

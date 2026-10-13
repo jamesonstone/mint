@@ -14,6 +14,7 @@ type changelogFlags struct {
 	owner      string
 	repo       string
 	output     string
+	scope      scopeFlags
 }
 
 var rootChangelogFlags changelogFlags
@@ -50,6 +51,7 @@ func bindChangelogFlags(cmd *cobra.Command, values *changelogFlags) {
 	flags.StringVar(&values.owner, "owner", "", "GitHub repository owner")
 	flags.StringVar(&values.repo, "repo", "", "GitHub repository name")
 	flags.StringVar(&values.output, "output", changelog.DefaultOutputFile, "path to CHANGELOG.md")
+	bindScopeFlags(flags, &values.scope, true)
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
@@ -60,7 +62,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 }
 
 func rootChangelogRequested(cmd *cobra.Command) bool {
-	for _, name := range []string{"prev-tag", "current-tag", "current-ref", "owner", "repo", "output"} {
+	for _, name := range []string{"prev-tag", "current-tag", "current-ref", "owner", "repo", "output", "tag-prefix", "path"} {
 		if cmd.Flags().Changed(name) {
 			return true
 		}
@@ -77,6 +79,8 @@ func runChangelog(cmd *cobra.Command, values changelogFlags) error {
 		RepoName:      values.repo,
 		OutputFile:    values.output,
 		WarningWriter: cmd.ErrOrStderr(),
+		TagPrefix:     values.scope.tagPrefix,
+		Paths:         values.scope.paths,
 	})
 	if err != nil {
 		return err
