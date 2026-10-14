@@ -452,3 +452,15 @@ func TestForeignControlPRDetection(t *testing.T) {
 		}
 	}
 }
+
+func TestComponentRejectsLockEnvironment(t *testing.T) {
+	policy := strings.Replace(componentPolicyYAML, "  production:\n", "  lock:\n", 1)
+	if _, err := ParsePolicy([]byte(policy)); err == nil {
+		t.Fatal("component environment named lock accepted; its journal ref would end in .lock")
+	}
+	unscoped := strings.Replace(environmentPolicyYAML, "  dev:\n", "  lock:\n", 1)
+	unscoped = strings.Replace(unscoped, "requires: [dev]", "requires: [lock]", 1)
+	if _, err := ParsePolicy([]byte(unscoped)); err != nil {
+		t.Fatalf("unscoped lock environment rejected: %v", err)
+	}
+}

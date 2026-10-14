@@ -143,6 +143,11 @@ func (p *Policy) validate() error {
 		if !ValidEnvironmentName(name) {
 			return fmt.Errorf("unsafe environment name %s", name)
 		}
+		// Component journals are mint-release-state.<name>.<environment>; Git
+		// refs cannot end in ".lock".
+		if !component.IsZero() && name == "lock" {
+			return fmt.Errorf("component environments cannot be named lock")
+		}
 		if err := validateEnvironment(env, component); err != nil {
 			return fmt.Errorf("environment %s: %w", name, err)
 		}

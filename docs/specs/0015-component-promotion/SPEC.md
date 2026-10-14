@@ -102,6 +102,11 @@ Update the adapters, publication, workflows, docs, and tests.
   `stable-v1.2.3` newly rejected, other scopes' PRs failing `validate-review`,
   unsafe changelog paths (`.mint/…`, `./x.md`), `--config` dropping
   `.mint/status.json`, and loosened observation versions.
+- Second review pass: no blocking issues. Follow-ups applied: component
+  environments cannot be named `lock` (journal ref would end in `.lock`); the
+  recovery guide documents that hotfix sources are bound to their prepared
+  baseline (a behavior change for repository-wide users: a stale hotfix is now
+  rejected rather than re-attributed) and one component per hotfix issue.
 - Existing `make lint` findings on `main` remain (6, unrelated); this change adds
   none.
 

@@ -37,6 +37,10 @@ With multiple environments, configure `default_environment` for title-driven req
 
 The version is the next unused patch in the deployed compatibility series. Integrate the correction into the default branch so future ordinary releases retain it.
 
+The hotfix source PR is bound to the verified baseline it was prepared from. If another release deploys before the source PR merges, Mint rejects the stale hotfix instead of attributing it to the new baseline; request the hotfix again against the current deployment.
+
+For a [component policy](integration.html#release-several-components-from-one-repository), the production base is `mint-hotfix-base/<component>/GH-<issue>`, the source PR carries `<!-- mint:component-hotfix-source:<component>:…`, and the version keeps the component prefix (`backend/v1.4.1`). Use one component per hotfix issue: request a separate issue for each component that needs a correction.
+
 ## Reconcile an uncertain deployment
 
 Missing, mixed, or conflicting deployment evidence leaves a fence in place. A successful dispatch or standalone observation does not clear it.
