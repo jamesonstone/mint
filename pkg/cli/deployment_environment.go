@@ -87,11 +87,11 @@ func runLocalEnvironment(cmd *cobra.Command, operation string, cfg promotion.Con
 		return err
 	}
 	dir := filepath.Join(cache, "mint", fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.Repository))))
-	path := filepath.Join(dir, cfg.Environment+".json")
-	state := promotion.NewState(cfg.Repository, cfg.Environment)
+	path := filepath.Join(dir, cfg.Component.StateKey(cfg.Environment)+".json")
+	state := promotion.NewComponentState(cfg.Repository, cfg.Environment, cfg.Component)
 	state.Schema = 2
 	if data, readErr := os.ReadFile(path); readErr == nil {
-		state, err = promotion.DecodeState(data, cfg.Repository, cfg.Environment)
+		state, err = promotion.DecodeComponentState(data, cfg.Repository, cfg.Environment, cfg.Component)
 		if err != nil {
 			return err
 		}

@@ -19,7 +19,7 @@ func (o *productionOperation) review(ctx context.Context) (any, bool, error) {
 	}
 	s := o.snapshot.State
 	for _, p := range s.Proposals {
-		marker := "<!-- mint:proposal:" + p.ID + ":" + p.Kind + " -->"
+		marker := o.client.Component.ProposalMarker(p.ID, p.Kind)
 		if strings.Contains(pr.Body, marker) {
 			return o.intent(ctx, false)
 		}

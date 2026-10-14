@@ -40,7 +40,7 @@ func RenderEnvironmentWorkflow(policy Policy, mintRef, configPath string, buildN
 		callbacks, _ := json.Marshal(unique)
 		callback = fmt.Sprintf("  workflow_run:\n    workflows: %s\n    types: [completed]\n", string(callbacks))
 	}
-	return fmt.Sprintf(`name: Mint environment control
+	return fmt.Sprintf(`name: Mint environment control%s
 on:
   push:
     branches: ['%s']
@@ -111,5 +111,5 @@ jobs:
           command: deployment-control
           production-config: '%s'
           github-token: ${{ github.token }}
-`, policy.DefaultBranch, callback, string(options), mintRef, configPath), nil
+`, workflowNameSuffix(policy.ComponentScope()), policy.DefaultBranch, callback, string(options), mintRef, configPath), nil
 }

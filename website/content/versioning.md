@@ -59,9 +59,22 @@ mint release resolve --tag-prefix frontend/ --path frontend --path shared/ui
       backend
 ```
 
-Without a prefix or paths, behavior is unchanged. `mint release version-main`
-and the schema 2 environment lifecycle still use one unprefixed version line;
-component-aware promotion is planned, not yet supported.
+Without a prefix or paths, behavior is unchanged.
+
+To source-version a component on every default-branch push, point
+`version-main` at the component's schema 2 policy. Only first-parent commits
+that touch the component's paths receive `<prefix>vX.Y.Z` tags, and the
+policy's release-control files are treated as control-only:
+
+```bash
+mint release version-main --config .mint/backend.yaml --main-ref origin/main
+```
+
+In the Action, set `command: release-version-main` and
+`version-config: .mint/backend.yaml`. Without `--config`, `version-main`
+versions every commit on one unprefixed line, as before. See
+[Integrate Mint](integration.html#release-several-components-from-one-repository)
+for component environment policies.
 
 ## Source version versus deployed release
 

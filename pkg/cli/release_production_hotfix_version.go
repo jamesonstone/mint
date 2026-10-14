@@ -25,7 +25,7 @@ func (o *productionOperation) versionHotfix(ctx context.Context) (any, bool, err
 	if err := o.client.CheckHead(ctx, pr, o.config.RequiredChecks); err != nil {
 		return nil, false, err
 	}
-	selected, selectErr := release.SelectTag(ctx, release.SelectTagOptions{Commitish: pr.MergeSHA, WorkDir: o.proof.WorkDir})
+	selected, selectErr := release.SelectTag(ctx, release.SelectTagOptions{Commitish: pr.MergeSHA, WorkDir: o.proof.WorkDir, Scope: o.config.Component.ReleaseScope()})
 	if selectErr == nil {
 		return promotion.MainVersionSelection{SourceSHA: pr.MergeSHA, Version: selected.VersionTag, SourcePR: pr.Number, BaselineID: s.Baseline.ID}, false, nil
 	}
@@ -35,7 +35,7 @@ func (o *productionOperation) versionHotfix(ctx context.Context) (any, bool, err
 	if err != nil {
 		return nil, false, err
 	}
-	version, err := release.AllocateHotfixVersion(s.Baseline.Candidate.Version, strings.Fields(string(tags)))
+	version, err := release.AllocateHotfixVersion(s.Baseline.Candidate.Version, strings.Fields(string(tags)), o.config.Component.ReleaseScope())
 	if err != nil {
 		return nil, false, err
 	}
@@ -55,7 +55,7 @@ func (o *productionOperation) versionHotfix(ctx context.Context) (any, bool, err
 	if err := notes.Close(); err != nil {
 		return nil, false, err
 	}
-	if _, err := release.CreateReleaseTag(ctx, release.TagOptions{Tag: version, Target: pr.MergeSHA, NotesFile: notes.Name(), Remote: "origin", Push: true, WorkDir: o.proof.WorkDir}); err != nil {
+	if _, err := release.CreateReleaseTag(ctx, release.TagOptions{Tag: version, Target: pr.MergeSHA, NotesFile: notes.Name(), Remote: "origin", Push: true, WorkDir: o.proof.WorkDir, Scope: o.config.Component.ReleaseScope()}); err != nil {
 		return nil, false, err
 	}
 	return promotion.MainVersionSelection{SourceSHA: pr.MergeSHA, Version: version, SourcePR: pr.Number, BaselineID: s.Baseline.ID}, false, nil

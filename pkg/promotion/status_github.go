@@ -24,7 +24,7 @@ func (c Client) SyncStatus(ctx context.Context, cfg Config, i Intent) (PullReque
 	if kind == "" {
 		kind = i.Candidate.Kind
 	}
-	marker := proposalMarker(Proposal{ID: i.ProposalID, Kind: kind})
+	marker := c.proposalMarker(Proposal{ID: i.ProposalID, Kind: kind})
 	var pull *PullRequest
 	for _, pr := range pulls {
 		if pr.MergeSHA != i.MergeSHA || !strings.Contains(pr.Body, marker) {

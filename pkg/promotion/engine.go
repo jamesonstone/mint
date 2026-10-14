@@ -24,7 +24,7 @@ type BuildEvidence struct {
 
 // RegisterCandidate refuses failed/foreign builds and immutable identity conflicts.
 func (s *State) RegisterCandidate(c Candidate, e BuildEvidence) error {
-	if err := validateCandidate(c); err != nil {
+	if err := validateCandidate(c, s.Component()); err != nil {
 		return err
 	}
 	if c.Repository != s.Repository || !s.AcceptsEnvironment(c.Environment) || !e.Trusted || !e.Success || e.Repository != s.Repository || e.SourceSHA != c.SourceSHA || e.TagSHA != c.SourceSHA || e.ArtifactDigest != c.Artifact.Digest || e.Configuration != c.Artifact.Configuration || e.RunID != c.RunID {

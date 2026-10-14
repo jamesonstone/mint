@@ -33,7 +33,7 @@ func RenderControlWorkflow(cfg Config, mintRef string, configPaths ...string) (s
 	if cfg.Authorization == "" {
 		actorGate = " && github.actor == '" + cfg.HumanLogin + "'"
 	}
-	return fmt.Sprintf(`name: Production release control
+	return fmt.Sprintf(`name: Production release control%s
 on:
   pull_request_target:
     types: [closed]
@@ -68,7 +68,7 @@ permissions:
   issues: write
   checks: read
 concurrency:
-  group: mint-release-journal
+  group: %s
   cancel-in-progress: false
 jobs:
   request:
@@ -89,7 +89,7 @@ jobs:
           command: production-control
           production-config: '%s'
           github-token: ${{ github.token }}
-`, actorGate, mintRef, configPath), nil
+`, workflowNameSuffix(cfg.Component), cfg.Component.ControlConcurrencyGroup(), actorGate, mintRef, configPath), nil
 }
 
 // SafeRepositoryPath excludes traversal, absolute paths and Actions expressions

@@ -11,7 +11,7 @@ import (
 
 func outcomeFixture() (Intent, PullRequest) {
 	i := Intent{ID: "intent-1", ProposalID: "proposal-1", Kind: "normal", MergeSHA: sha(4), Candidate: candidate(1, "normal"), Status: "publication_pending", DeploymentURL: "https://github.com/owner/repo/actions/runs/7"}
-	p := PullRequest{Number: 42, State: "closed", Merged: true, MergeSHA: i.MergeSHA, Body: proposalMarker(Proposal{ID: i.ProposalID, Kind: i.Kind}) + "\nHuman release summary."}
+	p := PullRequest{Number: 42, State: "closed", Merged: true, MergeSHA: i.MergeSHA, Body: Client{}.proposalMarker(Proposal{ID: i.ProposalID, Kind: i.Kind}) + "\nHuman release summary."}
 	mergedAt := "2026-10-04T10:00:00Z"
 	p.MergedAt = &mergedAt
 	p.User.Login = AutomationLogin

@@ -29,7 +29,7 @@ func TestVersionMainBatchReplayAndHotfixCollision(t *testing.T) {
 	if r.revParse(t, "v0.1.1") != first {
 		t.Fatal("tag moved")
 	}
-	hotfix, err := AllocateHotfixVersion("v0.1.0", []string{"v0.1.1", "v0.1.2", "v0.2.0"})
+	hotfix, err := AllocateHotfixVersion("v0.1.0", []string{"v0.1.1", "v0.1.2", "v0.2.0"}, Scope{})
 	if err != nil || hotfix != "v0.1.3" {
 		t.Fatal(hotfix, err)
 	}

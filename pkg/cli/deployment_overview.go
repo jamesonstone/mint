@@ -26,7 +26,7 @@ type environmentOverview struct {
 }
 
 func runEnvironmentOverview(cmd *cobra.Command, policy promotion.Policy, f productionFlags) error {
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees, Component: policy.ComponentScope()}
 	names := make([]string, 0, len(policy.Environments))
 	for name := range policy.Environments {
 		names = append(names, name)
@@ -44,7 +44,7 @@ func runEnvironmentOverview(cmd *cobra.Command, policy promotion.Policy, f produ
 		if err != nil {
 			return err
 		}
-		state := promotion.NewState(cfg.Repository, name)
+		state := promotion.NewComponentState(cfg.Repository, name, cfg.Component)
 		state.Schema = 2
 		if cfg.Mode == "deployment" && cfg.Scope == "shared" {
 			journal, err := client.LoadJournal(cmd.Context(), name)
@@ -57,10 +57,10 @@ func runEnvironmentOverview(cmd *cobra.Command, policy promotion.Policy, f produ
 			if err != nil {
 				return err
 			}
-			path := filepath.Join(cache, "mint", fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.Repository))), name+".json")
+			path := filepath.Join(cache, "mint", fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.Repository))), cfg.Component.StateKey(name)+".json")
 			data, err := os.ReadFile(path)
 			if err == nil {
-				state, err = promotion.DecodeState(data, cfg.Repository, name)
+				state, err = promotion.DecodeComponentState(data, cfg.Repository, name, cfg.Component)
 				if err != nil {
 					return err
 				}

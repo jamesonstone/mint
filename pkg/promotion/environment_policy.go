@@ -24,6 +24,18 @@ type Policy struct {
 	ControlPaths          []string                     `yaml:"control_paths,omitempty"`
 	Artifact              ArtifactPolicy               `yaml:"artifact,omitempty"`
 	Environments          map[string]EnvironmentPolicy `yaml:"environments"`
+	// Component scopes this policy to one independently versioned part of the
+	// repository. Omit it for the repository-wide release line.
+	Component *Component `yaml:"component,omitempty"`
+}
+
+// ComponentScope returns the normalized component, or the zero value for a
+// repository-wide policy.
+func (p Policy) ComponentScope() Component {
+	if p.Component == nil {
+		return Component{}
+	}
+	return p.Component.normalized()
 }
 
 // ArtifactPolicy identifies the optional project-owned artifact repository.
@@ -93,7 +105,7 @@ func (p Policy) ForEnvironment(name string) (Config, error) {
 	if baselineBuild == "" {
 		baselineBuild = p.BuildWorkflow
 	}
-	return Config{Operation: env.Operation, Reason: env.Reason, Schema: p.Schema, Mode: p.Mode, Repository: p.Repository, Environment: name, DefaultBranch: p.DefaultBranch, HumanLogin: p.HumanLogin, Authorization: p.Authorization, Assignees: cloneAssignees(p.Assignees), BuildWorkflow: p.BuildWorkflow, ValidationWorkflow: validation, ControlWorkflow: p.ControlWorkflow, BaselineWorkflow: baseline, BaselineBuildWorkflow: baselineBuild, PromotionWorkflow: env.PromotionWorkflow, ObservationWorkflow: env.ObservationWorkflow, RequiredChecks: append([]string(nil), checks...), ControlPaths: append([]string(nil), p.ControlPaths...), Scope: env.Scope, Deploy: env.Deploy, Follow: env.Follow, Target: env.Target, ImageTag: env.ImageTag, Configuration: env.Configuration, Requires: append([]string(nil), env.Requires...), Publish: env.Publish, ArtifactRepository: p.Artifact.Repository}, nil
+	return Config{Operation: env.Operation, Reason: env.Reason, Schema: p.Schema, Mode: p.Mode, Repository: p.Repository, Environment: name, DefaultBranch: p.DefaultBranch, HumanLogin: p.HumanLogin, Authorization: p.Authorization, Assignees: cloneAssignees(p.Assignees), BuildWorkflow: p.BuildWorkflow, ValidationWorkflow: validation, ControlWorkflow: p.ControlWorkflow, BaselineWorkflow: baseline, BaselineBuildWorkflow: baselineBuild, PromotionWorkflow: env.PromotionWorkflow, ObservationWorkflow: env.ObservationWorkflow, RequiredChecks: append([]string(nil), checks...), ControlPaths: append([]string(nil), p.ControlPaths...), Scope: env.Scope, Deploy: env.Deploy, Follow: env.Follow, Target: env.Target, ImageTag: env.ImageTag, Configuration: env.Configuration, Requires: append([]string(nil), env.Requires...), Publish: env.Publish, ArtifactRepository: p.Artifact.Repository, Component: p.ComponentScope()}, nil
 }
 
 func legacyPolicy(cfg Config) Policy {

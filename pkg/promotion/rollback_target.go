@@ -14,8 +14,8 @@ func (s *State) ResolveRollbackTarget(version string) (Baseline, error) {
 		return Baseline{}, fmt.Errorf("rollback requires verified production")
 	}
 	if version != "" {
-		if !versionPattern.MatchString(version) {
-			return Baseline{}, fmt.Errorf("rollback version must be strict vMAJOR.MINOR.PATCH")
+		if !s.Component().ValidVersion(version) {
+			return Baseline{}, fmt.Errorf("rollback version must be %s", s.Component().VersionRule())
 		}
 		return s.rollbackTargetMatching(func(b Baseline) bool { return b.Candidate.Version == version })
 	}
@@ -43,7 +43,7 @@ func sameDeployedArtifact(a, b Baseline) bool {
 }
 
 func (s *State) verifiedRollbackBaseline(b Baseline) bool {
-	return b.ID != "" && b.DeploymentURL != "" && b.Candidate.Repository == s.Repository && s.AcceptsEnvironment(b.Candidate.Environment) && validateCandidate(b.Candidate) == nil
+	return b.ID != "" && b.DeploymentURL != "" && b.Candidate.Repository == s.Repository && s.AcceptsEnvironment(b.Candidate.Environment) && validateCandidate(b.Candidate, s.Component()) == nil
 }
 
 // Repeated deployments of one immutable version are equivalent targets. Sort

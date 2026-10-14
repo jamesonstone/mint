@@ -11,20 +11,20 @@ func ValidEnvironmentName(name string) bool {
 	return regexp.MustCompile(`^[a-z][a-z0-9_-]{0,62}$`).MatchString(name)
 }
 
-func validateEnvironment(env EnvironmentPolicy) error {
+func validateEnvironment(env EnvironmentPolicy, component Component) error {
 	if env.Scope != "local" && env.Scope != "shared" {
 		return fmt.Errorf("scope must be local or shared")
 	}
 	if env.Deploy != "manual" && env.Deploy != "automatic" && env.Deploy != "reviewed" {
 		return fmt.Errorf("deploy must be manual, automatic or reviewed")
 	}
-	if (env.Follow != "") == (env.Target != "") || (env.Follow != "" && env.Follow != "latest") || (env.Target != "" && !versionPattern.MatchString(env.Target)) {
-		return fmt.Errorf("select follow: latest or one strict target version")
+	if (env.Follow != "") == (env.Target != "") || (env.Follow != "" && env.Follow != "latest") || (env.Target != "" && !component.ValidVersion(env.Target)) {
+		return fmt.Errorf("select follow: latest or one %s target version", component.VersionRule())
 	}
 	if env.Configuration != "" && !digestPattern.MatchString(env.Configuration) {
 		return fmt.Errorf("configuration_sha256 must be an exact SHA-256 digest")
 	}
-	if env.ImageTag != "" && (!regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`).MatchString(env.ImageTag) || versionPattern.MatchString(env.ImageTag)) {
+	if env.ImageTag != "" && (!regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`).MatchString(env.ImageTag) || anyVersionPattern.MatchString(env.ImageTag)) {
 		return fmt.Errorf("image_tag must be a safe alias distinct from immutable version tags")
 	}
 	for _, workflow := range []string{env.PromotionWorkflow, env.ObservationWorkflow, env.ValidationWorkflow, env.BaselineWorkflow, env.BaselineBuildWorkflow} {
@@ -57,22 +57,7 @@ func validateCheckNames(checks []string) error {
 	return nil
 }
 func validateControlPaths(paths []string) error {
-	seen := map[string]bool{}
-	for _, path := range paths {
-		if path != "CHANGELOG.md" && path != ".mint/proposal.json" && path != ".mint/summary.md" && path != ".mint/status.json" {
-			return fmt.Errorf("unsafe release-control path %s", path)
-		}
-		if seen[path] {
-			return fmt.Errorf("duplicate release-control path %s", path)
-		}
-		seen[path] = true
-	}
-	for _, required := range []string{"CHANGELOG.md", ".mint/proposal.json", ".mint/summary.md"} {
-		if !seen[required] {
-			return fmt.Errorf("release-control paths must include %s", required)
-		}
-	}
-	return nil
+	return Component{}.validateControlPaths(paths)
 }
 func (p Policy) validateDependencies() error {
 	visiting, visited := map[string]bool{}, map[string]bool{}

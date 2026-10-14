@@ -56,6 +56,55 @@ For a team, use `authorization: repository-write`. Mint checks current effective
 
 Legacy policies can retain `human_login`; do not combine it with `authorization`. Review a migration of authorization separately from a target-only release request.
 
+## Release several components from one repository
+
+A monorepo can promote each component through its own environments with its own
+version line. Write one schema 2 policy file per component, each with a
+`component` block and its own `control_workflow`:
+
+```yaml
+# .mint/backend.yaml
+schema_version: 2
+mode: deployment
+repository: acme/app
+default_branch: main
+authorization: repository-write
+build_workflow: .github/workflows/backend-build.yaml
+control_workflow: .github/workflows/backend-mint.yaml
+component:
+  name: backend            # lowercase letters, digits, and -
+  tag_prefix: backend/     # optional; defaults to <name>/
+  paths: [backend]         # Git pathspecs this component owns
+  changelog: backend/CHANGELOG.md
+environments:
+  production:
+    scope: shared
+    deploy: reviewed
+    follow: latest
+    promotion_workflow: .github/workflows/backend-deploy.yaml
+    publish: true
+```
+
+A component policy keeps everything separate from other components and from a
+repository-wide policy:
+
+| Concern | Repository-wide | Component `backend` |
+| --- | --- | --- |
+| Versions | `vX.Y.Z` | `backend/vX.Y.Z`, only for commits touching `paths` |
+| Journal | `mint-release-state[-<env>]` | `mint-release-state-backend-<env>` |
+| Release-control files | `CHANGELOG.md`, `.mint/proposal.json`, `.mint/summary.md` | `changelog`, `.mint/backend/proposal.json`, `.mint/backend/summary.md` |
+| Proposal marker | `<!-- mint:proposal:…` | `<!-- mint:component-proposal:backend:…` |
+| Controller concurrency | `mint-release-journal` | `mint-release-journal-backend` |
+| GitHub Release | marked Latest | never marked Latest |
+
+Give each component its own build, deployment, and observation workflows, so
+callback evidence stays unambiguous. Generate one controller per policy with
+`--config .mint/backend.yaml` and `--output` set to that policy's
+`control_workflow`. Pass the same file to the compatibility adapters with
+`MINT_CONFIG=.mint/backend.yaml`, and to source versioning with
+`version-config` (see [component releases](versioning.html#component-releases-in-one-repository)).
+A target such as `target: backend/v1.4.0` must carry the component prefix.
+
 ## Connect trusted project adapters
 
 | Adapter | Required evidence |

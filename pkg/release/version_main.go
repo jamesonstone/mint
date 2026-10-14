@@ -13,6 +13,9 @@ type MainVersionOptions struct {
 	WorkDir, MainRef, Remote string
 	Push                     bool
 	ControlPaths             []string
+	// Scope versions one component: only first-parent commits touching its
+	// paths get <prefix>vX.Y.Z tags. The zero value versions every commit.
+	Scope Scope
 }
 
 // MainVersion records immutable source identity independently of artifact eligibility.
@@ -25,11 +28,14 @@ type MainVersion struct {
 // VersionMain allocates one immutable SemVer per first-parent main commit. It does
 // not create GitHub Releases. Out-of-order event handlers must use current main.
 func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, error) {
+	if err := opts.Scope.Validate(); err != nil {
+		return nil, err
+	}
 	target, err := resolveCommit(ctx, opts.WorkDir, opts.MainRef)
 	if err != nil {
 		return nil, err
 	}
-	history, err := runGit(ctx, opts.WorkDir, "rev-list", "--first-parent", target)
+	history, err := runGit(ctx, opts.WorkDir, append([]string{"rev-list", "--first-parent", target}, opts.Scope.pathspecArgs()...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +43,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 	var base semverTag
 	hasBase := false
 	for _, sha := range splitLines(history) {
-		tags, err := semVerTagsPointingAt(ctx, opts.WorkDir, sha, Scope{})
+		tags, err := semVerTagsPointingAt(ctx, opts.WorkDir, sha, opts.Scope)
 		if err != nil {
 			return nil, err
 		}
@@ -59,14 +65,14 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 	results := []MainVersion{}
 	for i := len(pending) - 1; i >= 0; i-- {
 		sha := pending[i]
-		commits, err := loadCommits(ctx, opts.WorkDir, sha+"^", sha, Scope{})
+		commits, err := loadCommits(ctx, opts.WorkDir, sha+"^", sha, opts.Scope)
 		if err != nil {
 			// Only a true root commit has no parent; do not swallow other Git failures.
 			parents, parentErr := runGit(ctx, opts.WorkDir, "rev-list", "--parents", "-n", "1", sha)
 			if parentErr != nil || len(strings.Fields(string(parents))) != 1 {
 				return nil, err
 			}
-			commits, err = loadCommits(ctx, opts.WorkDir, "", sha, Scope{})
+			commits, err = loadCommits(ctx, opts.WorkDir, "", sha, opts.Scope)
 		}
 		if err != nil {
 			return nil, err
@@ -75,11 +81,11 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 		if rank < bumpRankPatch {
 			rank = bumpRankPatch
 		}
-		version := nextVersion(base, hasBase, rank, Scope{})
-		next, _ := parseSemVerTag(version)
+		version := nextVersion(base, hasBase, rank, opts.Scope)
+		next, _ := opts.Scope.parseTag(version)
 		for occupied[version] {
 			next.Patch++
-			version = formatSemVer(next.Major, next.Minor, next.Patch)
+			version = opts.Scope.FormatTag(next.Major, next.Minor, next.Patch)
 		}
 		notes, err := os.CreateTemp("", "mint-version-*.md")
 		if err != nil {
@@ -91,7 +97,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 			_ = os.Remove(notes.Name())
 			return nil, fmt.Errorf("write version notes: %v %v", writeErr, closeErr)
 		}
-		_, err = CreateReleaseTag(ctx, TagOptions{Tag: version, Target: sha, NotesFile: notes.Name(), Remote: opts.Remote, Push: opts.Push, WorkDir: opts.WorkDir})
+		_, err = CreateReleaseTag(ctx, TagOptions{Tag: version, Target: sha, NotesFile: notes.Name(), Remote: opts.Remote, Push: opts.Push, WorkDir: opts.WorkDir, Scope: opts.Scope})
 		_ = os.Remove(notes.Name())
 		if err != nil {
 			return nil, err
@@ -101,14 +107,21 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 			return nil, err
 		}
 		results = append(results, MainVersion{SHA: sha, Version: version, ControlOnly: control})
+		next.Name, next.Commit = version, sha
 		base, hasBase, occupied[version] = next, true, true
 	}
 	if len(results) == 0 {
-		control, err := controlOnlyCommit(ctx, opts.WorkDir, target, opts.ControlPaths)
+		// Nothing new to version: report the newest versioned source. For a
+		// component that is the last commit touching its paths, which can be
+		// older than the target; with no versioned source there is nothing.
+		if !hasBase {
+			return results, nil
+		}
+		control, err := controlOnlyCommit(ctx, opts.WorkDir, base.Commit, opts.ControlPaths)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, MainVersion{SHA: target, Version: base.Name, ControlOnly: control})
+		results = append(results, MainVersion{SHA: base.Commit, Version: base.Name, ControlOnly: control})
 	}
 	return results, nil
 }
@@ -139,10 +152,10 @@ func controlOnlyCommit(ctx context.Context, dir, sha string, allowed []string) (
 
 // AllocateHotfixVersion chooses the next unused patch in production's series;
 // queued minor versions do not change that compatibility series.
-func AllocateHotfixVersion(production string, occupied []string) (string, error) {
-	base, ok := parseSemVerTag(production)
+func AllocateHotfixVersion(production string, occupied []string, scope Scope) (string, error) {
+	base, ok := scope.parseTag(production)
 	if !ok {
-		return "", fmt.Errorf("production version must be strict SemVer")
+		return "", fmt.Errorf("production version must be strict %sSemVer", scope.TagPrefix)
 	}
 	used := map[string]bool{}
 	for _, tag := range occupied {
@@ -150,7 +163,7 @@ func AllocateHotfixVersion(production string, occupied []string) (string, error)
 	}
 	for {
 		base.Patch++
-		next := formatSemVer(base.Major, base.Minor, base.Patch)
+		next := scope.FormatTag(base.Major, base.Minor, base.Patch)
 		if !used[next] {
 			return next, nil
 		}
@@ -158,8 +171,8 @@ func AllocateHotfixVersion(production string, occupied []string) (string, error)
 }
 
 // VersionIdentity reads an already minted source version and its control classification.
-func VersionIdentity(ctx context.Context, dir, commitish string, paths []string) (MainVersion, error) {
-	selected, err := SelectTag(ctx, SelectTagOptions{Commitish: commitish, WorkDir: dir})
+func VersionIdentity(ctx context.Context, dir, commitish string, paths []string, scope Scope) (MainVersion, error) {
+	selected, err := SelectTag(ctx, SelectTagOptions{Commitish: commitish, WorkDir: dir, Scope: scope})
 	if err != nil {
 		return MainVersion{}, err
 	}

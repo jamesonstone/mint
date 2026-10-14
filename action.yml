@@ -85,6 +85,10 @@ inputs:
     description: Version file path written by command release-publish.
     required: false
     default: .version
+  version-config:
+    description: "Optional schema 2 policy for command release-version-main. A component policy versions only commits touching its paths, with its tag prefix and release-control paths. Empty keeps repository-wide versioning."
+    required: false
+    default: ""
   tag-prefix:
     description: "Component tag prefix for changelog and release commands, for example backend/ for backend/vX.Y.Z tags. Empty means unprefixed vX.Y.Z tags."
     required: false
@@ -217,6 +221,7 @@ runs:
         MINT_GITHUB_API_URL: ${{ inputs.github-api-url }}
         MINT_VERSION_FILE: ${{ inputs.version-file }}
         MINT_TAG_PREFIX: ${{ inputs.tag-prefix }}
+        MINT_VERSION_CONFIG: ${{ inputs.version-config }}
         MINT_PATHS: ${{ inputs.paths }}
       run: |
         set -euo pipefail
@@ -230,6 +235,10 @@ runs:
             scope_paths+=(--path "$scope_path")
           fi
         done <<< "$MINT_PATHS"
+        version_scope=()
+        if [ -n "$MINT_VERSION_CONFIG" ]; then
+          version_scope=(--config "$MINT_VERSION_CONFIG")
+        fi
 
         release_output="$RUNNER_TEMP/mint-release-output"
         rm -f "$release_output"
@@ -261,7 +270,7 @@ runs:
             output="$("$MINT_PATH" release production control --config "$MINT_PRODUCTION_CONFIG" --event "$MINT_EVENT_NAME" --input "$MINT_EVENT_PATH" --run-id "$MINT_RUN_ID" --token-env MINT_GITHUB_TOKEN --api-url "$MINT_GITHUB_API_URL")"
             ;;
           release-version-main)
-            output="$("$MINT_PATH" release version-main --main-ref "$MINT_COMMITISH" --target-commitish "$MINT_TARGET_SHA" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output")"
+            output="$("$MINT_PATH" release version-main --main-ref "$MINT_COMMITISH" --target-commitish "$MINT_TARGET_SHA" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output" ${version_scope[@]+"${version_scope[@]}"})"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           release-select-tag)

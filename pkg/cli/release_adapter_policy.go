@@ -17,7 +17,7 @@ func newAdapterPolicyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client := promotion.Client{APIURL: apiURL, Token: os.Getenv(tokenEnv), Repository: cfg.Repository}
+			client := promotion.Client{APIURL: apiURL, Token: os.Getenv(tokenEnv), Repository: cfg.Repository, Component: cfg.Component}
 			if err := client.VerifyRepository(cmd.Context()); err != nil {
 				return err
 			}

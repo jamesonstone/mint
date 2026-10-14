@@ -40,14 +40,14 @@ func (o *productionOperation) propose(ctx context.Context) (any, bool, error) {
 		if f.Event == "reopen" && pr.State != "open" {
 			return nil, false, fmt.Errorf("reopen the paused PR in GitHub before reconciling")
 		}
-		summary, err := o.client.ReadFile(ctx, ".mint/summary.md", pr.Head.SHA)
+		summary, err := o.client.ReadFile(ctx, o.client.Component.SummaryPath(), pr.Head.SHA)
 		if err != nil {
 			return nil, false, err
 		}
 		if f.Summary == "" {
 			f.Summary = strings.TrimSpace(string(summary))
 		}
-		data, err := o.client.ReadFile(ctx, ".mint/proposal.json", pr.Head.SHA)
+		data, err := o.client.ReadFile(ctx, o.client.Component.ProposalPath(), pr.Head.SHA)
 		if err != nil {
 			return nil, false, err
 		}
@@ -103,7 +103,7 @@ func (o *productionOperation) intent(ctx context.Context, freeze bool) (any, boo
 	if freeze {
 		ref = pr.MergeSHA
 	}
-	data, err := o.client.ReadFile(ctx, ".mint/proposal.json", ref)
+	data, err := o.client.ReadFile(ctx, o.client.Component.ProposalPath(), ref)
 	if err != nil {
 		return nil, false, err
 	}
@@ -130,7 +130,7 @@ func (o *productionOperation) intent(ctx context.Context, freeze bool) (any, boo
 	if err != nil {
 		return nil, false, err
 	}
-	if p.PR != pr.Number || p.HeadSHA != pr.Head.SHA || p.Branch != pr.Head.Ref || pr.Base.Ref != o.config.DefaultBranch || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.Contains(pr.Body, "<!-- mint:proposal:"+p.ID+":"+p.Kind+" -->") {
+	if p.PR != pr.Number || p.HeadSHA != pr.Head.SHA || p.Branch != pr.Head.Ref || pr.Base.Ref != o.config.DefaultBranch || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.Contains(pr.Body, o.client.Component.ProposalMarker(p.ID, p.Kind)) {
 		return nil, false, fmt.Errorf("proposal PR/head/author identity mismatch")
 	}
 	if freeze {
@@ -176,7 +176,7 @@ func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) 
 	if build.HeadBranch != o.config.DefaultBranch || build.HeadSHA != baseline.Candidate.SourceSHA || baseline.Candidate.RunURL != build.HTMLURL || baseline.Candidate.Kind != "normal" || baseline.PublicationPending || len(baseline.Shipped) != 0 {
 		return nil, false, fmt.Errorf("bootstrap lacks exact successful source-build and verified runtime evidence")
 	}
-	if err := promotion.ValidateBaselineCandidate(baseline.Candidate); err != nil {
+	if err := promotion.ValidateBaselineCandidate(baseline.Candidate, o.config.Component); err != nil {
 		return nil, false, err
 	}
 	if err := o.proof.VerifyTag(baseline.Candidate.Version, baseline.Candidate.SourceSHA); err != nil {

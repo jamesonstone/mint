@@ -101,7 +101,7 @@ func (o *productionOperation) policyRequest(ctx context.Context, freeze bool) (a
 		return nil, false, err
 	}
 	if requested.Target == "" {
-		if requested.Operation == "release" && strings.Contains(pr.Body, "<!-- mint:proposal:") {
+		if requested.Operation == "release" && strings.Contains(pr.Body, o.client.Component.MarkerPrefix()) {
 			return o.canonicalPolicyRequest(ctx, pr, afterSHA, freeze)
 		}
 		return nil, false, fmt.Errorf("YAML deployment approval requires an exact target; use operation: resume with follow: latest to restart the updating release PR")

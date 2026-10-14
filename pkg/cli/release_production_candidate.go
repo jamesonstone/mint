@@ -46,7 +46,7 @@ func (o *productionOperation) registerCandidate(ctx context.Context, c promotion
 			return nil, false, err
 		}
 	}
-	identity, err := release.VersionIdentity(ctx, o.proof.WorkDir, c.SourceSHA, o.config.ControlPaths)
+	identity, err := release.VersionIdentity(ctx, o.proof.WorkDir, c.SourceSHA, o.config.ControlPaths, o.config.Component.ReleaseScope())
 	if err != nil {
 		return nil, false, err
 	}

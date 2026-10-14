@@ -78,6 +78,33 @@ shared environment with `publish: true` as the canonical release publisher; othe
 environments deploy without independently publishing the same version. Schema 1
 production policy and the existing command namespace remain supported.
 
+## Components in one repository
+
+A schema 2 policy may declare one `component` (`name`, optional `tag_prefix`
+defaulting to `<name>/`, `paths`, `changelog`). Each component lives in its own
+policy file with its own `control_workflow`, so several components promote
+independently in one repository:
+
+- Versions are `<tag_prefix>vX.Y.Z`. `version-main --config <policy>` versions only
+  first-parent commits touching `paths`; candidate provenance (`CollectChanges`)
+  walks only those commits. Targets, candidates, rollback, and hotfix versions must
+  carry the prefix; repository-wide journals reject prefixed versions and component
+  journals reject unprefixed ones.
+- Journals are `mint-release-state-<name>-<environment>` and record `component`
+  and `tag_prefix`; a journal for another component is refused. Local state uses
+  `<name>--<environment>.json`.
+- Release-control files are the component `changelog`, `.mint/<name>/proposal.json`,
+  `.mint/<name>/summary.md`, and optional `.mint/<name>/status.json`. Proposal PRs
+  use `<!-- mint:component-proposal:<name>:<id>:<kind> -->`, which repository-wide
+  controllers and other components never match.
+- Generated workflows are named `… (<name>)`; the legacy control workflow uses
+  concurrency group `mint-release-journal-<name>`. Component GitHub Releases set
+  `make_latest: false`.
+- Compatibility adapters read the policy from `MINT_CONFIG` (then
+  `MINT_PRODUCTION_CONFIG`, then `.mint.yaml`) and pass it as `--config`.
+
+Policies without `component` keep the repository-wide behavior unchanged.
+
 ## Team ownership and request authority
 
 Use `authorization: repository-write` for a team-owned project. Mint checks the

@@ -17,6 +17,9 @@ type Client struct {
 	APIURL, Token, Repository, HumanLogin, Authorization string
 	Assignees                                            []string
 	HTTP                                                 *http.Client
+	// Component scopes journals, versions, history, and control files; the
+	// zero value is the repository-wide release line.
+	Component Component
 }
 
 func (c Client) request(ctx context.Context, method, path string, body, out any) (int, error) {

@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-func proposalMarker(p Proposal) string { return "<!-- mint:proposal:" + p.ID + ":" + p.Kind + " -->" }
+// proposalMarker identifies a proposal PR body within this client's scope.
+func (c Client) proposalMarker(p Proposal) string { return c.Component.ProposalMarker(p.ID, p.Kind) }
 
 // DiscoverProposal recovers interrupted API updates using stable identity across
 // open/closed PRs; merged historical proposals never become a paused proposal.
@@ -23,7 +24,7 @@ func (c Client) DiscoverProposal(ctx context.Context, p Proposal) (*PullRequest,
 			return nil, fmt.Errorf("proposal discovery unavailable")
 		}
 		for _, pr := range pulls {
-			if !strings.Contains(pr.Body, proposalMarker(p)) || pr.MergedAt != nil || pr.Merged {
+			if !strings.Contains(pr.Body, c.proposalMarker(p)) || pr.MergedAt != nil || pr.Merged {
 				continue
 			}
 			if !c.IsReleaseAuthor(pr.User.Login) || pr.Head.Repo.FullName != c.Repository || pr.Base.Repo.FullName != c.Repository {
@@ -44,7 +45,7 @@ func (c Client) DiscoverProposal(ctx context.Context, p Proposal) (*PullRequest,
 
 // EnsureProposalIssue obtains the exact governed GH issue branch idempotently.
 func (c Client) EnsureProposalIssue(ctx context.Context, p Proposal) (int, error) {
-	marker := proposalMarker(p)
+	marker := c.proposalMarker(p)
 	for page := 1; ; page++ {
 		var issues []struct {
 			Number      int
@@ -134,7 +135,7 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 	if err != nil {
 		return p, err
 	}
-	changelog, err := c.ReadFile(ctx, "CHANGELOG.md", base.Object.SHA)
+	changelog, err := c.ReadFile(ctx, c.Component.ChangelogPath(), base.Object.SHA)
 	if err != nil && err != ErrFileNotFound {
 		return p, err
 	}
@@ -148,7 +149,7 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 		}
 		text = text[:start] + text[start+end+len("<!-- mint:entry:end -->"):]
 	}
-	files := map[string]string{".mint/proposal.json": string(data) + "\n", ".mint/summary.md": p.Summary + "\n", "CHANGELOG.md": block + text}
+	files := map[string]string{c.Component.ProposalPath(): string(data) + "\n", c.Component.SummaryPath(): p.Summary + "\n", c.Component.ChangelogPath(): block + text}
 	policyText, policyChanged, err := c.proposalPolicy(ctx, cfg, *s, p, base.Object.SHA)
 	if err != nil {
 		return p, err
@@ -196,7 +197,7 @@ func (c Client) SyncProposal(ctx context.Context, cfg Config, s *State, p Propos
 	if status != 200 && status != 201 {
 		return p, fmt.Errorf("proposal ref update failed")
 	}
-	body := proposalMarker(p) + "\n\n" + p.Notes + "\nProduction deployment pending.\n\nBaseline: `" + p.BaselineID + "`\n\nArtifact: `" + declaration.Candidate.Artifact.Reference + "` (`" + declaration.Candidate.Artifact.Digest + "`)\n\nValidation: " + declaration.Candidate.RunURL
+	body := c.proposalMarker(p) + "\n\n" + p.Notes + "\nProduction deployment pending.\n\nBaseline: `" + p.BaselineID + "`\n\nArtifact: `" + declaration.Candidate.Artifact.Reference + "` (`" + declaration.Candidate.Artifact.Digest + "`)\n\nValidation: " + declaration.Candidate.RunURL
 	payload := map[string]any{"title": "Release to " + cfg.Environment + ": " + declaration.Candidate.Version, "body": body, "head": p.Branch, "base": cfg.DefaultBranch, "draft": false}
 	var pr PullRequest
 	if p.PR == 0 {

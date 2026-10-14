@@ -10,7 +10,6 @@ import (
 
 var shaPattern = regexp.MustCompile(`^[a-f0-9]{40}$`)
 var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
-var versionPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
 // Artifact identifies an immutable object and its exact build configuration.
 type ArtifactObject struct {
@@ -105,7 +104,11 @@ type Intent struct {
 
 // State is persisted atomically using the journal revision as a CAS fence.
 type State struct {
-	PolicyDigest    string               `json:"policy_digest,omitempty"`
+	PolicyDigest string `json:"policy_digest,omitempty"`
+	// ComponentName and TagPrefix scope a component journal; both are empty
+	// for repository-wide journals.
+	ComponentName   string               `json:"component,omitempty"`
+	TagPrefix       string               `json:"tag_prefix,omitempty"`
 	Observation     *Observation         `json:"observation,omitempty"`
 	Target          string               `json:"target,omitempty"`
 	Configuration   string               `json:"runtime_configuration_sha256,omitempty"`
@@ -126,16 +129,29 @@ type State struct {
 
 // NewState starts unactivated, without fabricating a production baseline.
 func NewState(repository, environment string) State {
-	return State{Schema: 1, Repository: repository, Environment: environment, Candidates: map[string]Candidate{}, Proposals: map[string]Proposal{}, Intents: map[string]Intent{}, History: map[string]Baseline{}}
+	return NewComponentState(repository, environment, Component{})
 }
+
+// NewComponentState starts an unactivated journal for one component.
+func NewComponentState(repository, environment string, component Component) State {
+	return State{Schema: 1, ComponentName: component.Name, TagPrefix: component.TagPrefix, Repository: repository, Environment: environment, Candidates: map[string]Candidate{}, Proposals: map[string]Proposal{}, Intents: map[string]Intent{}, History: map[string]Baseline{}}
+}
+
+// Component returns the journal's component scope.
+func (s State) Component() Component { return Component{Name: s.ComponentName, TagPrefix: s.TagPrefix} }
 
 // DecodeState validates journal identity before using remote JSON.
 func DecodeState(data []byte, repository, environment string) (State, error) {
+	return DecodeComponentState(data, repository, environment, Component{})
+}
+
+// DecodeComponentState also refuses a journal that belongs to another component.
+func DecodeComponentState(data []byte, repository, environment string, component Component) (State, error) {
 	var s State
 	if err := json.Unmarshal(data, &s); err != nil {
 		return s, err
 	}
-	if (s.Schema != 1 && s.Schema != 2) || s.Repository != repository || s.Environment != environment || s.Candidates == nil || s.Proposals == nil || s.Intents == nil {
+	if (s.Schema != 1 && s.Schema != 2) || s.Repository != repository || s.Environment != environment || s.ComponentName != component.Name || s.TagPrefix != component.TagPrefix || s.Candidates == nil || s.Proposals == nil || s.Intents == nil {
 		return s, fmt.Errorf("invalid or foreign release journal")
 	}
 	if s.History == nil {
@@ -146,18 +162,18 @@ func DecodeState(data []byte, repository, environment string) (State, error) {
 	}
 	return s, nil
 }
-func validateCandidate(c Candidate) error {
+func validateCandidate(c Candidate, component Component) error {
 	if err := ValidateArtifact(c.Artifact); err != nil {
 		return err
 	}
-	if !shaPattern.MatchString(c.SourceSHA) || !versionPattern.MatchString(c.Version) || !digestPattern.MatchString(c.Artifact.Digest) || !digestPattern.MatchString(c.Artifact.Configuration) || c.Artifact.Reference == "" || c.RunID <= 0 || c.RunURL == "" {
+	if !shaPattern.MatchString(c.SourceSHA) || !component.ValidVersion(c.Version) || !digestPattern.MatchString(c.Artifact.Digest) || !digestPattern.MatchString(c.Artifact.Configuration) || c.Artifact.Reference == "" || c.RunID <= 0 || c.RunURL == "" {
 		return fmt.Errorf("candidate lacks exact source, version, artifact, configuration or build identity")
 	}
 	if c.Kind != "normal" && c.Kind != "hotfix" {
 		return fmt.Errorf("unknown candidate kind")
 	}
 	for _, ch := range c.Changes {
-		if !shaPattern.MatchString(ch.SHA) || !versionPattern.MatchString(ch.Version) || ch.PatchID == "" {
+		if !shaPattern.MatchString(ch.SHA) || !component.ValidVersion(ch.Version) || ch.PatchID == "" {
 			return fmt.Errorf("change lacks verified provenance")
 		}
 	}
@@ -173,4 +189,6 @@ type MainVersionSelection struct {
 }
 
 // ValidateBaselineCandidate checks the complete immutable bootstrap identity.
-func ValidateBaselineCandidate(c Candidate) error { return validateCandidate(c) }
+func ValidateBaselineCandidate(c Candidate, component Component) error {
+	return validateCandidate(c, component)
+}

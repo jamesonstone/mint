@@ -3,13 +3,14 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jamesonstone/mint/pkg/promotion"
 	"github.com/jamesonstone/mint/pkg/release"
 	"github.com/spf13/cobra"
 	"os"
 )
 
 func init() {
-	var mainRef, remote, output, target string
+	var mainRef, remote, output, target, config string
 	var push bool
 	var control []string
 	command := &cobra.Command{Use: "version-main", Short: "Version every untagged first-parent main commit without publishing Releases", Args: cobra.NoArgs}
@@ -19,15 +20,31 @@ func init() {
 	command.Flags().StringSliceVar(&control, "control-paths", []string{"CHANGELOG.md", ".mint/proposal.json", ".mint/summary.md", ".mint/status.json"}, "exact trusted release-control paths")
 	command.Flags().StringVar(&target, "target-commitish", "", "specific main source whose identity is exported after batch versioning")
 	command.Flags().StringVar(&output, "github-output", "", "append final version identity to Actions output")
+	command.Flags().StringVar(&config, "config", "", "optional schema 2 policy; a component policy versions only its paths with its tag prefix and uses its release-control paths")
 	command.RunE = func(cmd *cobra.Command, args []string) error {
-		versions, err := release.VersionMain(cmd.Context(), release.MainVersionOptions{MainRef: mainRef, Remote: remote, Push: push, ControlPaths: control})
+		var scope release.Scope
+		if config != "" {
+			if cmd.Flags().Changed("control-paths") {
+				return fmt.Errorf("--config supplies release-control paths; do not also pass --control-paths")
+			}
+			policy, err := promotion.LoadPolicy(config)
+			if err != nil {
+				return err
+			}
+			if policy.Schema != 2 || !promotion.SafeRepositoryPath(config) {
+				return fmt.Errorf("--config must be a schema 2 policy at a safe repository-relative path")
+			}
+			scope = policy.ComponentScope().ReleaseScope()
+			control = append(append([]string(nil), policy.ControlPaths...), config)
+		}
+		versions, err := release.VersionMain(cmd.Context(), release.MainVersionOptions{MainRef: mainRef, Remote: remote, Push: push, ControlPaths: control, Scope: scope})
 		if err != nil {
 			return err
 		}
 		if output != "" && len(versions) > 0 {
 			last := versions[len(versions)-1]
 			if target != "" {
-				last, err = release.VersionIdentity(cmd.Context(), "", target, control)
+				last, err = release.VersionIdentity(cmd.Context(), "", target, control, scope)
 				if err != nil {
 					return err
 				}

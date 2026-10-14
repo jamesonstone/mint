@@ -10,35 +10,36 @@ import (
 
 // Config is repository-owned release policy; issue content cannot override it.
 type Config struct {
-	PolicyPath            string   `yaml:"-" json:"-"`
-	Operation             string   `yaml:"-"`
-	Reason                string   `yaml:"-"`
-	Mode                  string   `yaml:"-"`
-	Scope                 string   `yaml:"-"`
-	Deploy                string   `yaml:"-"`
-	Follow                string   `yaml:"-"`
-	Target                string   `yaml:"-"`
-	Configuration         string   `yaml:"-"`
-	ObservationWorkflow   string   `yaml:"-"`
-	Requires              []string `yaml:"-"`
-	Publish               bool     `yaml:"-"`
-	ArtifactRepository    string   `yaml:"-"`
-	ImageTag              string   `yaml:"-"`
-	ControlWorkflow       string   `yaml:"control_workflow"`
-	Schema                int      `yaml:"schema_version"`
-	Repository            string   `yaml:"repository"`
-	Environment           string   `yaml:"environment"`
-	DefaultBranch         string   `yaml:"default_branch"`
-	HumanLogin            string   `yaml:"human_login,omitempty"`
-	Authorization         string   `yaml:"authorization,omitempty" json:"Authorization,omitempty"`
-	Assignees             []string `yaml:"assignees,omitempty" json:"Assignees,omitempty"`
-	BuildWorkflow         string   `yaml:"build_workflow"`
-	ValidationWorkflow    string   `yaml:"validation_workflow"`
-	BaselineWorkflow      string   `yaml:"baseline_workflow"`
-	BaselineBuildWorkflow string   `yaml:"baseline_build_workflow"`
-	PromotionWorkflow     string   `yaml:"promotion_workflow"`
-	RequiredChecks        []string `yaml:"required_checks"`
-	ControlPaths          []string `yaml:"control_paths"`
+	PolicyPath            string    `yaml:"-" json:"-"`
+	Component             Component `yaml:"-" json:"Component"`
+	Operation             string    `yaml:"-"`
+	Reason                string    `yaml:"-"`
+	Mode                  string    `yaml:"-"`
+	Scope                 string    `yaml:"-"`
+	Deploy                string    `yaml:"-"`
+	Follow                string    `yaml:"-"`
+	Target                string    `yaml:"-"`
+	Configuration         string    `yaml:"-"`
+	ObservationWorkflow   string    `yaml:"-"`
+	Requires              []string  `yaml:"-"`
+	Publish               bool      `yaml:"-"`
+	ArtifactRepository    string    `yaml:"-"`
+	ImageTag              string    `yaml:"-"`
+	ControlWorkflow       string    `yaml:"control_workflow"`
+	Schema                int       `yaml:"schema_version"`
+	Repository            string    `yaml:"repository"`
+	Environment           string    `yaml:"environment"`
+	DefaultBranch         string    `yaml:"default_branch"`
+	HumanLogin            string    `yaml:"human_login,omitempty"`
+	Authorization         string    `yaml:"authorization,omitempty" json:"Authorization,omitempty"`
+	Assignees             []string  `yaml:"assignees,omitempty" json:"Assignees,omitempty"`
+	BuildWorkflow         string    `yaml:"build_workflow"`
+	ValidationWorkflow    string    `yaml:"validation_workflow"`
+	BaselineWorkflow      string    `yaml:"baseline_workflow"`
+	BaselineBuildWorkflow string    `yaml:"baseline_build_workflow"`
+	PromotionWorkflow     string    `yaml:"promotion_workflow"`
+	RequiredChecks        []string  `yaml:"required_checks"`
+	ControlPaths          []string  `yaml:"control_paths"`
 }
 
 // LoadConfig rejects unknown fields and unscoped release policies.

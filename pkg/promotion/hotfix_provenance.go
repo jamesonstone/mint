@@ -137,7 +137,7 @@ func (c Client) collectHotfixChanges(ctx context.Context, g GitProof, s State, c
 			return nil, err
 		}
 		for _, tag := range strings.Fields(string(tags)) {
-			if versionPattern.MatchString(tag) {
+			if c.Component.ValidVersion(tag) {
 				if ch.OriginalVersion != "" {
 					return nil, fmt.Errorf("original fix has ambiguous version")
 				}

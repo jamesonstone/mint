@@ -30,7 +30,7 @@ func validateObservation(o Observation, now time.Time) (time.Time, error) {
 	if o.Status != "live" && o.Status != "deploying" && o.Status != "unknown" {
 		return observed, fmt.Errorf("observation status must be live, deploying or unknown")
 	}
-	if (o.SourceSHA != "" && !shaPattern.MatchString(o.SourceSHA)) || (o.Version != "" && !versionPattern.MatchString(o.Version)) || (o.Configuration != "" && !digestPattern.MatchString(o.Configuration)) {
+	if (o.SourceSHA != "" && !shaPattern.MatchString(o.SourceSHA)) || (o.Version != "" && !anyVersionPattern.MatchString(o.Version)) || (o.Configuration != "" && !digestPattern.MatchString(o.Configuration)) {
 		return observed, fmt.Errorf("observation contains invalid runtime identity")
 	}
 	artifactPresent := !reflect.DeepEqual(o.Artifact, Artifact{})

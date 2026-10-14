@@ -19,7 +19,9 @@ func (c Client) CollectChanges(ctx context.Context, g GitProof, s State, candida
 	if !shaPattern.MatchString(base) {
 		return nil, fmt.Errorf("verified source anchor unavailable")
 	}
-	out, err := g.git(nil, "rev-list", "--first-parent", "--reverse", base+".."+candidate.SourceSHA)
+	// A component only collects first-parent commits that touch its paths.
+	args := append([]string{"rev-list", "--first-parent", "--reverse", base + ".." + candidate.SourceSHA}, c.Component.pathspecArgs()...)
+	out, err := g.git(nil, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +52,7 @@ func (c Client) CollectChanges(ctx context.Context, g GitProof, s State, candida
 		}
 		version := ""
 		for _, tag := range strings.Fields(string(tags)) {
-			if versionPattern.MatchString(tag) {
+			if c.Component.ValidVersion(tag) {
 				if version != "" {
 					return nil, fmt.Errorf("multiple source versions require explicit mapping for %s", sha)
 				}
@@ -93,7 +95,7 @@ func (c Client) CollectChanges(ctx context.Context, g GitProof, s State, candida
 
 // VerifyTag rejects foreign/tag/artifact correspondence before journal writes.
 func (g GitProof) VerifyTag(version, source string) error {
-	if !versionPattern.MatchString(version) || !shaPattern.MatchString(source) {
+	if !anyVersionPattern.MatchString(version) || !shaPattern.MatchString(source) {
 		return fmt.Errorf("invalid version/source identity")
 	}
 	sha, err := g.git(nil, "rev-parse", "--verify", version+"^{commit}")

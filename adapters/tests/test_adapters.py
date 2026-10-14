@@ -173,5 +173,48 @@ class AdapterTests(unittest.TestCase):
             mint.assert_not_called()
 
 
+    def test_component_candidate_accepts_prefixed_version(self):
+        os.environ['VERSION_TAG'] = 'backend/v1.2.3'
+        self.assertEqual(MANIFEST.candidate()['version'], 'backend/v1.2.3')
+        os.environ['VERSION_TAG'] = 'backend/v1.2'
+        with self.assertRaises(ValueError):
+            MANIFEST.candidate()
+
+    def test_policy_path_prefers_explicit_component_config(self):
+        self.assertEqual(CONTROL.policy_path(), '.mint.yaml')
+        os.environ['MINT_PRODUCTION_CONFIG'] = '.mint/production.yaml'
+        self.assertEqual(CONTROL.policy_path(), '.mint/production.yaml')
+        os.environ['MINT_CONFIG'] = '.mint/backend.yaml'
+        self.assertEqual(CONTROL.policy_path(), '.mint/backend.yaml')
+
+    def test_mint_calls_forward_the_policy_file(self):
+        os.environ['MINT_CONFIG'] = '.mint/backend.yaml'
+        with patch.object(CONTROL.subprocess, 'run') as run, patch.object(CONTROL.subprocess, 'check_output', return_value=b'{}') as check:
+            CONTROL.mint('scan')
+            CONTROL.mint_status()
+        self.assertEqual(run.call_args[0][0], ['mint', 'release', 'production', 'scan', '--config', '.mint/backend.yaml'])
+        self.assertEqual(check.call_args[0][0], ['mint', 'release', 'production', 'status', '--config', '.mint/backend.yaml'])
+
+    def test_component_marker_ignores_other_scopes(self):
+        backend = dict(self.config(), Component={'name': 'backend', 'tag_prefix': 'backend/'})
+        self.assertEqual(CONTROL.proposal_marker(self.config()), '<!-- mint:proposal:')
+        self.assertEqual(CONTROL.proposal_marker(backend), '<!-- mint:component-proposal:backend:')
+        self.assertEqual(CONTROL.proposal_marker(dict(self.config(), Component={})), '<!-- mint:proposal:')
+        repo_wide_body = '<!-- mint:proposal:p:normal -->'
+        frontend_body = '<!-- mint:component-proposal:frontend:p:normal -->'
+        self.assertNotIn(CONTROL.proposal_marker(backend), repo_wide_body)
+        self.assertNotIn(CONTROL.proposal_marker(backend), frontend_body)
+        self.assertNotIn(CONTROL.proposal_marker(self.config()), frontend_body)
+
+    def test_promotion_request_skips_other_component_proposals(self):
+        os.environ['GITHUB_SHA'] = 'a' * 40
+        backend = dict(self.config(), Component={'name': 'backend'})
+        pull = {'number': 4, 'merged_at': 'now', 'merge_commit_sha': 'a' * 40, 'base': {'repo': {'full_name': 'owner/repo'}},
+                'body': '<!-- mint:component-proposal:frontend:p:normal -->'}
+        with patch.object(CONTROL, 'gh', return_value=[pull]), patch.object(CONTROL, 'mint') as mint:
+            CONTROL.promotion_request({}, backend)
+            mint.assert_not_called()
+        self.assertIn('promote=false', Path('output').read_text())
+
 if __name__ == '__main__':
     unittest.main()

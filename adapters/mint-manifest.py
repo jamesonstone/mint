@@ -49,7 +49,9 @@ def exact(value, pattern, label):
 
 def candidate():
     source = exact(required("SOURCE_SHA"), r"[a-f0-9]{40}", "source SHA")
-    version = exact(required("VERSION_TAG"), r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", "version")
+    # Component tags carry a prefix such as backend/; Mint enforces the exact
+    # prefix of the policy when it registers the candidate.
+    version = exact(required("VERSION_TAG"), r"(?:[A-Za-z0-9][A-Za-z0-9._/-]*)?v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", "version")
     artifact_digest = exact(required("ARTIFACT_DIGEST"), r"sha256:[a-f0-9]{64}", "artifact digest")
     return {"repository": required("GITHUB_REPOSITORY"), "environment": required("RELEASE_ENVIRONMENT"), "source_sha": source,
             "version": version, "kind": os.environ.get("CANDIDATE_KIND", "normal"), "source_date": "",

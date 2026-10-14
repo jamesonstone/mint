@@ -27,7 +27,7 @@ func runPolicyControl(cmd *cobra.Command, policy promotion.Policy, f productionF
 	if err := json.Unmarshal(data, &event); err != nil {
 		return err
 	}
-	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees}
+	client := promotion.Client{APIURL: f.APIURL, Token: os.Getenv(f.TokenEnv), Repository: policy.Repository, HumanLogin: policy.HumanLogin, Authorization: policy.Authorization, Assignees: policy.Assignees, Component: policy.ComponentScope()}
 	if err := client.VerifyRepository(cmd.Context()); err != nil {
 		return err
 	}
@@ -119,8 +119,8 @@ func runPolicyControl(cmd *cobra.Command, policy promotion.Policy, f productionF
 				}
 			}
 		}
-		if pr.Merged && strings.Contains(pr.Body, "<!-- mint:proposal:") {
-			declarationData, err := client.ReadFile(cmd.Context(), ".mint/proposal.json", pr.MergeSHA)
+		if pr.Merged && strings.Contains(pr.Body, client.Component.MarkerPrefix()) {
+			declarationData, err := client.ReadFile(cmd.Context(), client.Component.ProposalPath(), pr.MergeSHA)
 			if err != nil {
 				return err
 			}

@@ -3,6 +3,7 @@ package promotion
 import (
 	"context"
 	"fmt"
+	"net/url"
 )
 
 // PublishIntent is production-only publication. It validates the immutable tag
@@ -44,7 +45,7 @@ func (c Client) PublishIntent(ctx context.Context, i Intent) error {
 		Body              string
 		Draft, Prerelease bool
 	}
-	status, err = c.request(ctx, "GET", c.repoPath("releases/tags/"+i.Candidate.Version), nil, &existing)
+	status, err = c.request(ctx, "GET", c.repoPath("releases/tags/"+url.PathEscape(i.Candidate.Version)), nil, &existing)
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func (c Client) PublishIntent(ctx context.Context, i Intent) error {
 	if status != 404 {
 		return fmt.Errorf("release lookup unavailable")
 	}
-	status, err = c.request(ctx, "POST", c.repoPath("releases"), map[string]any{"tag_name": i.Candidate.Version, "target_commitish": i.Candidate.SourceSHA, "name": i.Candidate.Version, "body": body, "draft": false, "prerelease": false, "make_latest": "true"}, &existing)
+	status, err = c.request(ctx, "POST", c.repoPath("releases"), map[string]any{"tag_name": i.Candidate.Version, "target_commitish": i.Candidate.SourceSHA, "name": i.Candidate.Version, "body": body, "draft": false, "prerelease": false, "make_latest": c.makeLatest()}, &existing)
 	if err != nil {
 		return err
 	}
@@ -65,6 +66,15 @@ func (c Client) PublishIntent(ctx context.Context, i Intent) error {
 		return fmt.Errorf("production Release publication failed")
 	}
 	return c.attachReleaseManifest(ctx, existing.ID, i, true)
+}
+
+// makeLatest keeps GitHub's repository-wide "Latest" badge for the
+// repository-wide release line; component releases never claim it.
+func (c Client) makeLatest() string {
+	if c.Component.IsZero() {
+		return "true"
+	}
+	return "false"
 }
 
 // VerifyPublication rejects local acknowledgements without matching server evidence.
@@ -75,7 +85,7 @@ func (c Client) VerifyPublication(ctx context.Context, i Intent) error {
 		Body              string
 		Draft, Prerelease bool
 	}
-	status, err := c.request(ctx, "GET", c.repoPath("releases/tags/"+i.Candidate.Version), nil, &r)
+	status, err := c.request(ctx, "GET", c.repoPath("releases/tags/"+url.PathEscape(i.Candidate.Version)), nil, &r)
 	if err != nil {
 		return err
 	}

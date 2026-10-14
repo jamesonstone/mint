@@ -29,7 +29,7 @@ type gitObject struct {
 
 // LoadJournal reads metadata independently of Actions artifact retention.
 func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSnapshot, error) {
-	branch, err := JournalBranch(environment)
+	branch, err := c.Component.JournalBranch(environment)
 	if err != nil {
 		return JournalSnapshot{}, err
 	}
@@ -39,7 +39,7 @@ func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSna
 		return JournalSnapshot{}, err
 	}
 	if status == 404 {
-		return JournalSnapshot{State: NewState(c.Repository, environment)}, nil
+		return JournalSnapshot{State: NewComponentState(c.Repository, environment, c.Component)}, nil
 	}
 	if status != 200 || !shaPattern.MatchString(ref.Object.SHA) {
 		return JournalSnapshot{}, fmt.Errorf("invalid journal ref")
@@ -86,7 +86,7 @@ func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSna
 	if err != nil {
 		return JournalSnapshot{}, err
 	}
-	state, err := DecodeState(data, c.Repository, environment)
+	state, err := DecodeComponentState(data, c.Repository, environment, c.Component)
 	if err != nil {
 		return JournalSnapshot{}, err
 	}
@@ -96,8 +96,8 @@ func (c Client) LoadJournal(ctx context.Context, environment string) (JournalSna
 // SaveJournal commits metadata with a non-forcing CAS ref update. A concurrent
 // writer fails instead of overwriting evidence; replay reloads and reconciles.
 func (c Client) SaveJournal(ctx context.Context, snapshot JournalSnapshot, message string) (string, error) {
-	branch, err := JournalBranch(snapshot.State.Environment)
-	if err != nil || snapshot.State.Repository != c.Repository {
+	branch, err := c.Component.JournalBranch(snapshot.State.Environment)
+	if err != nil || snapshot.State.Repository != c.Repository || snapshot.State.ComponentName != c.Component.Name || snapshot.State.TagPrefix != c.Component.TagPrefix {
 		return "", fmt.Errorf("invalid or foreign journal identity")
 	}
 	data, err := json.MarshalIndent(snapshot.State, "", "  ")
@@ -181,13 +181,8 @@ func (c Client) ReadFile(ctx context.Context, path, sha string) ([]byte, error) 
 	return base64.StdEncoding.DecodeString(file.Content)
 }
 
-// JournalBranch preserves the deployed production journal and isolates every other environment.
+// JournalBranch preserves the deployed production journal and isolates every
+// other environment. Component journals use Component.JournalBranch.
 func JournalBranch(environment string) (string, error) {
-	if !ValidEnvironmentName(environment) {
-		return "", fmt.Errorf("unsafe environment journal identity")
-	}
-	if environment == "production" {
-		return journalBranch, nil
-	}
-	return journalBranch + "-" + environment, nil
+	return Component{}.JournalBranch(environment)
 }

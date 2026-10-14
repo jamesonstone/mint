@@ -73,6 +73,9 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 		"paths:",
 		"MINT_TAG_PREFIX",
 		"MINT_PATHS",
+		"version-config:",
+		"MINT_VERSION_CONFIG",
+		"version_scope=(--config \"$MINT_VERSION_CONFIG\")",
 		"scope_paths+=(--path \"$scope_path\")",
 	} {
 		if !strings.Contains(action, want) {
