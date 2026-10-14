@@ -86,13 +86,14 @@ policy file (a `deployment` component also needs its own `control_workflow`), so
 several components promote independently in one repository:
 
 - Versions are `<tag_prefix>vX.Y.Z`. `version-main --config <policy>` versions only
-  first-parent commits touching `paths`; candidate provenance (`CollectChanges`)
+  first-parent commits touching `paths` and reports `component_changed=false` for a
+  target that does not touch them (build workflows should skip); candidate provenance (`CollectChanges`)
   walks only those commits. Targets, candidates, rollback, and hotfix versions must
   carry the prefix; repository-wide journals reject prefixed versions and component
   journals reject unprefixed ones.
-- Journals are `mint-release-state-<name>-<environment>` and record `component`
+- Journals are `mint-release-state.<name>.<environment>` and record `component`
   and `tag_prefix`; a journal for another component is refused. Local state uses
-  `<name>--<environment>.json`.
+  `<name>.<environment>.json`.
 - Release-control files are the component `changelog`, `.mint/<name>/proposal.json`,
   `.mint/<name>/summary.md`, and optional `.mint/<name>/status.json`. Proposal PRs
   use `<!-- mint:component-proposal:<name>:<id>:<kind> -->`, which repository-wide

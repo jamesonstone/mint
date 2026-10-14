@@ -12,7 +12,7 @@ func (c Client) EnsureHotfixRequestIssue(ctx context.Context, pr PullRequest, ba
 	if pr.Number <= 0 || !shaPattern.MatchString(pr.MergeSHA) || baseline.ID == "" {
 		return 0, fmt.Errorf("hotfix request requires exact reviewed PR and production identity")
 	}
-	marker := fmt.Sprintf("<!-- mint:hotfix-request:%d:%s -->", pr.Number, pr.MergeSHA)
+	marker := c.Component.HotfixRequestMarker(pr.Number, pr.MergeSHA)
 	baseMarker := "<!-- mint:hotfix-baseline:" + baseline.ID + " -->"
 	found := 0
 	for page := 1; ; page++ {

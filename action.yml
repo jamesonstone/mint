@@ -134,6 +134,9 @@ outputs:
   control_only:
     description: Whether the versioned main commit changes only approved release-control paths.
     value: ${{ steps.run.outputs.control_only }}
+  component_changed:
+    description: From release-version-main with version-config set to a component policy; false when the target commit did not touch the component, so build jobs can skip.
+    value: ${{ steps.run.outputs.component_changed }}
   release_tag:
     description: GitHub Release tag from command github-release or release-publish.
     value: ${{ steps.run.outputs.release_tag }}

@@ -3,6 +3,7 @@ package promotion
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jamesonstone/mint/pkg/release"
@@ -21,7 +22,7 @@ var anyVersionPattern = regexp.MustCompile(`^(?:[A-Za-z0-9][A-Za-z0-9._/-]*)?v(0
 // without a component keeps the repository-wide version line, journals, and
 // release-control files. Each component policy lives in its own file and owns
 // tags with its prefix, commits touching its paths, journals named
-// mint-release-state-<name>-<environment>, and control files under
+// mint-release-state.<name>.<environment>, and control files under
 // .mint/<name>/.
 type Component struct {
 	Name      string   `yaml:"name" json:"name,omitempty"`
@@ -58,8 +59,8 @@ func (c Component) validate() error {
 	if c.TagPrefix == "" || strings.HasPrefix(c.TagPrefix, "v") {
 		return fmt.Errorf("component %s tag_prefix must be nonempty and must not start with v", c.Name)
 	}
-	if c.Changelog == "" || strings.HasPrefix(c.Changelog, "/") || strings.Contains(c.Changelog, "..") || !strings.HasSuffix(c.Changelog, ".md") {
-		return fmt.Errorf("component %s changelog must be a repository-relative .md path", c.Name)
+	if !SafeRepositoryPath(c.Changelog) || !strings.HasSuffix(c.Changelog, ".md") || strings.HasPrefix(c.Changelog, ".mint/") || strings.HasPrefix(c.Changelog, ".github/") {
+		return fmt.Errorf("component %s changelog must be a safe repository-relative .md path outside .mint/ and .github/", c.Name)
 	}
 	return nil
 }
@@ -151,7 +152,8 @@ func (c Component) ProposalMarker(id, kind string) string {
 }
 
 // JournalBranch names the durable release journal. Unscoped production keeps
-// mint-release-state; component journals always include the environment.
+// mint-release-state. Component journals use "." separators, which neither
+// component nor environment names may contain, so no two scopes can collide.
 func (c Component) JournalBranch(environment string) (string, error) {
 	if !ValidEnvironmentName(environment) {
 		return "", fmt.Errorf("unsafe environment journal identity")
@@ -162,7 +164,7 @@ func (c Component) JournalBranch(environment string) (string, error) {
 		}
 		return journalBranch + "-" + environment, nil
 	}
-	return journalBranch + "-" + c.Name + "-" + environment, nil
+	return journalBranch + "." + c.Name + "." + environment, nil
 }
 
 // StateKey names machine-local state for an environment.
@@ -170,7 +172,7 @@ func (c Component) StateKey(environment string) string {
 	if c.IsZero() {
 		return environment
 	}
-	return c.Name + "--" + environment
+	return c.Name + "." + environment
 }
 
 // workflowNameSuffix distinguishes generated workflow names per component.
@@ -187,4 +189,84 @@ func (c Component) ControlConcurrencyGroup() string {
 		return "mint-release-journal"
 	}
 	return "mint-release-journal-" + c.Name
+}
+
+// HotfixBasePrefix starts every production-base branch this scope creates.
+func (c Component) HotfixBasePrefix() string {
+	if c.IsZero() {
+		return "mint-hotfix-base/GH-"
+	}
+	return "mint-hotfix-base/" + c.Name + "/GH-"
+}
+
+// HotfixBaseBranch is the immutable production base for one hotfix issue.
+func (c Component) HotfixBaseBranch(issue int) string {
+	return c.HotfixBasePrefix() + strconv.Itoa(issue)
+}
+
+// HotfixSourceMarkerPrefix starts every hotfix source PR marker this scope owns.
+func (c Component) HotfixSourceMarkerPrefix() string {
+	if c.IsZero() {
+		return "<!-- mint:hotfix-source:"
+	}
+	return "<!-- mint:component-hotfix-source:" + c.Name + ":"
+}
+
+// HotfixSourceMarker identifies a hotfix source PR for an issue and baseline.
+func (c Component) HotfixSourceMarker(issue int, baselineID string) string {
+	return c.HotfixSourceMarkerPrefix() + "GH-" + strconv.Itoa(issue) + ":" + baselineID + " -->"
+}
+
+// HotfixSourceBaseline returns the baseline ID recorded in this scope's hotfix
+// source marker, or false when body has no such marker.
+func (c Component) HotfixSourceBaseline(body string) (string, bool) {
+	start := strings.Index(body, c.HotfixSourceMarkerPrefix())
+	if start < 0 {
+		return "", false
+	}
+	rest := body[start+len(c.HotfixSourceMarkerPrefix()):]
+	end := strings.Index(rest, " -->")
+	if end < 0 {
+		return "", false
+	}
+	issue, baseline, ok := strings.Cut(rest[:end], ":")
+	if !ok || !strings.HasPrefix(issue, "GH-") || baseline == "" {
+		return "", false
+	}
+	return baseline, true
+}
+
+// HotfixRequestMarker deduplicates one hotfix request issue per reviewed fix.
+func (c Component) HotfixRequestMarker(pr int, mergeSHA string) string {
+	if c.IsZero() {
+		return fmt.Sprintf("<!-- mint:hotfix-request:%d:%s -->", pr, mergeSHA)
+	}
+	return fmt.Sprintf("<!-- mint:component-hotfix-request:%s:%d:%s -->", c.Name, pr, mergeSHA)
+}
+
+// hotfixRequestPattern matches a generated request issue body of this scope.
+func (c Component) hotfixRequestPattern() *regexp.Regexp {
+	head := `<!-- mint:hotfix-request:`
+	if !c.IsZero() {
+		head = `<!-- mint:component-hotfix-request:` + regexp.QuoteMeta(c.Name) + `:`
+	}
+	return regexp.MustCompile(`^` + head + `[1-9][0-9]*:[a-f0-9]{40} -->\n<!-- mint:hotfix-baseline:[^\n<>]+ -->\n`)
+}
+
+// ForeignControlPR reports a proposal or hotfix-source PR owned by another Mint
+// scope (the repository-wide line or another component). Its own scope reviews
+// it; this scope treats it as an ordinary source PR.
+func (c Component) ForeignControlPR(body string) bool {
+	if strings.Contains(body, c.MarkerPrefix()) || strings.Contains(body, c.HotfixSourceMarkerPrefix()) {
+		return false
+	}
+	for _, prefix := range []string{"<!-- mint:component-proposal:", "<!-- mint:component-hotfix-source:"} {
+		if strings.Contains(body, prefix) {
+			return true
+		}
+	}
+	if !c.IsZero() {
+		return strings.Contains(body, Component{}.MarkerPrefix()) || strings.Contains(body, Component{}.HotfixSourceMarkerPrefix())
+	}
+	return false
 }

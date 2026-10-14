@@ -22,7 +22,7 @@ type Observation struct {
 	RunURL        string   `json:"run_url"`
 }
 
-func validateObservation(o Observation, now time.Time) (time.Time, error) {
+func validateObservation(o Observation, now time.Time, component Component) (time.Time, error) {
 	observed, err := time.Parse(time.RFC3339Nano, o.ObservedAt)
 	if err != nil || observed.After(now) || o.Repository == "" || o.Environment == "" || o.RunID <= 0 || o.RunURL == "" {
 		return observed, fmt.Errorf("observation lacks scoped current timestamp or run evidence")
@@ -30,7 +30,7 @@ func validateObservation(o Observation, now time.Time) (time.Time, error) {
 	if o.Status != "live" && o.Status != "deploying" && o.Status != "unknown" {
 		return observed, fmt.Errorf("observation status must be live, deploying or unknown")
 	}
-	if (o.SourceSHA != "" && !shaPattern.MatchString(o.SourceSHA)) || (o.Version != "" && !anyVersionPattern.MatchString(o.Version)) || (o.Configuration != "" && !digestPattern.MatchString(o.Configuration)) {
+	if (o.SourceSHA != "" && !shaPattern.MatchString(o.SourceSHA)) || (o.Version != "" && !component.ValidVersion(o.Version)) || (o.Configuration != "" && !digestPattern.MatchString(o.Configuration)) {
 		return observed, fmt.Errorf("observation contains invalid runtime identity")
 	}
 	artifactPresent := !reflect.DeepEqual(o.Artifact, Artifact{})
@@ -51,7 +51,7 @@ func ApplyObservation(s *State, observation Observation) (bool, error) {
 	if s == nil || observation.Repository != s.Repository || observation.Environment != s.Environment {
 		return false, fmt.Errorf("observation belongs to a foreign repository or environment")
 	}
-	observed, err := validateObservation(observation, time.Now().UTC())
+	observed, err := validateObservation(observation, time.Now().UTC(), s.Component())
 	if err != nil {
 		return false, err
 	}

@@ -30,7 +30,7 @@ func (c Client) ReadObservation(ctx context.Context, cfg Config, runID int64) (O
 	if observation.Repository != cfg.Repository || observation.Environment != cfg.Environment || observation.RunID != run.ID || observation.RunURL != run.HTMLURL {
 		return observation, fmt.Errorf("observation manifest differs from its repository, environment or authoritative workflow identity")
 	}
-	observed, err := validateObservation(observation, time.Now().UTC())
+	observed, err := validateObservation(observation, time.Now().UTC(), c.Component)
 	if err != nil {
 		return observation, err
 	}

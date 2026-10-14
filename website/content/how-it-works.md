@@ -22,7 +22,7 @@ Build configuration identifies how the artifact was made. `configuration_sha256`
 
 ## State and concurrency
 
-Shared environments have separate durable journals. The legacy `production` environment uses `mint-release-state`; other names use `mint-release-state-<environment>`. A component policy uses `mint-release-state-<component>-<environment>` for every environment, so components never share history or fences. Each environment retains a fence while a deployment is in flight or its outcome is uncertain.
+Shared environments have separate durable journals. The legacy `production` environment uses `mint-release-state`; other names use `mint-release-state-<environment>`. A component policy uses `mint-release-state.<component>.<environment>` for every environment, so components never share history or fences. Each environment retains a fence while a deployment is in flight or its outcome is uncertain.
 
 An uncertain outcome cannot be cleared by dispatching another deployment or merely observing the runtime. [Explicit reconciliation](recovery.html#reconcile-an-uncertain-deployment) checks fresh trusted evidence against the frozen intent or previous baseline.
 

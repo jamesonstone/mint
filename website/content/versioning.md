@@ -71,7 +71,10 @@ mint release version-main --config .mint/backend.yaml --main-ref origin/main
 ```
 
 In the Action, set `command: release-version-main` and
-`version-config: .mint/backend.yaml`. Without `--config`, `version-main`
+`version-config: .mint/backend.yaml`. For a component, the outputs describe the
+target commit and add `component_changed`: `false` (with an empty
+`version_tag`) when that commit did not touch the component's paths, so the
+component's build job can skip instead of failing. Without `--config`, `version-main`
 versions every commit on one unprefixed line, as before. See
 [Integrate Mint](integration.html#release-several-components-from-one-repository)
 for component environment policies.

@@ -66,7 +66,7 @@ Update the adapters, publication, workflows, docs, and tests.
   and fans out every controller run).
 - **Distinct marker namespace** `mint:component-proposal:<name>:` so the
   repository-wide `mint:proposal:` detection never matches component proposals.
-- **Component journals always include the environment** (`…-<name>-production`);
+- **Component journals always include the environment** (`mint-release-state.<name>.production`);
   only the unscoped production journal keeps the legacy bare name.
 - **Strict prefix at the journal**, loose shape at evidence boundaries: adapters and
   `VerifyTag` accept any prefixed version; `validateCandidate`, rollback, policy
@@ -76,6 +76,15 @@ Update the adapters, publication, workflows, docs, and tests.
   For unscoped repositories this equals the previous behavior.
 - **Component Releases set `make_latest: false`**; the repository-wide Latest badge
   belongs to the repository-wide line.
+- **Independent review (before merge) changed four decisions:** component journals
+  use `.` separators (`mint-release-state.<name>.<env>`, local `<name>.<env>`)
+  because `-` appears in both name patterns and collided; hotfix base branches
+  (`mint-hotfix-base/<name>/GH-N`), source markers, and request markers are
+  component-scoped and must carry the journal's own baseline ID;
+  `Config.Component` uses `omitzero` so unscoped authority digests and JSON stay
+  byte-identical (pinned by a test against `main`'s digest); component
+  `version-main` reports `component_changed` instead of failing for commits
+  outside its paths.
 - **`version-main --config` is opt-in** (Action input `version-config`, default
   empty), so existing callers see no change.
 
@@ -86,6 +95,13 @@ Update the adapters, publication, workflows, docs, and tests.
   `url.PathEscape`; `git/ref/tags/<ref>` keeps literal slashes (ref path).
 - `attributeReviewedRevert` assumes a verified baseline; normal provenance only
   runs after activation, so tests must model one.
+- Review findings fixed with regression tests: unscoped `AuthorityDigest` drift
+  from a new JSON key (would refuse in-flight intents after upgrade), unscoped
+  hotfixes acted on by every component, journal/state name collisions,
+  `version-main` failing on commits outside a component, `image_tag` aliases like
+  `stable-v1.2.3` newly rejected, other scopes' PRs failing `validate-review`,
+  unsafe changelog paths (`.mint/…`, `./x.md`), `--config` dropping
+  `.mint/status.json`, and loosened observation versions.
 - Existing `make lint` findings on `main` remain (6, unrelated); this change adds
   none.
 

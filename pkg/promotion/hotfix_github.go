@@ -16,7 +16,7 @@ func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, ba
 	if source.Branch != fmt.Sprintf("GH-%d", issue) || source.BaselineID != baseline.ID {
 		return none, fmt.Errorf("invalid governed hotfix source")
 	}
-	baseBranch := fmt.Sprintf("mint-hotfix-base/GH-%d", issue)
+	baseBranch := c.Component.HotfixBaseBranch(issue)
 	var ref gitObject
 	status, err := c.request(ctx, "GET", c.repoPath("git/ref/heads/"+baseBranch), nil, &ref)
 	if err != nil {
@@ -61,7 +61,7 @@ func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, ba
 			return none, fmt.Errorf("recovered hotfix source changed")
 		}
 	}
-	marker := fmt.Sprintf("<!-- mint:hotfix-source:GH-%d:%s -->", issue, baseline.ID)
+	marker := c.Component.HotfixSourceMarker(issue, baseline.ID)
 	body := marker + "\n\nIsolated production hotfix against `" + baseline.Candidate.Version + "` (`" + baseline.Candidate.SourceSHA + "`). Ordinary queued main changes are excluded.\n\n"
 	for _, fix := range source.Fixes {
 		body += "- Original fix: https://github.com/" + c.Repository + "/commit/" + fix + "\n"
@@ -102,7 +102,8 @@ func (c Client) VerifyHotfixSource(ctx context.Context, candidate Candidate, req
 	if err != nil {
 		return err
 	}
-	if !pr.Merged || pr.MergeSHA != candidate.SourceSHA || !c.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, "mint-hotfix-base/GH-") {
+	baseline, marked := c.Component.HotfixSourceBaseline(pr.Body)
+	if !pr.Merged || pr.MergeSHA != candidate.SourceSHA || !c.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, c.Component.HotfixBasePrefix()) || !marked || baseline != candidate.BaselineID {
 		return fmt.Errorf("hotfix has no independently reviewed production-base source PR")
 	}
 	return c.CheckHead(ctx, pr, required)

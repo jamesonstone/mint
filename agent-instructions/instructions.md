@@ -533,7 +533,7 @@ For a monorepo, give each independently released component its own schema 2
 policy file with a `component: {name, tag_prefix, paths, changelog}` block (and,
 in deployment mode, its own `control_workflow`). Component versions are `<tag_prefix>vX.Y.Z` (default
 prefix `<name>/`) and only commits touching `paths` count. Journals are
-`mint-release-state-<name>-<environment>`, control files live under
+`mint-release-state.<name>.<environment>`, control files live under
 `.mint/<name>/`, proposal markers use `<!-- mint:component-proposal:<name>:`,
 and component GitHub Releases are never marked Latest. Pass the policy file
 everywhere: `--config` for controllers and `version-main`, `MINT_CONFIG` for the

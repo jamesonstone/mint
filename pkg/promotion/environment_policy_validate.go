@@ -24,7 +24,7 @@ func validateEnvironment(env EnvironmentPolicy, component Component) error {
 	if env.Configuration != "" && !digestPattern.MatchString(env.Configuration) {
 		return fmt.Errorf("configuration_sha256 must be an exact SHA-256 digest")
 	}
-	if env.ImageTag != "" && (!regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`).MatchString(env.ImageTag) || anyVersionPattern.MatchString(env.ImageTag)) {
+	if env.ImageTag != "" && (!regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`).MatchString(env.ImageTag) || strictVersionPattern.MatchString(env.ImageTag) || component.ValidVersion(env.ImageTag)) {
 		return fmt.Errorf("image_tag must be a safe alias distinct from immutable version tags")
 	}
 	for _, workflow := range []string{env.PromotionWorkflow, env.ObservationWorkflow, env.ValidationWorkflow, env.BaselineWorkflow, env.BaselineBuildWorkflow} {

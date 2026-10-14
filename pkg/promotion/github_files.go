@@ -3,7 +3,6 @@ package promotion
 import (
 	"context"
 	"fmt"
-	"regexp"
 )
 
 // CheckProposalFiles prevents an application/control mixed PR from deploying as
@@ -56,7 +55,7 @@ func (c Client) VerifyIssue(ctx context.Context, number int, human string) error
 	if err != nil {
 		return err
 	}
-	generated := issue.User.Login == AutomationLogin && regexp.MustCompile(`^<!-- mint:hotfix-request:[1-9][0-9]*:[a-f0-9]{40} -->\n<!-- mint:hotfix-baseline:[^\n<>]+ -->\n`).MatchString(issue.Body)
+	generated := issue.User.Login == AutomationLogin && c.Component.hotfixRequestPattern().MatchString(issue.Body)
 	if status != 200 || issue.Number != number || issue.State != "open" || issue.PullRequest != nil || (!generated && ((c.Authorization == "" && issue.User.Login != human) || (c.Authorization != "" && c.AuthorizeHuman(ctx, issue.User.Login) != nil))) {
 		return fmt.Errorf("hotfix issue is not an open human-owned request")
 	}

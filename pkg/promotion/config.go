@@ -11,7 +11,7 @@ import (
 // Config is repository-owned release policy; issue content cannot override it.
 type Config struct {
 	PolicyPath            string    `yaml:"-" json:"-"`
-	Component             Component `yaml:"-" json:"Component"`
+	Component             Component `yaml:"-" json:"Component,omitzero"`
 	Operation             string    `yaml:"-"`
 	Reason                string    `yaml:"-"`
 	Mode                  string    `yaml:"-"`

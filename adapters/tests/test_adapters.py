@@ -216,5 +216,23 @@ class AdapterTests(unittest.TestCase):
             mint.assert_not_called()
         self.assertIn('promote=false', Path('output').read_text())
 
+    def test_component_hotfix_markers_and_branches_are_scoped(self):
+        backend = dict(self.config(), Component={'name': 'backend'})
+        self.assertEqual(CONTROL.hotfix_source_marker(self.config()), '<!-- mint:hotfix-source:')
+        self.assertEqual(CONTROL.hotfix_source_marker(backend), '<!-- mint:component-hotfix-source:backend:')
+        self.assertEqual(CONTROL.hotfix_base_prefix(backend), 'mint-hotfix-base/backend/GH-')
+        self.assertNotIn(CONTROL.hotfix_source_marker(self.config()), '<!-- mint:component-hotfix-source:backend:GH-1:base -->')
+
+    def test_other_component_hotfix_does_not_dispatch_a_build(self):
+        frontend = dict(self.config(), Component={'name': 'frontend'})
+        event = {'action': 'closed', 'pull_request': {'number': 42}}
+        pr = {'number': 42, 'merged': True, 'body': '<!-- mint:component-hotfix-source:backend:GH-1:base -->',
+              'head': {'repo': {'full_name': 'owner/repo'}}, 'base': {'repo': {'full_name': 'owner/repo'}}}
+        os.environ['GITHUB_EVENT_NAME'] = 'pull_request_target'
+        with patch.object(CONTROL, 'gh', return_value=pr), patch.object(CONTROL.subprocess, 'run') as run, patch.object(CONTROL, 'mint') as mint:
+            CONTROL.reconcile(event, frontend)
+        run.assert_not_called()
+        mint.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()

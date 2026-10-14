@@ -28,7 +28,7 @@ func ProjectEnvironmentStatus(s State, desired *Candidate, desiredConfiguration 
 	}
 	live := s.Observation
 	result.AsOf, result.Evidence = live.ObservedAt, live.RunURL
-	if _, err := validateObservation(*live, time.Now().UTC()); err != nil || live.Repository != s.Repository || live.Environment != s.Environment {
+	if _, err := validateObservation(*live, time.Now().UTC(), s.Component()); err != nil || live.Repository != s.Repository || live.Environment != s.Environment {
 		return result
 	}
 	if live.Status == "unknown" || observationPredatesBaseline(s) {

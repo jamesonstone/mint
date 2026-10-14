@@ -92,7 +92,7 @@ repository-wide policy:
 | Concern | Repository-wide | Component `backend` |
 | --- | --- | --- |
 | Versions | `vX.Y.Z` | `backend/vX.Y.Z`, only for commits touching `paths` |
-| Journal | `mint-release-state[-<env>]` | `mint-release-state-backend-<env>` |
+| Journal | `mint-release-state[-<env>]` | `mint-release-state.backend.<env>` |
 | Release-control files | `CHANGELOG.md`, `.mint/proposal.json`, `.mint/summary.md` | `changelog`, `.mint/backend/proposal.json`, `.mint/backend/summary.md` |
 | Proposal marker | `<!-- mint:proposal:…` | `<!-- mint:component-proposal:backend:…` |
 | Controller concurrency | `mint-release-journal` | `mint-release-journal-backend` |

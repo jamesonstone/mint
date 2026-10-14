@@ -25,10 +25,26 @@ def mint_status():
     return json.loads(subprocess.check_output(["mint", "release", "production", "status", "--config", policy_path()]))
 
 
+def component_name(config):
+    return (config.get("Component") or {}).get("name", "")
+
+
 def proposal_marker(config):
     """Marker prefix owned by this policy's scope; components use their own namespace."""
-    name = (config.get("Component") or {}).get("name", "")
+    name = component_name(config)
     return f"<!-- mint:component-proposal:{name}:" if name else "<!-- mint:proposal:"
+
+
+def hotfix_source_marker(config):
+    """Hotfix source PR marker prefix owned by this policy's scope."""
+    name = component_name(config)
+    return f"<!-- mint:component-hotfix-source:{name}:" if name else "<!-- mint:hotfix-source:"
+
+
+def hotfix_base_prefix(config):
+    """Production-base branch prefix owned by this policy's scope."""
+    name = component_name(config)
+    return f"mint-hotfix-base/{name}/GH-" if name else "mint-hotfix-base/GH-"
 
 
 def outputs(values):
@@ -45,13 +61,13 @@ def exact_number(value):
     return int(value)
 
 
-def source():
+def source(config):
     pr_number = os.environ.get("HOTFIX_PR", "")
     if not pr_number:
         outputs({"source_sha": os.environ["GITHUB_SHA"], "kind": "normal", "source_pr": 0, "baseline_id": ""})
         return
     pr = gh(f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{exact_number(pr_number)}")
-    if not pr.get("merged") or pr["base"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"] or not pr["base"]["ref"].startswith("mint-hotfix-base/GH-"):
+    if not pr.get("merged") or pr["base"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"] or not pr["base"]["ref"].startswith(hotfix_base_prefix(config)) or hotfix_source_marker(config) not in (pr.get("body") or ""):
         raise ValueError("hotfix must be the exact merged production-base source PR")
     subprocess.run(["git", "fetch", "origin", pr["merge_commit_sha"]], check=True)
     result = Path(os.environ["RUNNER_TEMP"]) / "hotfix-version.json"
@@ -122,7 +138,7 @@ def reconcile(event, config):
             raise ValueError("foreign proposal")
         # A reviewed production-base merge does not push main. Build it through
         # the trusted default-branch producer explicitly, using only its PR id.
-        if pr.get("merged") and "<!-- mint:hotfix-source:" in (pr.get("body") or ""):
+        if pr.get("merged") and hotfix_source_marker(config) in (pr.get("body") or ""):
             number = exact_number(pr["number"])
             workflow = config["BuildWorkflow"].split("/")[-1]
             subprocess.run(["gh", "workflow", "run", workflow, "--ref", config["DefaultBranch"], "-f", f"hotfix_pr={number}"], check=True)
@@ -202,7 +218,7 @@ if __name__ == "__main__":
         raise ValueError("repository does not match authenticated policy")
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     if sys.argv[1] == "source":
-        source()
+        source(config)
     elif sys.argv[1] == "promote":
         promotion_request(event, config)
     elif sys.argv[1] == "reconcile":

@@ -2,6 +2,7 @@ package release
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -181,4 +182,28 @@ func VersionIdentity(ctx context.Context, dir, commitish string, paths []string,
 		return MainVersion{}, err
 	}
 	return MainVersion{SHA: selected.TargetSHA, Version: selected.VersionTag, ControlOnly: control}, nil
+}
+
+// ComponentVersionIdentity reports a component's version at commitish. When no
+// component tag points at commitish (the commit did not touch the component's
+// paths), changed is false and the result has an empty Version, so build
+// workflows can skip instead of failing.
+func ComponentVersionIdentity(ctx context.Context, dir, commitish string, controlPaths []string, scope Scope) (MainVersion, bool, error) {
+	identity, err := VersionIdentity(ctx, dir, commitish, controlPaths, scope)
+	if err == nil {
+		return identity, true, nil
+	}
+	var issue *validationIssue
+	if !errors.As(err, &issue) || issue.Field != "release tag" {
+		return MainVersion{}, false, err
+	}
+	target, err := resolveCommit(ctx, dir, commitish)
+	if err != nil {
+		return MainVersion{}, false, err
+	}
+	control, err := controlOnlyCommit(ctx, dir, target, controlPaths)
+	if err != nil {
+		return MainVersion{}, false, err
+	}
+	return MainVersion{SHA: target, ControlOnly: control}, false, nil
 }
