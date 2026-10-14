@@ -33,7 +33,8 @@ in `releases/tags/` paths and marks every release Latest.
 ## REQUIREMENTS
 
 - Optional schema 2 `component: {name, tag_prefix, paths, changelog}`; one policy
-  file per component; a component requires its own `control_workflow`.
+  file per component; a deployment component requires its own `control_workflow`
+  (package and artifact components run no controller).
 - Component versions `<prefix>vX.Y.Z` everywhere (targets, candidates, changes,
   rollback, hotfix, version-main), strictly enforced per journal.
 - Isolated journals, local state, control files, proposal markers, workflow names,
