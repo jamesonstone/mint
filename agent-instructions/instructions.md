@@ -530,8 +530,8 @@ Review an authorization migration separately from a deployment request, and pin 
 published release that supports the new fields before changing consumer policies.
 
 For a monorepo, give each independently released component its own schema 2
-policy file with a `component: {name, tag_prefix, paths, changelog}` block and its
-own `control_workflow`. Component versions are `<tag_prefix>vX.Y.Z` (default
+policy file with a `component: {name, tag_prefix, paths, changelog}` block (and,
+in deployment mode, its own `control_workflow`). Component versions are `<tag_prefix>vX.Y.Z` (default
 prefix `<name>/`) and only commits touching `paths` count. Journals are
 `mint-release-state-<name>-<environment>`, control files live under
 `.mint/<name>/`, proposal markers use `<!-- mint:component-proposal:<name>:`,

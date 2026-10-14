@@ -82,8 +82,8 @@ production policy and the existing command namespace remain supported.
 
 A schema 2 policy may declare one `component` (`name`, optional `tag_prefix`
 defaulting to `<name>/`, `paths`, `changelog`). Each component lives in its own
-policy file with its own `control_workflow`, so several components promote
-independently in one repository:
+policy file (a `deployment` component also needs its own `control_workflow`), so
+several components promote independently in one repository:
 
 - Versions are `<tag_prefix>vX.Y.Z`. `version-main --config <policy>` versions only
   first-parent commits touching `paths`; candidate provenance (`CollectChanges`)

@@ -71,6 +71,12 @@ func TestComponentPolicyValidation(t *testing.T) {
 			t.Errorf("%s: ParsePolicy() error = nil", name)
 		}
 	}
+	pkg := strings.Replace(componentPolicyYAML, "mode: deployment", "mode: package", 1)
+	pkg = strings.Replace(pkg, "control_workflow: .github/workflows/backend-mint.yaml\n", "", 1)
+	pkg = strings.Replace(pkg, "    promotion_workflow: .github/workflows/backend-deploy.yaml\n", "", 1)
+	if _, err := ParsePolicy([]byte(pkg)); err != nil {
+		t.Fatalf("package component without a controller rejected: %v", err)
+	}
 	custom := strings.Replace(componentPolicyYAML, "  name: backend\n", "  name: backend\n  tag_prefix: api-\n", 1)
 	custom = strings.Replace(custom, "target: backend/v1.2.3", "target: api-v1.2.3", 1)
 	p, err := ParsePolicy([]byte(custom))

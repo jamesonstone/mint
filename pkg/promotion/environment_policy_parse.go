@@ -120,8 +120,10 @@ func (p *Policy) validate() error {
 		if normalized.IsZero() {
 			return fmt.Errorf("component requires a name")
 		}
-		if p.ControlWorkflow == "" {
-			return fmt.Errorf("component %s requires its own control_workflow", normalized.Name)
+		// Deployment controllers write per-component journals; each needs its own
+		// workflow. Package and artifact policies run no controller.
+		if p.Mode == "deployment" && p.ControlWorkflow == "" {
+			return fmt.Errorf("component %s deployment policy requires its own control_workflow", normalized.Name)
 		}
 		p.Component = &normalized
 	}

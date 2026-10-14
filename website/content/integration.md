@@ -60,7 +60,8 @@ Legacy policies can retain `human_login`; do not combine it with `authorization`
 
 A monorepo can promote each component through its own environments with its own
 version line. Write one schema 2 policy file per component, each with a
-`component` block and its own `control_workflow`:
+`component` block. A `deployment` component also needs its own
+`control_workflow`; `package` and `artifact` components run no controller:
 
 ```yaml
 # .mint/backend.yaml
