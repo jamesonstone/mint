@@ -26,8 +26,8 @@ var changelogCmd = &cobra.Command{
 	Long: `Generate a CHANGELOG.md release entry from conventional commits between
 Git refs.
 
-Mint validates the tag range, parses conventional commit subjects, links GitHub
-issues and commits, groups entries deterministically, and prepends a new release
+Mint validates the tag range, parses conventional commit subjects, links GitHub and explicit Linear
+issue references and commits, groups entries deterministically, and prepends a new release
 block to the changelog without overwriting an existing version.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {

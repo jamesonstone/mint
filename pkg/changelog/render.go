@@ -65,6 +65,9 @@ func renderReleaseBlock(version string, tag string, releaseDate time.Time, repoO
 				issueURL := fmt.Sprintf("https://github.com/%s/%s/issues/%s", repoOwner, repoName, item.IssueNumber)
 				fmt.Fprintf(&builder, "  ([#%s](%s))\n", item.IssueNumber, issueURL)
 			}
+			for _, link := range item.LinearIssues {
+				fmt.Fprintf(&builder, "  ([%s](%s))\n", link.Identifier, link.URL)
+			}
 			commitURL := fmt.Sprintf("https://github.com/%s/%s/commit/%s", repoOwner, repoName, item.Hash)
 			fmt.Fprintf(&builder, "  ([%s](%s))\n", item.Hash, commitURL)
 		}

@@ -26,6 +26,42 @@ mint changelog \
 
 The heading uses the current version and links to its GitHub Release. The date comes from the range-end commit's author date. Entries link to commits. Issue links come from a commit-body closing reference such as `Closes #42`, or a trailing `(#42)` in the subject. A scope such as `GH-42` appears as a scope label; it does not itself create an issue link.
 
+## Linear issues and mixed history
+
+Use the Linear identifier as the conventional commit scope and put its canonical
+URL in a separate final footer line. Preserve this footer in squash commits:
+
+```text
+feat(ENG-123): :sparkles: add invitations
+
+Refs: https://linear.app/acme/issue/ENG-123/add-invitations
+```
+
+Mint renders `[ENG-123](https://linear.app/acme/issue/ENG-123/add-invitations)`
+alongside the existing commit link. Accepted full-line references are `Refs:`,
+`Issue:`, `Closes:`, `Fixes:`, `Resolves:` (the colon is optional), or a bare
+canonical `https://linear.app/<workspace>/issue/<IDENTIFIER>[/slug]` URL.
+Repeated identical URLs appear once. A Linear scope alone remains a scope label;
+Mint cannot infer its workspace or URL. Keep the full link in commit history.
+
+GitHub closing references and subject `(#42)` suffixes retain their existing
+precedence. A commit with both a GitHub reference and a Linear footer preserves
+both links. Older GitHub commits need no migration, and release bump detection
+already accepts Linear scopes.
+
+Generation is offline: Mint never authenticates to Linear or fetches issue titles,
+descriptions, comments, status, or private attachments. Missing credentials,
+revoked access, deleted tickets, or a Linear outage do not block generation of an
+explicit link. Readers still need their own access; Mint cannot verify that a link
+is available. Unrecognized or incomplete URLs do not create an issue link; the
+commit link remains. No fallback GitHub issue is invented for a Linear identifier.
+
+Commit messages, ticket identifiers, workspace slugs and URLs become part of the
+changelog's visibility. Review these inputs before publishing public notes, and
+omit a private reference when even its identifier or URL must remain confidential.
+Mint adds no private provider content, but cannot redact confidential text already
+written into a commit subject.
+
 ## Which commits appear
 
 | Group | Included changes |

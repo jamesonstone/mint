@@ -39,12 +39,13 @@ type rawCommit struct {
 }
 
 type commit struct {
-	Type        string
-	Scope       string
-	Breaking    bool
-	Subject     string
-	Body        string
-	Hash        string
-	Date        time.Time
-	IssueNumber string
+	Type         string
+	Scope        string
+	Breaking     bool
+	Subject      string
+	Body         string
+	Hash         string
+	Date         time.Time
+	IssueNumber  string
+	LinearIssues []issueLink
 }

@@ -26,14 +26,15 @@ func parseCommits(rawCommits []rawCommit, warnings io.Writer) []commit {
 		scope := strings.TrimPrefix(strings.TrimSuffix(match[2], ")"), "(")
 		issue, subject := issueNumberAndSubject(match[4], raw.Body)
 		parsed := commit{
-			Type:        match[1],
-			Scope:       scope,
-			Breaking:    match[3] == "!" || strings.Contains(raw.Body, "BREAKING CHANGE:"),
-			Subject:     subject,
-			Body:        raw.Body,
-			Hash:        shortHash(raw.Hash),
-			Date:        raw.Date,
-			IssueNumber: issue,
+			Type:         match[1],
+			Scope:        scope,
+			Breaking:     match[3] == "!" || strings.Contains(raw.Body, "BREAKING CHANGE:"),
+			Subject:      subject,
+			Body:         raw.Body,
+			Hash:         shortHash(raw.Hash),
+			Date:         raw.Date,
+			IssueNumber:  issue,
+			LinearIssues: linearIssueLinks(raw.Body),
 		}
 		if shouldInclude(parsed) {
 			commits = append(commits, parsed)
