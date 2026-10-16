@@ -55,3 +55,20 @@ Local validation passed except the seven documented unrelated lint findings.
 Hosted documentation build passed; deployment was correctly skipped on the PR.
 Hosted native CI was pending when written; the live PR is authoritative.
 No merge, release, credential configuration or Linear writes performed.
+
+## PROVIDER PARITY AUDIT
+
+The pre-change CHANGELOG generator reads Git subjects and bodies, derives GitHub
+issue URLs, and renders commit links. It does not fetch GitHub ticket contents.
+Linear support therefore reads canonical full footer URLs already in Git and
+renders identifier links without credentials or a provider API. A new Git-fixture
+integration test exercises Generate through the Git reader and file writer,
+preserves mixed-provider and commit links, and excludes unrelated commit-body text.
+That test and the public documentation checks passed on continuation.
+
+This is reference reading, not API enrichment. Bare Linear IDs cannot resolve a
+workspace or URL, and Mint does not verify access, existence, title or status.
+Explicit URLs/IDs and commit subjects can expose metadata and need visibility
+review. Separate release resolve/publish notes remain subject-based; production
+release/proposal control issues remain GitHub-backed. The public guide now states
+these boundaries. No provider creation, population or lifecycle API test is claimed.

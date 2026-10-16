@@ -108,3 +108,17 @@ In reviewed environment releases, `CHANGELOG.md` is a release-control path along
 Control-only commits are classified separately from application work, avoiding a release loop caused by the generated changelog itself. Keep the configured control paths exact; do not expand them to arbitrary source files.
 
 The standalone changelog command writes a local file; it does not open a PR, publish a GitHub Release, or deploy. `release publish` writes its own resolved release notes and does not automatically commit your CHANGELOG. Choose one owner for changelog updates so competing workflows do not duplicate entries.
+
+## Scope of provider support
+
+The Linear support above reads explicit references already present in Git commit
+history. It does not resolve a bare Linear identifier or read a ticket through the
+Linear API. There is no title, description, status, comment or assignee enrichment.
+This matches the existing GitHub CHANGELOG path, which derives links from commit
+references rather than fetching GitHub issue content.
+
+`mint release resolve` and `release publish` produce their separate release notes
+from commit subjects; they do not automatically use the CHANGELOG renderer or its
+Linear footer links. Mint's release/proposal controller and its control issues
+remain GitHub-backed. Selecting a Kit development issue provider does not migrate
+those control issues or configure Linear state automation.

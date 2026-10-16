@@ -2,6 +2,8 @@ package changelog
 
 import (
 	"bytes"
+	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -64,5 +66,39 @@ func TestMixedProviderChangelogOffline(t *testing.T) {
 		if strings.Contains(rendered, bad) {
 			t.Fatalf("unexpected %s in %s", bad, rendered)
 		}
+	}
+}
+
+// Exercise the actual Git reader and atomic changelog writer, not only parser
+// helpers. Provider content is deliberately absent; commit bodies stay private.
+func TestGenerateMixedLinearHistoryFromGit(t *testing.T) {
+	t.Setenv("LINEAR_API_KEY", "")
+	repo := newTestRepo(t)
+	repo.commit(t, "docs: baseline", "", "2024-01-01T00:00:00Z")
+	repo.tag(t, "v1.0.0")
+	linearHash := repo.commit(t, "feat(ENG-123): :sparkles: invitations", "Private body text must not enter release notes.\n\nRefs: https://linear.app/acme/issue/ENG-123/invitations", "2024-01-02T00:00:00Z")
+	githubHash := repo.commit(t, "fix(GH-42): preserve old behavior", "Closes #42", "2024-01-03T00:00:00Z")
+	repo.tag(t, "v1.1.0")
+	output := filepath.Join(repo.dir, "CHANGELOG.md")
+	result, err := Generate(context.Background(), Options{PrevTag: "v1.0.0", CurrentTag: "v1.1.0", RepoOwner: "owner", RepoName: "repo", WorkDir: repo.dir, OutputFile: output})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CommitCount != 2 {
+		t.Fatalf("result = %#v", result)
+	}
+	content := readFile(t, output)
+	for _, want := range []string{
+		"[ENG-123](https://linear.app/acme/issue/ENG-123/invitations)",
+		"[#42](https://github.com/owner/repo/issues/42)",
+		"[" + linearHash + "](https://github.com/owner/repo/commit/" + linearHash + ")",
+		"[" + githubHash + "](https://github.com/owner/repo/commit/" + githubHash + ")",
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("missing %q in %s", want, content)
+		}
+	}
+	if strings.Contains(content, "Private body text") {
+		t.Fatal("commit body leaked into changelog")
 	}
 }
