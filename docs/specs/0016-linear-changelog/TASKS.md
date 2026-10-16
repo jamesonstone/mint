@@ -6,4 +6,4 @@
 - [x] Update public guide and validate generated documentation and LLM entrypoints.
 - [x] Run Go suite, vet, build, Python adapters and independent review.
 - [x] Record existing unrelated lint findings.
-- [ ] Open coordinated PR and record its CI/review state. No merge or release.
+- [x] Open coordinated PR #33 and record pending hosted checks; no merge or release.

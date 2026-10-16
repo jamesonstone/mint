@@ -45,3 +45,13 @@ Implemented for review; no merge or release authorized. Merge Mint first, then K
 ## REPOSITORY MEMORY
 
 Feature spec and public configuration/changelog documentation. Historical specs remain unchanged.
+
+## DELIVERY EVIDENCE
+
+Issue: [GH-32](https://github.com/jamesonstone/mint/issues/32). Branch: `GH-32`.
+Ready PR: [Mint #33](https://github.com/jamesonstone/mint/pull/33).
+Companion: [Kit #265](https://github.com/jamesonstone/kit/pull/265).
+Local validation passed except the seven documented unrelated lint findings.
+Hosted documentation build passed; deployment was correctly skipped on the PR.
+Hosted native CI was pending when written; the live PR is authoritative.
+No merge, release, credential configuration or Linear writes performed.
