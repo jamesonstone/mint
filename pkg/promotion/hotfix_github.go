@@ -17,7 +17,10 @@ func (c Client) PublishHotfixSource(ctx context.Context, source HotfixSource, ba
 	if err != nil {
 		return none, err
 	}
-	if source.Branch != id || source.BaselineID != baseline.ID {
+	expectedBranch := c.Component.hotfixSourceBranch(id, ticket)
+	// Exact legacy Linear branches remain publishable after proven recovery.
+	legacyLinear := ticket != "" && source.Branch == id
+	if (source.Branch != expectedBranch && !legacyLinear) || source.BaselineID != baseline.ID {
 		return none, fmt.Errorf("invalid governed hotfix source")
 	}
 	baseBranch := c.Component.hotfixRequestBase(id)

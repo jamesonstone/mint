@@ -27,6 +27,10 @@ func TestTicketHotfixVersionRunsPreparationThroughNativeAllocation(t *testing.T)
 		t.Run(scenario.name, func(t *testing.T) {
 			op, source, origin, git, serve := ticketVersionFixture(t, scenario.issue, scenario.ticket, scenario.component)
 			defer source()
+			ordinary := ""
+			if scenario.ticket != "" {
+				ordinary = git(origin, "rev-parse", "refs/heads/ENG-42")
+			}
 			server := httptest.NewServer(serve)
 			defer server.Close()
 			op.client.APIURL = server.URL
@@ -51,6 +55,9 @@ func TestTicketHotfixVersionRunsPreparationThroughNativeAllocation(t *testing.T)
 			}
 			if got := git(origin, "rev-parse", prefix+"v1.2.4^{}"); got != selection.SourceSHA {
 				t.Fatal("wrong published fixture tag", got, selection)
+			}
+			if ordinary != "" && git(origin, "rev-parse", "refs/heads/ENG-42") != ordinary {
+				t.Fatal("development branch changed")
 			}
 			// Reruns reuse the same immutable tag rather than allocate another version.
 			again, _, err := op.versionHotfix(context.Background())
@@ -92,8 +99,11 @@ func ticketVersionFixture(t *testing.T, issue int, ticket, component string) (*p
 	git(origin, "add", "application.txt")
 	git(origin, "commit", "-m", "fix: restore application")
 	fix := git(origin, "rev-parse", "HEAD")
+	if ticket != "" {
+		git(origin, "branch", "ENG-42")
+	}
 	baseline := promotion.Baseline{ID: "verified", Candidate: promotion.Candidate{SourceSHA: base, Version: prefix + "v1.2.3"}}
-	source, err := promotion.PrepareHotfix(context.Background(), promotion.HotfixOptions{WorkDir: origin, Baseline: baseline, Issue: issue, TicketURL: ticket, Fixes: []string{fix}, CommitterName: "Human", CommitterEmail: "human@example.com"})
+	source, err := promotion.PrepareHotfix(context.Background(), promotion.HotfixOptions{WorkDir: origin, Baseline: baseline, Issue: issue, TicketURL: ticket, Component: scope, Fixes: []string{fix}, CommitterName: "Human", CommitterEmail: "human@example.com"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,10 +113,13 @@ func ticketVersionFixture(t *testing.T, issue int, ticket, component string) (*p
 		cleanup()
 		t.Fatal(err)
 	}
-	id := source.Branch
+	id, _, err := promotion.HotfixRequestIdentity(issue, ticket)
+	if err != nil {
+		t.Fatal(err)
+	}
 	marker := scope.HotfixSourceMarkerPrefix() + id + ":verified -->"
 	baseRef := strings.TrimSuffix(scope.HotfixBasePrefix(), "GH-") + id
-	pr := map[string]any{"number": 9, "merged": true, "merge_commit_sha": source.SourceSHA, "body": marker, "user": map[string]string{"login": "human"}, "head": map[string]any{"sha": source.SourceSHA, "ref": id, "repo": map[string]string{"full_name": "owner/repo"}}, "base": map[string]any{"ref": baseRef, "repo": map[string]string{"full_name": "owner/repo"}}}
+	pr := map[string]any{"number": 9, "merged": true, "merge_commit_sha": source.SourceSHA, "body": marker, "user": map[string]string{"login": "human"}, "head": map[string]any{"sha": source.SourceSHA, "ref": source.Branch, "repo": map[string]string{"full_name": "owner/repo"}}, "base": map[string]any{"ref": baseRef, "repo": map[string]string{"full_name": "owner/repo"}}}
 	serve := func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/repos/owner/repo/pulls/9":

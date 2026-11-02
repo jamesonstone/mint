@@ -38,7 +38,7 @@ func TestLinearHotfixPreservesProductionIsolationAndTicketProvenance(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if source.Branch != "ENG-42" || gitTest(t, source.WorkDir, "rev-parse", "HEAD^") != baseline.Candidate.SourceSHA {
+	if source.Branch != "mint-hotfix-source/ENG-42" || gitTest(t, source.WorkDir, "rev-parse", "HEAD^") != baseline.Candidate.SourceSHA {
 		t.Fatal("wrong identity/base", source)
 	}
 	if _, err := os.Stat(filepath.Join(source.WorkDir, "queued-b.txt")); !os.IsNotExist(err) {
@@ -90,7 +90,7 @@ func TestLinearHotfixSourceUsesExactScopeAndRequestBase(t *testing.T) {
 }
 
 func TestLinearHotfixPublishesSourcePRWithoutCreatingIssue(t *testing.T) {
-	source := HotfixSource{Branch: "ENG-42", BaselineID: "base", SourceSHA: sha(2)}
+	source := HotfixSource{Branch: "mint-hotfix-source/ENG-42", BaselineID: "base", SourceSHA: sha(2)}
 	baseline := Baseline{ID: "base", Candidate: Candidate{SourceSHA: sha(1), Version: "v1.2.3"}}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -105,7 +105,7 @@ func TestLinearHotfixPublishesSourcePRWithoutCreatingIssue(t *testing.T) {
 		case r.Method == "POST" && r.URL.Path == "/repos/owner/repo/pulls":
 			var request map[string]any
 			json.NewDecoder(r.Body).Decode(&request)
-			if request["head"] != "ENG-42" || request["base"] != "mint-hotfix-base/ENG-42" || !strings.Contains(request["body"].(string), linearTestTicket) {
+			if request["head"] != "mint-hotfix-source/ENG-42" || request["base"] != "mint-hotfix-base/ENG-42" || !strings.Contains(request["body"].(string), linearTestTicket) {
 				t.Error("lost ticket or source identity", request)
 			}
 			w.WriteHeader(http.StatusCreated)
