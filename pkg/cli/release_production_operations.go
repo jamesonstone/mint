@@ -195,16 +195,17 @@ func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) 
 func (o *productionOperation) hotfix(ctx context.Context) (any, bool, error) {
 	var request struct {
 		Issue      int
+		TicketURL  string `json:"ticket_url"`
 		BaselineID string
 		Fixes      []string
 	}
 	if err := readJSON(o.flags.Input, &request); err != nil {
 		return nil, false, err
 	}
-	return o.prepareHotfix(ctx, request.Issue, request.BaselineID, request.Fixes)
+	return o.prepareHotfix(ctx, request.Issue, request.BaselineID, request.Fixes, request.TicketURL)
 }
 
-func (o *productionOperation) prepareHotfix(ctx context.Context, issue int, baselineID string, fixes []string) (any, bool, error) {
+func (o *productionOperation) prepareHotfix(ctx context.Context, issue int, baselineID string, fixes []string, tickets ...string) (any, bool, error) {
 	s := &o.snapshot.State
 	if s.Baseline == nil || s.InFlight != "" {
 		return nil, false, fmt.Errorf("hotfix preparation requires a verified idle production baseline")
@@ -212,10 +213,20 @@ func (o *productionOperation) prepareHotfix(ctx context.Context, issue int, base
 	if baselineID != s.Baseline.ID {
 		return nil, false, fmt.Errorf("hotfix request baseline is stale")
 	}
-	if err := o.client.VerifyIssue(ctx, issue, o.config.HumanLogin); err != nil {
-		return nil, false, err
+	_, ticket, identityErr := promotion.HotfixRequestIdentity(issue, tickets...)
+	if identityErr != nil {
+		return nil, false, identityErr
 	}
-	recovered, err := o.client.RecoverHotfixSource(ctx, *s.Baseline, issue, fixes)
+	if ticket == "" {
+		if err := o.client.VerifyIssue(ctx, issue, o.config.HumanLogin); err != nil {
+			return nil, false, err
+		}
+	} else {
+		if err := o.client.AuthorizeControlRun(ctx, o.config, o.flags.RunID, "workflow_dispatch"); err != nil {
+			return nil, false, err
+		}
+	}
+	recovered, err := o.client.RecoverHotfixSource(ctx, *s.Baseline, issue, fixes, ticket)
 	if err != nil {
 		return nil, false, err
 	}
@@ -223,12 +234,12 @@ func (o *productionOperation) prepareHotfix(ctx context.Context, issue int, base
 	if recovered != nil {
 		result = *recovered
 	} else {
-		result, err = promotion.PrepareHotfix(ctx, promotion.HotfixOptions{WorkDir: o.proof.WorkDir, Baseline: *s.Baseline, Issue: issue, Fixes: fixes, CommitterName: promotion.AutomationLogin, CommitterEmail: promotion.AutomationEmail})
+		result, err = promotion.PrepareHotfix(ctx, promotion.HotfixOptions{WorkDir: o.proof.WorkDir, Baseline: *s.Baseline, Issue: issue, TicketURL: ticket, Fixes: fixes, CommitterName: promotion.AutomationLogin, CommitterEmail: promotion.AutomationEmail})
 		if err != nil && !result.Conflict {
 			return result, false, err
 		}
 	}
-	pull, err := o.client.PublishHotfixSource(ctx, result, *s.Baseline, issue)
+	pull, err := o.client.PublishHotfixSource(ctx, result, *s.Baseline, issue, ticket)
 	if err != nil {
 		return result, false, err
 	}

@@ -32,7 +32,7 @@ Integration adapters remain available by name; see the production adapter contra
 		{"finish", []string{"intent-id", "run-id"}, false},
 		{"published", []string{"intent-id"}, false},
 		{"bootstrap", []string{"run-id"}, false},
-		{"prepare-hotfix", []string{"input"}, false},
+		{"prepare-hotfix", []string{"input", "run-id"}, false},
 		{"publish", []string{"intent-id"}, false},
 		{"version-hotfix", []string{"pr"}, false},
 		{"propose-rollback", []string{"pin", "summary"}, false},

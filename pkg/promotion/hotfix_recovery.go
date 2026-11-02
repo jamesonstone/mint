@@ -11,8 +11,11 @@ import (
 
 // RecoverHotfixSource reuses an interrupted request without manufacturing a new
 // timestamped cherry-pick commit or rewriting a human's reviewed source branch.
-func (c Client) RecoverHotfixSource(ctx context.Context, baseline Baseline, issue int, fixes []string) (*HotfixSource, error) {
-	branch := fmt.Sprintf("GH-%d", issue)
+func (c Client) RecoverHotfixSource(ctx context.Context, baseline Baseline, issue int, fixes []string, tickets ...string) (*HotfixSource, error) {
+	branch, ticket, err := HotfixRequestIdentity(issue, tickets...)
+	if err != nil {
+		return nil, err
+	}
 	var ref gitObject
 	status, err := c.request(ctx, "GET", c.repoPath("git/ref/heads/"+branch), nil, &ref)
 	if err != nil {
@@ -30,6 +33,7 @@ func (c Client) RecoverHotfixSource(ctx context.Context, baseline Baseline, issu
 	}
 	var provenance struct {
 		BaselineID  string   `json:"baseline_id"`
+		TicketURL   string   `json:"ticket_url"`
 		BaselineSHA string   `json:"baseline_sha"`
 		Fixes       []string `json:"fixes"`
 		PatchIDs    []string `json:"patch_ids"`
@@ -37,7 +41,7 @@ func (c Client) RecoverHotfixSource(ctx context.Context, baseline Baseline, issu
 	if err := json.Unmarshal(data, &provenance); err != nil {
 		return nil, err
 	}
-	if provenance.BaselineID != baseline.ID || provenance.BaselineSHA != baseline.Candidate.SourceSHA || !slices.Equal(provenance.Fixes, fixes) {
+	if provenance.TicketURL != ticket || provenance.BaselineID != baseline.ID || provenance.BaselineSHA != baseline.Candidate.SourceSHA || !slices.Equal(provenance.Fixes, fixes) {
 		return nil, fmt.Errorf("existing hotfix branch has different baseline or fixes; preserve it")
 	}
 	return &HotfixSource{Branch: branch, SourceSHA: ref.Object.SHA, BaselineID: baseline.ID, Fixes: fixes, PatchIDs: provenance.PatchIDs}, nil
