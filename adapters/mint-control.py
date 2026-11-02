@@ -47,6 +47,11 @@ def hotfix_base_prefix(config):
     return f"mint-hotfix-base/{name}/GH-" if name else "mint-hotfix-base/GH-"
 
 
+def hotfix_base_matches(config, branch):
+    prefix = hotfix_base_prefix(config)[:-3]
+    return re.fullmatch(re.escape(prefix) + r"[A-Z][A-Z0-9]*-[1-9][0-9]*", branch) is not None
+
+
 def outputs(values):
     values = {key: str(value) for key, value in values.items()}
     if any("\n" in value or "\r" in value for value in values.values()):
@@ -67,7 +72,7 @@ def source(config):
         outputs({"source_sha": os.environ["GITHUB_SHA"], "kind": "normal", "source_pr": 0, "baseline_id": ""})
         return
     pr = gh(f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{exact_number(pr_number)}")
-    if not pr.get("merged") or pr["base"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"] or not pr["base"]["ref"].startswith(hotfix_base_prefix(config)) or hotfix_source_marker(config) not in (pr.get("body") or ""):
+    if not pr.get("merged") or pr["base"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"] or not hotfix_base_matches(config, pr["base"]["ref"]) or hotfix_source_marker(config) not in (pr.get("body") or ""):
         raise ValueError("hotfix must be the exact merged production-base source PR")
     subprocess.run(["git", "fetch", "origin", pr["merge_commit_sha"]], check=True)
     result = Path(os.environ["RUNNER_TEMP"]) / "hotfix-version.json"
@@ -101,6 +106,27 @@ def promotion_request(event, config):
     subprocess.run([sys.executable, str(Path(__file__).with_name("mint-manifest.py")), "intent-outputs", str(result)], check=True)
 
 
+def request_linear_hotfix():
+    ticket = os.environ["HOTFIX_TICKET_URL"]
+    if not re.fullmatch(r"https://linear[.]app/[A-Za-z0-9][A-Za-z0-9_-]*/issue/[A-Z][A-Z0-9]*-[1-9][0-9]*(?:/[^/?#]+)?", ticket):
+        raise ValueError("canonical Linear ticket URL required")
+    workspace = os.environ.get("HOTFIX_TICKET_WORKSPACE", "")
+    team = os.environ.get("HOTFIX_TICKET_TEAM", "")
+    if workspace or team:
+        if not workspace or not team or not re.fullmatch(r"https://linear[.]app/" + re.escape(workspace) + r"/issue/" + re.escape(team) + r"-[1-9][0-9]*(?:/[a-z0-9][a-z0-9-]*)?", ticket):
+            raise ValueError("Linear ticket does not match the configured workspace and team")
+    baseline = os.environ["HOTFIX_BASELINE_ID"].strip()
+    text = os.environ["HOTFIX_FIXES"].strip()
+    if not baseline or not os.environ.get("HOTFIX_REASON", "").strip():
+        raise ValueError("hotfix baseline and reason required")
+    fixes = [] if text == "AUTHORED" else text.split()
+    if not text or any(not re.fullmatch(r"[a-f0-9]{40}", fix) for fix in fixes) or len(set(fixes)) != len(fixes):
+        raise ValueError("unique full lowercase fix SHAs or AUTHORED required")
+    request = Path(os.environ["RUNNER_TEMP"]) / "hotfix-request.json"
+    request.write_text(json.dumps({"Issue": 0, "ticket_url": ticket, "BaselineID": baseline, "Fixes": fixes}))
+    mint("prepare-hotfix", "--input", str(request), "--run-id", os.environ["GITHUB_RUN_ID"])
+
+
 def request_hotfix(issue_number):
     repo = os.environ["GITHUB_REPOSITORY"]
     issue = gh(f"repos/{repo}/issues/{exact_number(issue_number)}")
@@ -123,7 +149,12 @@ def request_hotfix(issue_number):
 def reconcile(event, config):
     operation = os.environ.get("CONTROL_OPERATION", "reconcile")
     if operation == "hotfix":
-        request_hotfix(os.environ["REQUEST_ISSUE"])
+        if os.environ.get("HOTFIX_TICKET_URL"):
+            if os.environ.get("REQUEST_ISSUE"):
+                raise ValueError("select one issue provider")
+            request_linear_hotfix()
+        else:
+            request_hotfix(os.environ["REQUEST_ISSUE"])
         return
     if operation == "rollback":
         mint("propose-rollback", "--pin", os.environ["ROLLBACK_SOURCE"], "--summary", os.environ["RELEASE_SUMMARY"])

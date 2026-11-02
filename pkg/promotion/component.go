@@ -220,20 +220,8 @@ func (c Component) HotfixSourceMarker(issue int, baselineID string) string {
 // HotfixSourceBaseline returns the baseline ID recorded in this scope's hotfix
 // source marker, or false when body has no such marker.
 func (c Component) HotfixSourceBaseline(body string) (string, bool) {
-	start := strings.Index(body, c.HotfixSourceMarkerPrefix())
-	if start < 0 {
-		return "", false
-	}
-	rest := body[start+len(c.HotfixSourceMarkerPrefix()):]
-	end := strings.Index(rest, " -->")
-	if end < 0 {
-		return "", false
-	}
-	issue, baseline, ok := strings.Cut(rest[:end], ":")
-	if !ok || !strings.HasPrefix(issue, "GH-") || baseline == "" {
-		return "", false
-	}
-	return baseline, true
+	_, baseline, ok := c.hotfixSourceRequest(body)
+	return baseline, ok
 }
 
 // HotfixRequestMarker deduplicates one hotfix request issue per reviewed fix.

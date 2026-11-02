@@ -85,3 +85,10 @@ You can add `qa-east`, `qa-west`, or a reviewed `preview-42` as separate entries
 No `production` entry is required. In deployment mode, optionally mark one shared environment `publish: true` to publish canonical releases after verification. At most one is allowed; naming it `distribution`, `demo`, or `live` does not change its evidence requirements.
 
 For package/artifact projects, use `mode: package` or `mode: artifact` and keep the existing publication adapter. Those modes reject runtime operations and need no fabricated runtime state.
+
+
+## Linear-tracked manual hotfixes
+
+The schema 1 compatibility controller supports Linear tracking without a GitHub issue or a Linear token. For operation `hotfix`, set `HOTFIX_TICKET_URL` to the canonical `https://linear.app/<workspace>/issue/ENG-123` URL, `HOTFIX_BASELINE_ID` to the verified idle baseline, `HOTFIX_FIXES` to unique full single-parent commit SHAs (or `AUTHORED`), and `HOTFIX_REASON` to the reason. Leave `REQUEST_ISSUE` empty. Repositories may also bind `HOTFIX_TICKET_WORKSPACE` and `HOTFIX_TICKET_TEAM`; both must match the URL when configured. Native `prepare-hotfix --input <request.json> --run-id <active-control-run>` accepts the same `ticket_url`, `BaselineID`, and `Fixes` fields with `Issue: 0`.
+
+The ticket is attribution, not authentication: Mint verifies the active trusted default-branch workflow_dispatch run and authorized human actor before external-ticket preparation. It does not fetch or edit Linear. The operator must select the repository's configured team and record the request in its ticket. Invalid/mixed provider inputs and stale baselines fail closed. Source/base branches use the exact ticket ID, and immutable request metadata plus the source PR retain the canonical URL. A reused identifier with a different workspace URL, baseline, or fixes is rejected. Preparation never approves, merges, or deploys; existing source-review and provenance checks still apply. Legacy GitHub issue requests remain supported for repositories that select that tracker.
