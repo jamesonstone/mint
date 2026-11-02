@@ -109,8 +109,7 @@ func (c Client) VerifyHotfixSource(ctx context.Context, candidate Candidate, req
 	if err != nil {
 		return err
 	}
-	requestID, baseline, marked := c.Component.hotfixSourceRequest(pr.Body)
-	if !pr.Merged || pr.MergeSHA != candidate.SourceSHA || !c.IsReleaseAuthor(pr.User.Login) || pr.Base.Ref != c.Component.hotfixRequestBase(requestID) || !marked || baseline != candidate.BaselineID {
+	if !pr.Merged || pr.MergeSHA != candidate.SourceSHA || !c.IsReleaseAuthor(pr.User.Login) || !c.Component.MatchesHotfixSource(pr.Body, pr.Base.Ref, candidate.BaselineID) {
 		return fmt.Errorf("hotfix has no independently reviewed production-base source PR")
 	}
 	return c.CheckHead(ctx, pr, required)
