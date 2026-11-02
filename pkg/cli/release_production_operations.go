@@ -234,7 +234,7 @@ func (o *productionOperation) prepareHotfix(ctx context.Context, issue int, base
 	if recovered != nil {
 		result = *recovered
 	} else {
-		result, err = promotion.PrepareHotfix(ctx, promotion.HotfixOptions{WorkDir: o.proof.WorkDir, Baseline: *s.Baseline, Issue: issue, TicketURL: ticket, Fixes: fixes, CommitterName: promotion.AutomationLogin, CommitterEmail: promotion.AutomationEmail})
+		result, err = promotion.PrepareHotfix(ctx, promotion.HotfixOptions{WorkDir: o.proof.WorkDir, Baseline: *s.Baseline, Issue: issue, TicketURL: ticket, Component: o.config.Component, Fixes: fixes, CommitterName: promotion.AutomationLogin, CommitterEmail: promotion.AutomationEmail})
 		if err != nil && !result.Conflict {
 			return result, false, err
 		}

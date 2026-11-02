@@ -45,3 +45,7 @@ Additive implementation and local validation complete. Legacy requests remain su
 ## REPOSITORY MEMORY
 
 This specification records the new external tracking boundary; public environment and adapter guides will describe supported input and failure behavior.
+
+## SOURCE NAMESPACE CORRECTION
+
+A normal development branch can already own the returned ENG identifier. New Linear hotfix sources therefore use `mint-hotfix-source/[component/]ENG-ID`; request identity, production-base names, markers and ticket links remain stable. Recovery checks the new branch first, then accepts only an exact prepared legacy request on a bare ENG branch. Ordinary development branches are retained, and missing metadata is distinguished from unavailable API evidence. Existing GitHub lanes and previously prepared Linear requests retain their original lifecycle. Validate an occupied ordinary branch through native preparation, source CI review, allocation and immutable tag reuse, plus legacy recovery and transport-error refusal.

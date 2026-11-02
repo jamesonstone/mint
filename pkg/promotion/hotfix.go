@@ -17,6 +17,7 @@ type HotfixOptions struct {
 	Baseline                      Baseline
 	Issue                         int
 	TicketURL                     string
+	Component                     Component
 	Fixes                         []string
 	CommitterName, CommitterEmail string
 }
@@ -36,8 +37,8 @@ type HotfixSource struct {
 // explicit reviewed commits. On conflicts it preserves that clone for resolution.
 func PrepareHotfix(ctx context.Context, o HotfixOptions) (HotfixSource, error) {
 	id, ticket, identityErr := HotfixRequestIdentity(o.Issue, o.TicketURL)
-	result := HotfixSource{Branch: id, BaselineID: o.Baseline.ID, Fixes: append([]string{}, o.Fixes...)}
-	if identityErr != nil || o.Baseline.ID == "" || !shaPattern.MatchString(o.Baseline.Candidate.SourceSHA) || o.CommitterName == "" || o.CommitterEmail == "" {
+	result := HotfixSource{Branch: o.Component.hotfixSourceBranch(id, ticket), BaselineID: o.Baseline.ID, Fixes: append([]string{}, o.Fixes...)}
+	if identityErr != nil || (!o.Component.IsZero() && !componentNamePattern.MatchString(o.Component.Name)) || o.Baseline.ID == "" || !shaPattern.MatchString(o.Baseline.Candidate.SourceSHA) || o.CommitterName == "" || o.CommitterEmail == "" {
 		return result, fmt.Errorf("hotfix requires a verified base, governed issue, explicit fixes and human identity")
 	}
 	seen := map[string]bool{}
@@ -91,6 +92,9 @@ func PrepareHotfix(ctx context.Context, o HotfixOptions) (HotfixSource, error) {
 	metadata := map[string]any{"schema_version": 1, "baseline_id": result.BaselineID, "baseline_sha": o.Baseline.Candidate.SourceSHA, "fixes": result.Fixes, "patch_ids": result.PatchIDs, "issue": o.Issue}
 	if ticket != "" {
 		metadata["ticket_url"] = ticket
+		if !o.Component.IsZero() {
+			metadata["component"] = o.Component.Name
+		}
 	}
 	data, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {

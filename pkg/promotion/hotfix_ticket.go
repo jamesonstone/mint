@@ -67,3 +67,16 @@ func (c Component) MatchesHotfixSource(body, baseRef, baseline string) bool {
 	id, markedBaseline, ok := c.hotfixSourceRequest(body)
 	return ok && markedBaseline == baseline && baseRef == c.hotfixRequestBase(id)
 }
+
+// hotfixSourceBranch separates new Linear production fixes from development.
+// Legacy GitHub issues keep their existing governed branch identity.
+func (c Component) hotfixSourceBranch(id, ticket string) string {
+	if ticket == "" {
+		return id
+	}
+	prefix := "mint-hotfix-source/"
+	if !c.IsZero() {
+		prefix += c.Name + "/"
+	}
+	return prefix + id
+}
