@@ -24,8 +24,8 @@ func (o *productionOperation) review(ctx context.Context) (any, bool, error) {
 			return o.intent(ctx, false)
 		}
 	}
-	if baseline, ok := o.client.Component.HotfixSourceBaseline(pr.Body); ok {
-		if s.Baseline == nil || baseline != s.Baseline.ID || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, o.client.Component.HotfixBasePrefix()) {
+	if _, ok := o.client.Component.HotfixSourceBaseline(pr.Body); ok {
+		if s.Baseline == nil || !o.client.IsReleaseAuthor(pr.User.Login) || !o.client.Component.MatchesHotfixSource(pr.Body, pr.Base.Ref, s.Baseline.ID) {
 			return nil, false, fmt.Errorf("hotfix source identity mismatch")
 		}
 		c := promotion.Candidate{Kind: "hotfix", SourceSHA: pr.Head.SHA, SourcePR: pr.Number, BaselineID: s.Baseline.ID, Version: s.Baseline.Candidate.Version}

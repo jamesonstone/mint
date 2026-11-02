@@ -19,8 +19,7 @@ func (o *productionOperation) versionHotfix(ctx context.Context) (any, bool, err
 	if err != nil {
 		return nil, false, err
 	}
-	baseline, marked := o.client.Component.HotfixSourceBaseline(pr.Body)
-	if !pr.Merged || !o.client.IsReleaseAuthor(pr.User.Login) || !strings.HasPrefix(pr.Base.Ref, o.client.Component.HotfixBasePrefix()) || !marked || baseline != s.Baseline.ID {
+	if !pr.Merged || !o.client.IsReleaseAuthor(pr.User.Login) || !o.client.Component.MatchesHotfixSource(pr.Body, pr.Base.Ref, s.Baseline.ID) {
 		return nil, false, fmt.Errorf("hotfix source must be reviewed and merged against its production base")
 	}
 	if err := o.client.CheckHead(ctx, pr, o.config.RequiredChecks); err != nil {

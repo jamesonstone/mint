@@ -40,7 +40,7 @@ PASS: go test ./..., go vet ./..., make build, 26 adapter tests, and make docs-c
 
 ## OUTCOME
 
-Additive implementation and local validation complete. Legacy requests remain supported. No live hotfix request or application deployment was executed. Upstream release and downstream pinning follow review.
+Additive implementation and local validation complete. Legacy requests remain supported. No live hotfix request or application deployment was executed. A downstream review identified a remaining GH-only native version-allocation gate; a follow-up replaces it with shared exact marker/base validation. The new regression first failed only for Linear/scoped Linear against v1.0.1 while legacy passed, then exercises actual isolated preparation, required reviews/checks, provenance collection, tag publication to a local fixture origin, and immutable tag reuse. Upstream release and downstream pinning follow review.
 
 ## REPOSITORY MEMORY
 

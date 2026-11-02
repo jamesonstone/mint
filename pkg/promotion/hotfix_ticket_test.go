@@ -123,3 +123,19 @@ func TestLinearHotfixPublishesSourcePRWithoutCreatingIssue(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTicketAwareSourceBaseRejectsCrossRequestScopeAndBaseline(t *testing.T) {
+	c := Component{Name: "backend"}
+	body := c.hotfixRequestMarker("ENG-42", "verified")
+	for _, bad := range []string{"mint-hotfix-base/backend/ENG-43", "mint-hotfix-base/frontend/ENG-42", "mint-hotfix-base/ENG-42", "mint-hotfix-base/backend/ENG-42/extra"} {
+		if c.MatchesHotfixSource(body, bad, "verified") {
+			t.Error("accepted wrong base", bad)
+		}
+	}
+	if c.MatchesHotfixSource(body, "mint-hotfix-base/backend/ENG-42", "other") {
+		t.Fatal("accepted stale baseline")
+	}
+	if !c.MatchesHotfixSource(body, "mint-hotfix-base/backend/ENG-42", "verified") {
+		t.Fatal("exact source rejected")
+	}
+}

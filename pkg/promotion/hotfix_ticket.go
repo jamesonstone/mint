@@ -60,3 +60,10 @@ func (c Component) hotfixSourceRequest(body string) (string, string, bool) {
 	id, baseline, ok := strings.Cut(rest[:end], ":")
 	return id, baseline, ok && hotfixIDPattern.MatchString(id) && baseline != ""
 }
+
+// MatchesHotfixSource binds the exact request ID, component and baseline.
+// This is identity validation only; callers must still verify source reviews.
+func (c Component) MatchesHotfixSource(body, baseRef, baseline string) bool {
+	id, markedBaseline, ok := c.hotfixSourceRequest(body)
+	return ok && markedBaseline == baseline && baseRef == c.hotfixRequestBase(id)
+}
