@@ -8,7 +8,7 @@ Mint separates release intent from the evidence that makes it safe to act on tha
 2. **Build once.** Your trusted producer builds the application and uploads a `mint-candidate` artifact containing `mint-candidate.json`.
 3. **Register eligibility.** Mint authenticates the completed producer run and its archive digest, then records source, version, build configuration, and immutable artifact identity.
 4. **Select per environment.** Policy chooses latest-following or an exact target. Prerequisites must have verified the complete selected artifact.
-5. **Freeze intent.** Reviewed releases wait for current-head checks and independent human approval. Mint freezes the artifact and runtime configuration together.
+5. **Freeze intent.** Reviewed releases wait for current-head checks and independent human approval. Automatic environments ([Continuous Delivery](environments.html#continuous-delivery)) freeze each new eligible candidate under previously approved policy. Mint freezes the artifact and runtime configuration together.
 6. **Deploy and verify.** The project adapter consumes the frozen intent without rebuilding, reports start, and supplies exact verification evidence.
 7. **Record and report.** Verified history advances. Mint reports on the original PR and, if configured, publishes the canonical GitHub Release.
 

@@ -127,6 +127,8 @@ A target such as `target: backend/v1.4.0` must carry the component prefix.
 | Deployment | Upload `mint-request.json` as `mint-request` before start; deploy the frozen digests; upload exact verified `mint-deployment.json` as `mint-deployment` after verification. |
 | Observation | Upload `mint-observation.json` as `mint-observation` with exact source/version, full artifact, runtime configuration, timestamp, run ID, and run URL. |
 
+A producer run is trusted when `push` or `workflow_dispatch` started it. To build only after another workflow succeeds, list `workflow_run` in `build_events` and make the producer verify its triggering run in a job-level `if:`; see [Continuous Delivery](environments.html#continuous-delivery).
+
 The deployment workflow receives `environment`, `intent_id`, and serialized `intent` inputs. It must consume these exact identities and avoid rebuilding. Mint validates server-side repository, default branch, workflow path, run identity/completion, archive digest, and manifest contents.
 
 Use the [full adapter reference](https://github.com/jamesonstone/mint/blob/main/docs/references/environment-lifecycle.md#project-adapter-evidence) and [legacy integration contract](https://github.com/jamesonstone/mint/blob/main/docs/references/production-release-proposals.md) for manifest fields and controller wiring. These contracts are integration work: a policy file alone cannot make an existing deploy workflow compliant.
@@ -150,7 +152,7 @@ The generator reads callback workflow names from the files, so create those adap
 1. Supply a real approved runtime `configuration_sha256` and trusted adapters.
 2. Configure `baseline_workflow` (and `baseline_build_workflow` if migrating a different producer). Run the trusted baseline adapter to reconcile the actual running artifact/configuration and upload digest-attested `mint-baseline` evidence. Import it with `mint deployment bootstrap --environment sandbox --run-id <verified-run-id>`. Do not infer a baseline from an image tag, supply a local JSON file, or re-import to erase an uncertain deployment.
 3. Review candidate production and retention, complete-bundle verification, required checks, and controller callback paths.
-4. Enable `MINT_RELEASE_ENABLED` and the project's existing deployment gates only after those prerequisites are ready.
+4. Enable the policy's activation variable (`MINT_RELEASE_ENABLED`, or the `activation_variable` named in policy) and the project's existing deployment gates only after those prerequisites are ready.
 5. Promote an eligible candidate and inspect the Release PR and verified result end to end.
 
 Generation, installation, or merging policy does not provision cloud resources, grant IAM, deploy a runtime, or activate an existing consumer.

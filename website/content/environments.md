@@ -1,6 +1,6 @@
 # Environments & sandboxes
 
-Mint models environments by policy, not by a fixed development → staging → production ladder. A repository can contain only sandboxes, several shared test environments, local workspaces, or any project-owned combination.
+Mint models environments by policy, not by a fixed development → staging → production ladder. A repository can contain only sandboxes, several shared test environments, local workspaces, or any project-owned combination. Each environment selects manual, reviewed, or automatic deployment; automatic deployment is Continuous Delivery.
 
 ## An arbitrary number of named environments
 
@@ -62,9 +62,102 @@ Adapters shared by multiple entries must use the `environment` input to select t
 | `scope: shared` | Authenticated repository journal and trusted adapters for a shared runtime. |
 | `deploy: manual` | Collect candidates until an operator requests promotion. |
 | `deploy: reviewed` | Keep one updating Release PR; checks and independent approval freeze its selection. |
-| `deploy: automatic` | Follow previously approved policy without requiring a new Release PR for each ordinary candidate. |
+| `deploy: automatic` | [Continuous Delivery](#continuous-delivery): follow previously approved policy without requiring a new Release PR for each ordinary candidate. |
 
 Manual promotion enters the reviewed request path. Automatic mode still requires eligible trusted artifacts, activation, exact configuration, prerequisites, and verification. Use reviewed or manual mode for environments where a person must approve each change.
+
+## Continuous Delivery
+
+Continuous Delivery is an option for every environment, whatever its name. Set
+`deploy: automatic` with `follow: latest` on the environments that should follow
+the latest eligible build, and keep `reviewed` or `manual` on the others:
+
+```yaml
+environments:
+  sandbox:
+    scope: shared
+    deploy: automatic      # Continuous Delivery: no Release PR per build
+    follow: latest
+    promotion_workflow: .github/workflows/deploy.yaml
+  live:
+    scope: shared
+    deploy: reviewed       # one updating Release PR, frozen by approval
+    follow: latest
+    requires: [sandbox]
+    promotion_workflow: .github/workflows/deploy.yaml
+```
+
+Mint freezes the exact artifact and runtime configuration of an automatic environment and dispatches your deployment adapter. One deployment runs at a time for an environment: a build that arrives while the deployment run is still active is registered and waits, and after a verified deployment Mint selects the latest eligible build, so an intermediate build can be skipped. After a failed or uncertain deployment the waiting builds stay registered and nothing delivers them until an operator settles the outcome; the controller fails on later builds until then and names the fenced intent. Change the mode in a reviewed policy PR to turn Continuous Delivery on or off for one environment. An explicit promote request, a rollback, and queued work after explicit recovery still go through a reviewed PR.
+
+### Build after checks pass
+
+Mint trusts a producer run only when `push` or `workflow_dispatch` started it, unless policy says otherwise. If your build starts after another workflow succeeds, list the events that may start it:
+
+```yaml
+build_workflow: .github/workflows/build.yaml
+build_events: [workflow_dispatch, workflow_run]
+```
+
+`build_events` is a nonempty unique list of `push`, `workflow_dispatch`, and `workflow_run`. List only the events your producer workflow uses: each one is a way to build, and a `push` or `workflow_dispatch` build does not wait for another workflow. Without `workflow_dispatch`, isolated hotfix builds cannot register. The list also applies to recovery scans and the baseline source build; deployment and observation adapters are unaffected. A run that `workflow_run` started can supply only a normal candidate for its own head commit. Schema 1 policies do not accept the field.
+
+GitHub runs a `workflow_run` workflow from the default branch, with your repository's secrets and token, and reports the default-branch head as its identity for every upstream run, including a pull request from a fork. Mint cannot see which run started your producer, so the producer must check it before any privileged step:
+
+```yaml
+name: Build
+on:
+  workflow_run:
+    workflows: [Checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_sha == github.sha)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Build github.sha, publish immutable artifacts, then upload
+      # mint-candidate. Allocate the source version in a job that has
+      # contents: write.
+```
+
+- **Refuse at job level, or fail.** A refused run must end `skipped` or `failure`. A run that ends `success` with no `mint-candidate` makes the controller callback fail on each activated environment.
+- **Do not interpolate the triggering run into scripts.** Its branch name and commit message are attacker-controlled. Read `github.event.workflow_run` fields only in `if:` expressions or through `env:`; `${{ github.event.workflow_run.* }}` inside `run:` is script injection with the producer's credentials.
+- **Build `github.sha` only.** Never check out, execute, or download artifacts from the triggering run.
+
+A producer that skips the check can deliver a default-branch commit whose checks did not pass. A producer that uses content of the triggering run can register that content under a reviewed version, and every environment that reuses the build can then receive it. Mint cannot detect either case.
+
+A chained producer builds a commit only while it is still the default-branch head when its checks finish. When merges arrive faster than the checks run, no candidate appears until the newest commit's checks pass. GitHub limits `workflow_run` chains to three levels; checks, producer, and controller use two. Candidate registration also needs the immutable version tag of the exact source commit, so allocate [source versions](versioning.html) before the build.
+
+### Separate activation switches
+
+The generated controller runs only while a repository variable is `true`. The default is `MINT_RELEASE_ENABLED`. To activate one policy file without another, for example a sandbox policy beside a schema 1 production policy, name its own variable and regenerate the controller:
+
+```yaml
+activation_variable: MINT_SANDBOX_ENABLED
+```
+
+The name must start with `MINT_` and use upper-case letters, digits, and underscores. The prefix keeps the switch out of the compatibility adapters' runtime configuration identity. The variable gates the whole controller for that policy file.
+
+### Roll out the two fields
+
+`build_events` and `activation_variable` are authority: a target-only request PR cannot change them, and each is part of the frozen authority digest. A policy that uses neither keeps its digest and generated controller.
+
+1. Pin every workflow that reads the policy (build, deployment, baseline, observation, controller) to a Mint release that has the fields. Earlier releases reject a policy that contains them.
+2. Change the policy in a reviewed PR while no intent is pending or in flight. The change alters the authority digest of every environment in that policy file, so a pending approval or deployment start is refused.
+3. Regenerate the controller, then set the activation variable when the environment is ready.
 
 ## Latest-following versus fixed targets
 

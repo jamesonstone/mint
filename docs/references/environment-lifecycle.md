@@ -78,6 +78,138 @@ shared environment with `publish: true` as the canonical release publisher; othe
 environments deploy without independently publishing the same version. Schema 1
 production policy and the existing command namespace remain supported.
 
+## Continuous Delivery
+
+Continuous Delivery is a policy choice for each environment. An environment with
+`deploy: automatic` and `follow: latest` receives the latest eligible candidate
+with no release PR: Mint freezes the exact artifact and runtime configuration and
+dispatches the project adapter. `manual` and `reviewed` environments in the same
+policy keep their own paths, so one build can be delivered continuously to a
+sandbox and wait for review elsewhere. Any environment name can use any mode.
+
+Automatic delivery still requires an activated environment (approved
+`configuration_sha256` and a verified baseline), an eligible candidate from the
+trusted producer with an immutable version tag on its exact source commit,
+satisfied prerequisites, and adapter verification. One deployment runs at a time
+for an environment. A candidate that arrives while the deployment run is still
+active is registered and waits; after a verified deployment Mint selects the
+latest eligible candidate, so an intermediate build can be skipped. After a
+failed or uncertain deployment the waiting candidates stay registered and
+nothing delivers them until an operator settles the outcome; producer callbacks
+fail until then and name the fenced intent. An explicit promote request, a
+rollback, and queued work after explicit recovery still go through a reviewed
+PR, as described below.
+
+### Build after checks pass
+
+By default Mint trusts a producer run only when `push` or `workflow_dispatch`
+started it. A project that builds only after its checks pass starts the producer
+with `workflow_run`. Permit that explicitly:
+
+```yaml
+build_workflow: .github/workflows/build.yaml
+build_events: [workflow_dispatch, workflow_run]
+```
+
+`build_events` is a nonempty unique list of `push`, `workflow_dispatch` and
+`workflow_run`; omit it for the default. List only the events that the producer
+workflow uses: each listed event is a way to build, and a `push` or
+`workflow_dispatch` build does not wait for another workflow. Without
+`workflow_dispatch`, isolated hotfix builds cannot register. The list applies to
+candidate registration, recovery scans and the baseline source build. Promotion,
+baseline and observation adapter runs do not change. A run that `workflow_run`
+started can supply only a `normal` candidate for its own head commit. Schema 1
+policies do not accept the field.
+
+GitHub runs a `workflow_run` workflow from the default branch, with the
+repository's secrets and token, and reports the default-branch head as its
+identity for **every** upstream run, including a pull request from a fork. Mint
+cannot see which run started the producer. The producer must therefore verify
+its triggering run before any privileged step:
+
+```yaml
+name: Build
+on:
+  workflow_run:
+    workflows: [Checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == github.event.repository.default_branch &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_sha == github.sha)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # Build github.sha, publish immutable artifacts, then upload
+      # mint-candidate. Allocate the source version in a job that has
+      # contents: write.
+```
+
+- Refuse in a job-level `if:`, or fail. A refused run must end `skipped` or
+  `failure`. A run that ends `success` with no `mint-candidate` makes the
+  controller callback fail on each activated environment.
+- Read the triggering run only in `if:` expressions or through `env:`. Its
+  branch name and commit message are attacker-controlled; interpolating
+  `${{ github.event.workflow_run.* }}` into a `run:` script is script injection
+  with the producer's credentials.
+- Build `github.sha` only. Never check out, execute or download artifacts from
+  the triggering run.
+
+A producer that skips the check can deliver a default-branch commit whose checks
+did not pass. A producer that uses content of the triggering run can register
+that content under a reviewed version, and every environment that reuses the
+build can then receive it. Mint cannot detect either case.
+
+A chained producer builds a commit only while it is still the default-branch
+head when its checks finish. When merges arrive faster than the checks run, no
+candidate appears until the newest commit's checks pass. GitHub also limits
+`workflow_run` chains to three levels; checks, producer and controller use two.
+
+### Activation switch
+
+The generated environment controller runs only when a repository variable is
+`true`. The default name is `MINT_RELEASE_ENABLED`. Name another variable when
+policies in one repository need separate switches, for example a schema 1
+production policy beside a schema 2 policy for other environments:
+
+```yaml
+activation_variable: MINT_SANDBOX_ENABLED
+```
+
+The name starts with `MINT_` and uses upper-case letters, digits and
+underscores. The prefix keeps the switch out of the compatibility adapters'
+runtime configuration identity, which hashes every other repository variable.
+Regenerate the controller after a change. The variable gates the whole
+controller of that policy file; an environment in it stays inactive until it has
+its own configuration identity and verified baseline.
+
+### Authority and rollout
+
+Both fields are authority. They are part of the frozen authority digest, and a
+target-only request PR cannot change them. A policy that uses neither keeps its
+existing digest and generated controller; the order of `build_events` and an
+explicitly written default do not change the digest.
+
+- Releases before these fields reject a policy that contains them. Pin every
+  workflow that reads the policy to a release with the fields before the policy
+  changes, including build, deployment, baseline and observation adapters.
+- A change to either field changes the authority digest of every environment in
+  the policy file. Make the change while no intent is pending or in flight;
+  otherwise the pending approval or deployment start is refused.
+
 ## Components in one repository
 
 A schema 2 policy may declare one `component` (`name`, optional `tag_prefix`
@@ -255,8 +387,10 @@ Policy parsing and workflow generation are preparation, not activation. A consum
 must pin a published feature-bearing Mint commit, review the trusted controller and
 project adapters, supply approved runtime configuration identities, establish
 baseline evidence for shared deployments, and enable its existing activation gates.
-The generated controller uses `MINT_RELEASE_ENABLED`; it does not create cloud
-resources, grant IAM permissions, provision a runtime, or fabricate a baseline.
+The generated controller uses the policy's activation variable
+(`MINT_RELEASE_ENABLED` unless `activation_variable` names another); it does not
+create cloud resources, grant IAM permissions, provision a runtime, or fabricate a
+baseline.
 The controller subscribes to configured adapter workflow names (or the repository
 workflow path when its name is omitted), authenticating each callback path separately.
 

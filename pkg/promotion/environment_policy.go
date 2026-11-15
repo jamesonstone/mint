@@ -6,6 +6,10 @@ import (
 )
 
 // Policy is repository-owned build, publication and environment intent.
+// BuildEvents lists the Actions events that may start a trusted producer run;
+// omit it for the strict default, push and workflow_dispatch. ActivationVariable
+// names the repository variable that gates the generated environment
+// controller; omit it for MINT_RELEASE_ENABLED.
 type Policy struct {
 	DefaultEnvironment    string                       `yaml:"default_environment,omitempty"`
 	Schema                int                          `yaml:"schema_version"`
@@ -16,8 +20,10 @@ type Policy struct {
 	Authorization         string                       `yaml:"authorization,omitempty" json:"Authorization,omitempty"`
 	Assignees             []string                     `yaml:"assignees,omitempty" json:"Assignees,omitempty"`
 	BuildWorkflow         string                       `yaml:"build_workflow"`
+	BuildEvents           []string                     `yaml:"build_events,omitempty"`
 	ValidationWorkflow    string                       `yaml:"validation_workflow,omitempty"`
 	ControlWorkflow       string                       `yaml:"control_workflow,omitempty"`
+	ActivationVariable    string                       `yaml:"activation_variable,omitempty"`
 	BaselineWorkflow      string                       `yaml:"baseline_workflow,omitempty"`
 	BaselineBuildWorkflow string                       `yaml:"baseline_build_workflow,omitempty"`
 	RequiredChecks        []string                     `yaml:"required_checks,omitempty"`
@@ -105,7 +111,7 @@ func (p Policy) ForEnvironment(name string) (Config, error) {
 	if baselineBuild == "" {
 		baselineBuild = p.BuildWorkflow
 	}
-	return Config{Operation: env.Operation, Reason: env.Reason, Schema: p.Schema, Mode: p.Mode, Repository: p.Repository, Environment: name, DefaultBranch: p.DefaultBranch, HumanLogin: p.HumanLogin, Authorization: p.Authorization, Assignees: cloneAssignees(p.Assignees), BuildWorkflow: p.BuildWorkflow, ValidationWorkflow: validation, ControlWorkflow: p.ControlWorkflow, BaselineWorkflow: baseline, BaselineBuildWorkflow: baselineBuild, PromotionWorkflow: env.PromotionWorkflow, ObservationWorkflow: env.ObservationWorkflow, RequiredChecks: append([]string(nil), checks...), ControlPaths: append([]string(nil), p.ControlPaths...), Scope: env.Scope, Deploy: env.Deploy, Follow: env.Follow, Target: env.Target, ImageTag: env.ImageTag, Configuration: env.Configuration, Requires: append([]string(nil), env.Requires...), Publish: env.Publish, ArtifactRepository: p.Artifact.Repository, Component: p.ComponentScope()}, nil
+	return Config{Operation: env.Operation, Reason: env.Reason, Schema: p.Schema, Mode: p.Mode, Repository: p.Repository, Environment: name, DefaultBranch: p.DefaultBranch, HumanLogin: p.HumanLogin, Authorization: p.Authorization, Assignees: cloneAssignees(p.Assignees), BuildWorkflow: p.BuildWorkflow, BuildEvents: effectiveBuildEvents(p.BuildEvents), ActivationVariable: p.ActivationVariable, ValidationWorkflow: validation, ControlWorkflow: p.ControlWorkflow, BaselineWorkflow: baseline, BaselineBuildWorkflow: baselineBuild, PromotionWorkflow: env.PromotionWorkflow, ObservationWorkflow: env.ObservationWorkflow, RequiredChecks: append([]string(nil), checks...), ControlPaths: append([]string(nil), p.ControlPaths...), Scope: env.Scope, Deploy: env.Deploy, Follow: env.Follow, Target: env.Target, ImageTag: env.ImageTag, Configuration: env.Configuration, Requires: append([]string(nil), env.Requires...), Publish: env.Publish, ArtifactRepository: p.Artifact.Repository, Component: p.ComponentScope()}, nil
 }
 
 func legacyPolicy(cfg Config) Policy {

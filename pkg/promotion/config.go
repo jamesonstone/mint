@@ -9,6 +9,8 @@ import (
 )
 
 // Config is repository-owned release policy; issue content cannot override it.
+// BuildEvents and ActivationVariable are schema 2 authority: their JSON names
+// are omitted when unset, so existing authority digests do not change.
 type Config struct {
 	PolicyPath            string    `yaml:"-" json:"-"`
 	Component             Component `yaml:"-" json:"Component,omitzero"`
@@ -25,6 +27,8 @@ type Config struct {
 	Publish               bool      `yaml:"-"`
 	ArtifactRepository    string    `yaml:"-"`
 	ImageTag              string    `yaml:"-"`
+	BuildEvents           []string  `yaml:"-" json:"BuildEvents,omitempty"`
+	ActivationVariable    string    `yaml:"-" json:"ActivationVariable,omitempty"`
 	ControlWorkflow       string    `yaml:"control_workflow"`
 	Schema                int       `yaml:"schema_version"`
 	Repository            string    `yaml:"repository"`

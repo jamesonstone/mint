@@ -23,6 +23,12 @@ func RenderEnvironmentWorkflow(policy Policy, mintRef, configPath string, buildN
 	if len(names) == 0 {
 		return "", fmt.Errorf("configured environments required")
 	}
+	// The gate name is interpolated into an Actions expression: accept only a
+	// plain variable name, also for a policy that was not parsed from YAML.
+	activation := policy.ControllerActivationVariable()
+	if !validActivationVariable(activation) {
+		return "", errActivationVariable
+	}
 	callback := ""
 	if len(buildNames) > 0 {
 		unique := []string{}
@@ -94,7 +100,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   control:
-    if: vars.MINT_RELEASE_ENABLED == 'true'
+    if: vars.%s == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -111,5 +117,5 @@ jobs:
           command: deployment-control
           production-config: '%s'
           github-token: ${{ github.token }}
-`, workflowNameSuffix(policy.ComponentScope()), policy.DefaultBranch, callback, string(options), mintRef, configPath), nil
+`, workflowNameSuffix(policy.ComponentScope()), policy.DefaultBranch, callback, string(options), activation, mintRef, configPath), nil
 }

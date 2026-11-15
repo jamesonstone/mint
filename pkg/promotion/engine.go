@@ -9,6 +9,10 @@ import (
 var ErrNoEligible = errors.New("no eligible candidate")
 var ErrAlreadyDeployed = errors.New("candidate is already deployed")
 
+// ErrInFlight marks a reconciliation that a deployment in flight defers. The
+// registered candidates stay eligible for the reconciliation after its outcome.
+var ErrInFlight = errors.New("deployment in flight")
+
 // Proof is supplied by the Git/GitHub adapter, not an event payload or issue text.
 type Proof interface {
 	Ancestor(older, newer string) (bool, error)
@@ -206,7 +210,7 @@ func (s *State) Reconcile(kind, event, pin, id, summary string, proof Proof) (Pr
 		return prior, nil
 	}
 	if s.InFlight != "" {
-		return Proposal{}, fmt.Errorf("production intent %s is in flight; collect candidates and reconcile its outcome first", s.InFlight)
+		return Proposal{}, fmt.Errorf("production intent %s is in flight; collect candidates and reconcile its outcome first: %w", s.InFlight, ErrInFlight)
 	}
 	if event == "reopen" {
 		pin = ""

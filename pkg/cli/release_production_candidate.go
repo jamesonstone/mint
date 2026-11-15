@@ -11,7 +11,7 @@ import (
 
 // candidate authenticates one producer run and reads its manifest once.
 func (o *productionOperation) candidate(ctx context.Context) (any, bool, error) {
-	run, err := o.client.TrustedRun(ctx, o.flags.RunID, o.config.BuildWorkflow)
+	run, err := o.client.TrustedBuildRun(ctx, o.flags.RunID, o.config, o.config.BuildWorkflow)
 	if err != nil {
 		return nil, false, err
 	}
@@ -26,8 +26,13 @@ func (o *productionOperation) candidate(ctx context.Context) (any, bool, error) 
 // Callers supply only GitHub-authenticated run and archive evidence.
 func (o *productionOperation) registerCandidate(ctx context.Context, c promotion.Candidate, run promotion.WorkflowRun) (any, bool, error) {
 	s := &o.snapshot.State
-	if run.Repository.FullName != s.Repository || run.HeadRepository.FullName != s.Repository || !promotion.WorkflowPathMatches(run.Path, o.config.BuildWorkflow) || run.Status != "completed" || run.Conclusion != "success" || (run.Event != "push" && run.Event != "workflow_dispatch") {
+	if run.Repository.FullName != s.Repository || run.HeadRepository.FullName != s.Repository || !promotion.WorkflowPathMatches(run.Path, o.config.BuildWorkflow) || run.Status != "completed" || run.Conclusion != "success" || !o.config.BuildEventAllowed(run.Event) {
 		return nil, false, fmt.Errorf("candidate requires a successful trusted producer run")
+	}
+	// A run that workflow_run started takes no inputs and executes at the
+	// default-branch head. It can attest only that head, never an isolated hotfix.
+	if run.Event == "workflow_run" && c.Kind != "normal" {
+		return nil, false, fmt.Errorf("a producer run started by workflow_run can supply only a normal candidate")
 	}
 	if (c.Kind == "normal" && run.HeadSHA != c.SourceSHA) || run.ID != c.RunID || run.HeadBranch != o.config.DefaultBranch {
 		return nil, false, fmt.Errorf("candidate does not match successful build")

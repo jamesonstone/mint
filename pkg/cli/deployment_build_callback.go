@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +17,35 @@ import (
 // Manual environments collect candidates; reviewed/automatic environments then
 // reconcile using the same frozen-intent engine. No environment rewrites builds.
 func runBuildCallback(cmd *cobra.Command, policy promotion.Policy, f productionFlags, data []byte) error {
+	return runBuildCallbackWith(cmd, policy, f, data, runProduction)
+}
+
+// fenceNeedsOperator returns why the current deployment fence will not release
+// itself, or "" while its adapter run is still active or the fence is gone.
+func fenceNeedsOperator(ctx context.Context, client promotion.Client, environment string) string {
+	snapshot, err := client.LoadJournal(ctx, environment)
+	if err != nil {
+		return "deployment fence state unavailable: " + err.Error()
+	}
+	if snapshot.State.InFlight == "" {
+		// Released since the refusal; its completion callback reconciled the queue.
+		return ""
+	}
+	intent, ok := snapshot.State.Intents[snapshot.State.InFlight]
+	if !ok || intent.DeploymentRunID <= 0 {
+		return "the fence has no deployment run; settle it with an explicit reconcile request"
+	}
+	run, err := client.WorkflowRunIdentity(ctx, intent.DeploymentRunID)
+	if err != nil {
+		return "deployment run state unavailable: " + err.Error()
+	}
+	if run.Status == "completed" {
+		return "its deployment run has ended without a settled outcome; observe the runtime and settle it with an explicit reconcile request"
+	}
+	return ""
+}
+
+func runBuildCallbackWith(cmd *cobra.Command, policy promotion.Policy, f productionFlags, data []byte, execute func(*cobra.Command, string, productionFlags) error) error {
 	var event struct {
 		WorkflowRun struct{ ID int64 } `json:"workflow_run"`
 	}
@@ -41,7 +72,7 @@ func runBuildCallback(cmd *cobra.Command, policy promotion.Policy, f productionF
 		if err := client.AuthorizeAmbientRun(cmd.Context(), cfg, f.RunID, f.Event); err != nil {
 			return err
 		}
-		producer, err := client.ObservedRun(cmd.Context(), event.WorkflowRun.ID, cfg.BuildWorkflow)
+		producer, err := client.ObservedBuildRun(cmd.Context(), event.WorkflowRun.ID, cfg, cfg.BuildWorkflow)
 		if err != nil {
 			return err
 		}
@@ -75,7 +106,7 @@ func runBuildCallback(cmd *cobra.Command, policy promotion.Policy, f productionF
 		child := f
 		child.Environment, child.RunID = name, producer.ID
 		cmd.SetOut(io.Discard)
-		err = runProduction(cmd, "candidate", child)
+		err = execute(cmd, "candidate", child)
 		cmd.SetOut(original)
 		if err != nil {
 			results[name] = err.Error()
@@ -92,8 +123,22 @@ func runBuildCallback(cmd *cobra.Command, policy promotion.Policy, f productionF
 			child.Pin = candidate.SourceSHA
 		}
 		cmd.SetOut(io.Discard)
-		err = runProduction(cmd, "propose", child)
+		err = execute(cmd, "propose", child)
 		cmd.SetOut(original)
+		if errors.Is(err, promotion.ErrInFlight) && candidate.Kind == "normal" {
+			// Not a failure while the deployment still runs: the candidate is
+			// registered, and the completion callback of a verified deployment
+			// reconciles the latest one. A hotfix has no such continuation and
+			// stays an error. A fence that outlives its run needs an operator,
+			// so that state stays a visible failure too.
+			if reason := fenceNeedsOperator(cmd.Context(), client, name); reason != "" {
+				results[name] = err.Error() + "; " + reason
+				failures++
+				continue
+			}
+			results[name] = "candidate registered; a deployment is in flight, reconciliation waits for its outcome"
+			continue
+		}
 		if err != nil {
 			results[name] = err.Error()
 			failures++

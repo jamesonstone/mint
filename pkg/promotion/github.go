@@ -121,14 +121,25 @@ type WorkflowRun struct {
 	} `json:"head_repository"`
 }
 
-// TrustedRun authenticates provenance from GitHub rather than a workflow payload.
+// ObservedRun authenticates adapter run provenance from GitHub rather than a
+// workflow payload. It does not require completion.
 func (c Client) ObservedRun(ctx context.Context, id int64, path string) (WorkflowRun, error) {
+	return c.observedRun(ctx, id, path, func(event string) bool { return event == "push" || event == "workflow_dispatch" })
+}
+
+// ObservedBuildRun authenticates a producer run. Policy selects the events that
+// may start one; promotion, baseline and observation adapters keep ObservedRun.
+func (c Client) ObservedBuildRun(ctx context.Context, id int64, cfg Config, path string) (WorkflowRun, error) {
+	return c.observedRun(ctx, id, path, cfg.BuildEventAllowed)
+}
+
+func (c Client) observedRun(ctx context.Context, id int64, path string, allowed func(string) bool) (WorkflowRun, error) {
 	var run WorkflowRun
 	status, err := c.request(ctx, "GET", c.repoPath(fmt.Sprintf("actions/runs/%d", id)), nil, &run)
 	if err != nil {
 		return run, err
 	}
-	if status != 200 || run.ID != id || run.Repository.FullName != c.Repository || run.HeadRepository.FullName != c.Repository || !WorkflowPathMatches(run.Path, path) || (run.Event != "push" && run.Event != "workflow_dispatch") {
+	if status != 200 || run.ID != id || run.Repository.FullName != c.Repository || run.HeadRepository.FullName != c.Repository || !WorkflowPathMatches(run.Path, path) || !allowed(run.Event) {
 		return run, fmt.Errorf("workflow run is not a successful trusted build")
 	}
 	return run, nil
@@ -162,7 +173,15 @@ func (c Client) DispatchChecks(ctx context.Context, workflow, branch string, pr 
 
 // TrustedRun additionally requires a completed successful producer run.
 func (c Client) TrustedRun(ctx context.Context, id int64, path string) (WorkflowRun, error) {
-	run, err := c.ObservedRun(ctx, id, path)
+	return successfulRun(c.ObservedRun(ctx, id, path))
+}
+
+// TrustedBuildRun is TrustedRun for a producer run under the policy's events.
+func (c Client) TrustedBuildRun(ctx context.Context, id int64, cfg Config, path string) (WorkflowRun, error) {
+	return successfulRun(c.ObservedBuildRun(ctx, id, cfg, path))
+}
+
+func successfulRun(run WorkflowRun, err error) (WorkflowRun, error) {
 	if err != nil {
 		return run, err
 	}

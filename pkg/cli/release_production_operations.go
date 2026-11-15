@@ -169,7 +169,7 @@ func (o *productionOperation) bootstrap(ctx context.Context) (any, bool, error) 
 	if run.HeadBranch != o.config.DefaultBranch || baseline.ID == "" || baseline.Candidate.Repository != s.Repository || !s.AcceptsEnvironment(baseline.Candidate.Environment) || baseline.DeploymentURL != run.HTMLURL {
 		return nil, false, fmt.Errorf("baseline is not bound to verified deployment evidence")
 	}
-	build, err := o.client.TrustedRun(ctx, baseline.Candidate.RunID, o.config.BaselineBuildWorkflow)
+	build, err := o.client.TrustedBuildRun(ctx, baseline.Candidate.RunID, o.config, o.config.BaselineBuildWorkflow)
 	if err != nil {
 		return nil, false, err
 	}

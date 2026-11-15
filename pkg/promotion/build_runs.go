@@ -9,7 +9,10 @@ import (
 
 // SuccessfulBuilds paginates successful authoritative source builds. Candidate
 // replay still authenticates each run and its uploaded manifest independently.
-func (c Client) SuccessfulBuilds(ctx context.Context, workflow, branch string) ([]WorkflowRun, error) {
+// Policy selects the producer events, so recovery finds the same runs that
+// direct registration accepts.
+func (c Client) SuccessfulBuilds(ctx context.Context, cfg Config) ([]WorkflowRun, error) {
+	workflow, branch := cfg.BuildWorkflow, cfg.DefaultBranch
 	var result []WorkflowRun
 	for page := 1; ; page++ {
 		var list struct {
@@ -23,7 +26,7 @@ func (c Client) SuccessfulBuilds(ctx context.Context, workflow, branch string) (
 			return nil, fmt.Errorf("successful build discovery unavailable")
 		}
 		for _, run := range list.Runs {
-			if run.HeadBranch == branch && WorkflowPathMatches(run.Path, workflow) && run.Repository.FullName == c.Repository && run.HeadRepository.FullName == c.Repository && run.Status == "completed" && run.Conclusion == "success" && (run.Event == "push" || run.Event == "workflow_dispatch") {
+			if run.HeadBranch == branch && WorkflowPathMatches(run.Path, workflow) && run.Repository.FullName == c.Repository && run.HeadRepository.FullName == c.Repository && run.Status == "completed" && run.Conclusion == "success" && cfg.BuildEventAllowed(run.Event) {
 				result = append(result, run)
 			}
 		}

@@ -53,7 +53,7 @@ func TestScanDiscoversQualifiedPathOnCustomDefaultBranch(t *testing.T) {
 	}))
 	defer server.Close()
 	client := Client{APIURL: server.URL, Token: "test", Repository: "owner/repo"}
-	runs, err := client.SuccessfulBuilds(t.Context(), ".github/workflows/build.yml", "trunk")
+	runs, err := client.SuccessfulBuilds(t.Context(), Config{BuildWorkflow: ".github/workflows/build.yml", DefaultBranch: "trunk"})
 	if err != nil || len(runs) != 1 || runs[0].ID != 17 {
 		t.Fatalf("qualified workflow discovery: %v %v", runs, err)
 	}

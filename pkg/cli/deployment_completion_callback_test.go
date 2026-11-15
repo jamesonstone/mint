@@ -17,7 +17,7 @@ import (
 )
 
 func TestAdapterCompletionReconcilesOnlyVerifiedDeployment(t *testing.T) {
-	for _, scenario := range []string{"deployed", "manual", "unknown", "unchanged-failure", "publish", "publish-revoked", "publication-failure", "publication-pending", "wrong-branch", "untrusted-event", "unknown-intent", "wrong-path", "observer", "observer-failure", "foreign-observation", "combined", "failure-replay", "rollback"} {
+	for _, scenario := range []string{"deployed", "manual", "unknown", "unchanged-failure", "publish", "publish-revoked", "publication-failure", "publication-pending", "wrong-branch", "untrusted-event", "chained-event", "unknown-intent", "wrong-path", "observer", "observer-failure", "foreign-observation", "combined", "failure-replay", "rollback"} {
 		t.Run(scenario, func(t *testing.T) {
 			policy := promotion.Policy{Schema: 2, Mode: "deployment", Repository: "owner/repo", DefaultBranch: "main", HumanLogin: "human", ControlWorkflow: ".github/workflows/control.yaml", Environments: map[string]promotion.EnvironmentPolicy{"stage": {Scope: "shared", Deploy: "reviewed", Follow: "latest", Configuration: "sha256:" + strings.Repeat("a", 64), PromotionWorkflow: ".github/workflows/deploy.yaml", ObservationWorkflow: ".github/workflows/observe.yaml"}}}
 			env := policy.Environments["stage"]
@@ -47,6 +47,11 @@ func TestAdapterCompletionReconcilesOnlyVerifiedDeployment(t *testing.T) {
 			}
 			if scenario == "untrusted-event" {
 				source.Event = "pull_request"
+			}
+			// build_events widens producer runs only; adapters keep their set.
+			if scenario == "chained-event" {
+				policy.BuildEvents = []string{"push", "workflow_dispatch", "workflow_run"}
+				source.Event = "workflow_run"
 			}
 			if scenario == "wrong-path" {
 				source.Path = ".github/workflows/untrusted.yaml"
@@ -167,7 +172,7 @@ func TestAdapterCompletionReconcilesOnlyVerifiedDeployment(t *testing.T) {
 			if strings.Join(operations, ",") != want {
 				t.Fatalf("operations=%v want=%s", operations, want)
 			}
-			wantError := scenario == "unknown" || scenario == "publish-revoked" || scenario == "publication-failure" || scenario == "publication-pending" || scenario == "wrong-branch" || scenario == "untrusted-event" || scenario == "observer-failure" || scenario == "foreign-observation"
+			wantError := scenario == "unknown" || scenario == "publish-revoked" || scenario == "publication-failure" || scenario == "publication-pending" || scenario == "wrong-branch" || scenario == "untrusted-event" || scenario == "chained-event" || scenario == "observer-failure" || scenario == "foreign-observation"
 			if (err != nil) != wantError {
 				t.Fatalf("unexpected error %v", err)
 			}

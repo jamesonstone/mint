@@ -109,6 +109,12 @@ func (p *Policy) validate() error {
 			return fmt.Errorf("policy workflow must be directly under .github/workflows")
 		}
 	}
+	if err := validateBuildEvents(p.BuildEvents); err != nil {
+		return err
+	}
+	if p.ActivationVariable != "" && !validActivationVariable(p.ActivationVariable) {
+		return errActivationVariable
+	}
 	if p.Artifact.Repository != "" && !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:/-]*[A-Za-z0-9]$`).MatchString(p.Artifact.Repository) {
 		return fmt.Errorf("invalid artifact repository")
 	}

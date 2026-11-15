@@ -9,7 +9,7 @@ import (
 // scan recovers successful producer runs missed by webhook delivery or Actions'
 // single-pending concurrency slot. Durable candidate identity makes replay safe.
 func (o *productionOperation) scan(ctx context.Context) (any, bool, error) {
-	runs, err := o.client.SuccessfulBuilds(ctx, o.config.BuildWorkflow, o.config.DefaultBranch)
+	runs, err := o.client.SuccessfulBuilds(ctx, o.config)
 	if err != nil {
 		return nil, false, err
 	}
