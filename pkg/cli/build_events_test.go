@@ -281,12 +281,15 @@ func TestBuildCallbackAuthenticatesChainedProducerByPolicy(t *testing.T) {
 
 // A build that completes while a deployment is in flight is registered and
 // waits; it must not fail the controller run of a Continuous Delivery
-// environment. A hotfix has no automatic continuation and still fails.
+// environment. A hotfix has no automatic continuation and still fails. A fence
+// whose run has ended is settled from that run's verified evidence and the
+// candidate is proposed again, because a run that the workflow token dispatched
+// produces no completion callback.
 func TestBuildCallbackQueuesBehindDeploymentInFlight(t *testing.T) {
 	inFlight := fmt.Errorf("production intent frozen is in flight: %w", promotion.ErrInFlight)
 	waits := "candidate registered; a deployment is in flight, reconciliation waits for its outcome"
 	// fence: the journal state of the deployment that refused reconciliation.
-	// "running" and "released" are normal; every other state needs an operator.
+	// "running" and "released" wait; "ended" settles; every other state needs an operator.
 	cases := []struct {
 		name, deploy, kind, fence string
 		propose                   error
@@ -298,7 +301,13 @@ func TestBuildCallbackQueuesBehindDeploymentInFlight(t *testing.T) {
 		{"automatic-queued-before-conclusion", "automatic", "normal", "queued-run", inFlight, "candidate,propose", waits, false},
 		{"reviewed-queued", "reviewed", "normal", "running", inFlight, "candidate,propose", waits, false},
 		{"released-since-refusal", "automatic", "normal", "released", inFlight, "candidate,propose", waits, false},
-		{"ended-run-keeps-failure", "automatic", "normal", "ended", inFlight, "candidate,propose", "explicit reconcile request", true},
+		{"ended-run-settles-and-reconciles", "automatic", "normal", "ended", inFlight, "candidate,propose,finish,propose", "ended deployment settled from its verified run evidence; eligible candidate reconciled", false},
+		{"ended-hotfix-settles-and-reconciles", "automatic", "hotfix", "ended", inFlight, "candidate,propose,finish,propose", "ended deployment settled from its verified run evidence; eligible candidate reconciled", false},
+		{"settled-then-refused-fails", "automatic", "normal", "ended", inFlight, "candidate,propose,finish,propose", "ended deployment settled from its verified run evidence; journal changed", true},
+		{"ended-unverified-keeps-failure", "automatic", "normal", "ended-unverified", inFlight, "candidate,propose,finish", "explicit reconcile request", true},
+		{"ended-fence-remains-keeps-failure", "automatic", "normal", "ended-fence-remains", inFlight, "candidate,propose,finish", "the fence remains", true},
+		{"ended-failure-records-without-advance", "automatic", "normal", "ended-failure", inFlight, "candidate,propose,finish", "unchanged runtime is recorded and no advancement is requested", true},
+		{"ended-other-branch-keeps-failure", "automatic", "normal", "ended-other-branch", inFlight, "candidate,propose", "not from the configured default branch", true},
 		{"fence-without-run-keeps-failure", "automatic", "normal", "no-run", inFlight, "candidate,propose", "explicit reconcile request", true},
 		{"unknown-intent-keeps-failure", "automatic", "normal", "unknown-intent", inFlight, "candidate,propose", "explicit reconcile request", true},
 		{"unreadable-run-keeps-failure", "automatic", "normal", "unreadable-run", inFlight, "candidate,propose", "deployment run state unavailable", true},
@@ -327,8 +336,11 @@ func TestBuildCallbackQueuesBehindDeploymentInFlight(t *testing.T) {
 			if tc.fence == "queued-run" {
 				deployment.Status = "queued"
 			}
-			if tc.fence == "ended" {
+			if strings.HasPrefix(tc.fence, "ended") {
 				deployment.Status, deployment.Conclusion = "completed", "success"
+			}
+			if tc.fence == "ended-other-branch" {
+				deployment.HeadBranch = "feature"
 			}
 			if tc.fence == "unreadable-run" {
 				deployment.Repository.FullName = "other/repo"
@@ -376,6 +388,7 @@ func TestBuildCallbackQueuesBehindDeploymentInFlight(t *testing.T) {
 			cmd.SetOut(&out)
 			f := productionFlags{APIURL: server.URL, TokenEnv: "MINT_BUILD_CALLBACK_TEST_TOKEN", Event: "workflow_run", RunID: 99}
 			operations := []string{}
+			proposals := 0
 			execute := func(_ *cobra.Command, operation string, child productionFlags) error {
 				operations = append(operations, operation)
 				if child.Environment != "sandbox" {
@@ -387,8 +400,38 @@ func TestBuildCallbackQueuesBehindDeploymentInFlight(t *testing.T) {
 					}
 					return nil
 				}
+				if operation == "finish" {
+					// Settlement uses the ended adapter run, never the controller.
+					if child.RunID != 31 || child.IntentID != "frozen" || child.Kind != "" || child.Pin != "" || child.Output != "" {
+						t.Fatal("settlement did not use the fenced deployment run", child)
+					}
+					switch tc.fence {
+					case "ended-unverified":
+						return fmt.Errorf("unverified runtime outcome; retain deployment fence")
+					case "ended-fence-remains":
+						return nil
+					}
+					settled := state.Intents["frozen"]
+					settled.Status = "deployed"
+					if tc.fence == "ended-failure" {
+						settled.Status = "deployment_failed"
+					}
+					state.Intents["frozen"] = settled
+					state.InFlight = ""
+					return nil
+				}
+				if operation != "propose" {
+					t.Fatal("unexpected operation", operation)
+				}
+				proposals++
 				if child.RunID != 99 || (tc.kind == "hotfix") != (child.Kind == "hotfix" && child.Pin == candidate.SourceSHA) {
 					t.Fatal("reconciliation lost controller or hotfix identity", child)
+				}
+				if proposals > 1 {
+					if tc.name == "settled-then-refused-fails" {
+						return fmt.Errorf("journal changed")
+					}
+					return nil
 				}
 				return tc.propose
 			}
@@ -398,7 +441,7 @@ func TestBuildCallbackQueuesBehindDeploymentInFlight(t *testing.T) {
 				t.Fatal("callback result", err, out.String())
 			}
 			// A failure keeps the refusal that names the fenced intent.
-			if tc.failed && tc.propose == inFlight && !strings.Contains(results["sandbox"], "intent frozen is in flight") {
+			if tc.failed && tc.propose == inFlight && proposals == 1 && !strings.Contains(results["sandbox"], "intent frozen is in flight") {
 				t.Fatal("failure lost the fenced intent", results["sandbox"])
 			}
 			if strings.Join(operations, ",") != tc.operations || (err != nil) != tc.failed {

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,29 +19,67 @@ func runBuildCallback(cmd *cobra.Command, policy promotion.Policy, f productionF
 	return runBuildCallbackWith(cmd, policy, f, data, runProduction)
 }
 
-// fenceNeedsOperator returns why the current deployment fence will not release
-// itself, or "" while its adapter run is still active or the fence is gone.
-func fenceNeedsOperator(ctx context.Context, client promotion.Client, environment string) string {
-	snapshot, err := client.LoadJournal(ctx, environment)
+// fenceOutcome is what a build callback found behind a deployment fence.
+type fenceOutcome int
+
+const (
+	fenceWaits    fenceOutcome = iota // the adapter run is active, or the fence is gone
+	fenceSettled                      // this callback settled an ended run; propose again
+	fenceOperator                     // only an operator can release the fence
+)
+
+// settleEndedFence settles a deployment fence whose adapter run has ended.
+// GitHub creates no workflow_run event for a run that the workflow token
+// dispatched, so the adapter completion callback can be missing. finish reads
+// the run's own verified mint-deployment manifest; an event conclusion never
+// settles a fence. Any other state returns why an operator must act.
+func settleEndedFence(cmd *cobra.Command, client promotion.Client, cfg promotion.Config, child productionFlags, execute func(*cobra.Command, string, productionFlags) error) (fenceOutcome, string) {
+	ctx := cmd.Context()
+	snapshot, err := client.LoadJournal(ctx, child.Environment)
 	if err != nil {
-		return "deployment fence state unavailable: " + err.Error()
+		return fenceOperator, "deployment fence state unavailable: " + err.Error()
 	}
 	if snapshot.State.InFlight == "" {
 		// Released since the refusal; its completion callback reconciled the queue.
-		return ""
+		return fenceWaits, ""
 	}
 	intent, ok := snapshot.State.Intents[snapshot.State.InFlight]
 	if !ok || intent.DeploymentRunID <= 0 {
-		return "the fence has no deployment run; settle it with an explicit reconcile request"
+		return fenceOperator, "the fence has no deployment run; settle it with an explicit reconcile request"
 	}
-	run, err := client.WorkflowRunIdentity(ctx, intent.DeploymentRunID)
+	run, err := client.ObservedRun(ctx, intent.DeploymentRunID, cfg.PromotionWorkflow)
 	if err != nil {
-		return "deployment run state unavailable: " + err.Error()
+		return fenceOperator, "deployment run state unavailable: " + err.Error()
 	}
-	if run.Status == "completed" {
-		return "its deployment run has ended without a settled outcome; observe the runtime and settle it with an explicit reconcile request"
+	if run.Status != "completed" {
+		return fenceWaits, ""
 	}
-	return ""
+	if run.HeadBranch != cfg.DefaultBranch {
+		return fenceOperator, "its deployment run is not from the configured default branch; settle it with an explicit reconcile request"
+	}
+	settle := child
+	settle.RunID, settle.IntentID, settle.Kind, settle.Pin, settle.Output = run.ID, intent.ID, "", "", ""
+	original := cmd.OutOrStdout()
+	cmd.SetOut(io.Discard)
+	err = execute(cmd, "finish", settle)
+	cmd.SetOut(original)
+	if err != nil {
+		return fenceOperator, "its deployment run has ended without a verified outcome (" + err.Error() + "); observe the runtime and settle it with an explicit reconcile request"
+	}
+	settled, err := client.LoadJournal(ctx, child.Environment)
+	if err != nil {
+		return fenceOperator, "settled deployment state unavailable: " + err.Error()
+	}
+	// Advance only after a verified deployment, as the completion callback does.
+	switch status := settled.State.Intents[intent.ID].Status; {
+	case settled.State.InFlight != "":
+		return fenceOperator, "its deployment outcome is recorded but the fence remains; settle it with an explicit reconcile request"
+	case status == "deployment_failed":
+		return fenceOperator, "its deployment run failed; the unchanged runtime is recorded and no advancement is requested"
+	case status != "deployed":
+		return fenceOperator, "its deployment outcome is " + status + "; no advancement is requested"
+	}
+	return fenceSettled, ""
 }
 
 func runBuildCallbackWith(cmd *cobra.Command, policy promotion.Policy, f productionFlags, data []byte, execute func(*cobra.Command, string, productionFlags) error) error {
@@ -125,26 +162,36 @@ func runBuildCallbackWith(cmd *cobra.Command, policy promotion.Policy, f product
 		cmd.SetOut(io.Discard)
 		err = execute(cmd, "propose", child)
 		cmd.SetOut(original)
-		if errors.Is(err, promotion.ErrInFlight) && candidate.Kind == "normal" {
-			// Not a failure while the deployment still runs: the candidate is
-			// registered, and the completion callback of a verified deployment
-			// reconciles the latest one. A hotfix has no such continuation and
-			// stays an error. A fence that outlives its run needs an operator,
-			// so that state stays a visible failure too.
-			if reason := fenceNeedsOperator(cmd.Context(), client, name); reason != "" {
+		settledNote := ""
+		if errors.Is(err, promotion.ErrInFlight) {
+			// A fence whose run has ended is settled here from the run's
+			// verified evidence, then the candidate is proposed again. While
+			// the run is active, a normal candidate waits for the completion
+			// callback; a hotfix has no such continuation and stays an error.
+			// A fence that this callback cannot settle needs an operator, so
+			// that state stays a visible failure.
+			outcome, reason := settleEndedFence(cmd, client, cfg, child, execute)
+			switch {
+			case outcome == fenceOperator:
 				results[name] = err.Error() + "; " + reason
 				failures++
 				continue
+			case outcome == fenceSettled:
+				settledNote = "ended deployment settled from its verified run evidence; "
+				cmd.SetOut(io.Discard)
+				err = execute(cmd, "propose", child)
+				cmd.SetOut(original)
+			case candidate.Kind == "normal":
+				results[name] = "candidate registered; a deployment is in flight, reconciliation waits for its outcome"
+				continue
 			}
-			results[name] = "candidate registered; a deployment is in flight, reconciliation waits for its outcome"
-			continue
 		}
 		if err != nil {
-			results[name] = err.Error()
+			results[name] = settledNote + err.Error()
 			failures++
 			continue
 		}
-		results[name] = "eligible candidate reconciled"
+		results[name] = settledNote + "eligible candidate reconciled"
 	}
 	if err := writeDeploymentJSON(cmd, results, f.Output); err != nil {
 		return err

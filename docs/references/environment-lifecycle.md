@@ -93,8 +93,12 @@ trusted producer with an immutable version tag on its exact source commit,
 satisfied prerequisites, and adapter verification. One deployment runs at a time
 for an environment. A candidate that arrives while the deployment run is still
 active is registered and waits; after a verified deployment Mint selects the
-latest eligible candidate, so an intermediate build can be skipped. After a
-failed or uncertain deployment the waiting candidates stay registered and
+latest eligible candidate, so an intermediate build can be skipped. GitHub
+starts no completion callback for an adapter run that the controller dispatched
+with the workflow token, so the next producer callback settles a fence whose
+adapter run has ended: it records that run's verified `mint-deployment` outcome
+with `finish` and, after a verified deployment, selects the latest eligible
+candidate. After a failed or uncertain deployment the waiting candidates stay registered and
 nothing delivers them until an operator settles the outcome; producer callbacks
 fail until then and name the fenced intent. An explicit promote request, a
 rollback, and queued work after explicit recovery still go through a reviewed
