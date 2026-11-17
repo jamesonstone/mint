@@ -7,6 +7,11 @@ import (
 	"net/url"
 )
 
+// AdapterCompletedEvent is the repository_dispatch type that an adapter run
+// sends from its last job. GitHub creates a run for a repository_dispatch that
+// the workflow token sends, but no workflow_run event for a dispatched run.
+const AdapterCompletedEvent = "mint-adapter-completed"
+
 // AuthorizeAmbientRun permits trusted repository controller code to request
 // read-only observations and policy-authorized automatic reconciliation.
 func (c Client) AuthorizeAmbientRun(ctx context.Context, cfg Config, id int64, event string) error {
@@ -15,8 +20,8 @@ func (c Client) AuthorizeAmbientRun(ctx context.Context, cfg Config, id int64, e
 }
 func (c Client) AmbientRun(ctx context.Context, cfg Config, id int64, event string) (WorkflowRun, error) {
 	var run WorkflowRun
-	if event != "push" && event != "workflow_run" {
-		return run, fmt.Errorf("ambient reconciliation requires a repository merge or producer event")
+	if event != "push" && event != "workflow_run" && event != "repository_dispatch" {
+		return run, fmt.Errorf("ambient reconciliation requires a repository merge, producer or adapter completion event")
 	}
 	status, err := c.request(ctx, "GET", c.repoPath(fmt.Sprintf("actions/runs/%d", id)), nil, &run)
 	if err != nil {

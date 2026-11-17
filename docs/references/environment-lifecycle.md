@@ -94,11 +94,15 @@ satisfied prerequisites, and adapter verification. One deployment runs at a time
 for an environment. A candidate that arrives while the deployment run is still
 active is registered and waits; after a verified deployment Mint selects the
 latest eligible candidate, so an intermediate build can be skipped. GitHub
-starts no completion callback for an adapter run that the controller dispatched
-with the workflow token, so the next producer callback settles a fence whose
-adapter run has ended: it records that run's verified `mint-deployment` outcome
-with `finish` and, after a verified deployment, selects the latest eligible
-candidate. After a failed or uncertain deployment the waiting candidates stay registered and
+starts no `workflow_run` completion callback for an adapter run that the
+controller dispatched with the workflow token. The adapter therefore ends with a
+job that sends a `repository_dispatch` of type `mint-adapter-completed` with its
+own run ID; GitHub does start the controller for that event. The controller
+treats the run ID as data, waits up to ten minutes for that run to complete, and
+then runs the same completion callback: run authentication, `finish` from the
+verified `mint-deployment` manifest, and queued reconciliation. A notice that
+names no adapter run changes nothing. As a fallback, the next producer callback
+settles a fence whose adapter run has ended in the same way. After a failed or uncertain deployment the waiting candidates stay registered and
 nothing delivers them until an operator settles the outcome; producer callbacks
 fail until then and name the fenced intent. An explicit promote request, a
 rollback, and queued work after explicit recovery still go through a reviewed

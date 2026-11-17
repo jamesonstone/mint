@@ -27,6 +27,10 @@ func TestEnvironmentWorkflowOffersGenericRequestsAndTrustedCompletionCallbacks(t
 	if !reflect.DeepEqual(names, []any{"Build reusable artifact", "Observe running environment", "Promote exact artifact"}) || !reflect.DeepEqual(callbacks["types"], []any{"completed"}) {
 		t.Fatal("adapter completion callbacks incomplete", callbacks)
 	}
+	notice := on["repository_dispatch"].(map[string]any)
+	if !reflect.DeepEqual(notice["types"], []any{AdapterCompletedEvent}) || AdapterCompletedEvent != "mint-adapter-completed" {
+		t.Fatal("adapter completion notice trigger missing", notice)
+	}
 	inputs := on["workflow_dispatch"].(map[string]any)["inputs"].(map[string]any)
 	environment := inputs["environment"].(map[string]any)
 	if !reflect.DeepEqual(environment["options"], []any{"dev", "production"}) || environment["required"] != true {

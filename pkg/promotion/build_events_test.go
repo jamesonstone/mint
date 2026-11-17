@@ -141,9 +141,10 @@ func TestActivationVariableSelectsTheGeneratedControllerGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Output of v1.0.3 (a628b39) for this policy: a policy without the field
-	// must keep its controller byte for byte.
-	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(rendered))); got != "bb463927162edd5b03fb2d1f51c3fe638019eaddb6715ea3fb0a59d57f038698" {
+	// Output of v1.0.3 (a628b39) for this policy plus the GH-43 adapter
+	// completion trigger (two lines, the same for every policy): a policy
+	// without the field must keep its controller byte for byte otherwise.
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(rendered))); got != "f838c8c0bba953b9e3cac2b0cad06e5721448e099a77fb110a56b96472965778" {
 		t.Fatal("generated controller changed for a policy without activation_variable", got)
 	}
 	if gate := controllerGate(t, rendered); gate != "vars.MINT_RELEASE_ENABLED == 'true'" {
