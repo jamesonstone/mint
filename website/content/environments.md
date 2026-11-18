@@ -87,7 +87,22 @@ environments:
     promotion_workflow: .github/workflows/deploy.yaml
 ```
 
-Mint freezes the exact artifact and runtime configuration of an automatic environment and dispatches your deployment adapter. One deployment runs at a time for an environment: a build that arrives while the deployment run is still active is registered and waits, and after a verified deployment Mint selects the latest eligible build, so an intermediate build can be skipped. If the deployment run has ended and no completion callback recorded it, the next build settles it from that run's verified deployment evidence and then selects the latest eligible build. After a failed or uncertain deployment the waiting builds stay registered and nothing delivers them until an operator settles the outcome; the controller fails on later builds until then and names the fenced intent. Change the mode in a reviewed policy PR to turn Continuous Delivery on or off for one environment. An explicit promote request, a rollback, and queued work after explicit recovery still go through a reviewed PR.
+Mint freezes the exact artifact and runtime configuration of an automatic environment and dispatches your deployment adapter. One deployment runs at a time for an environment: a build that arrives while the deployment run is still active is registered and waits, and after a verified deployment Mint selects the latest eligible build, so an intermediate build can be skipped. GitHub sends no completion event for a run that the controller dispatched, so end your deployment adapter with a job that notifies the controller:
+
+```yaml
+  notify:
+    needs: deploy
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/dispatches" -f event_type=mint-adapter-completed -F "client_payload[run_id]=$GITHUB_RUN_ID"
+```
+
+The controller waits for that run to complete, records its verified deployment evidence, and selects the latest eligible build. Regenerate the controller to add the `mint-adapter-completed` trigger. Without the notice, or if the run does not complete within ten minutes, the next build settles it instead. After a failed or uncertain deployment the waiting builds stay registered and nothing delivers them until an operator settles the outcome; the controller fails on later builds until then and names the fenced intent. Change the mode in a reviewed policy PR to turn Continuous Delivery on or off for one environment. An explicit promote request, a rollback, and queued work after explicit recovery still go through a reviewed PR.
 
 ### Build after checks pass
 

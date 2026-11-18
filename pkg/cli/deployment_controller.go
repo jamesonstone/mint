@@ -31,6 +31,9 @@ func runPolicyControl(cmd *cobra.Command, policy promotion.Policy, f productionF
 	if err := client.VerifyRepository(cmd.Context()); err != nil {
 		return err
 	}
+	if f.Event == "repository_dispatch" {
+		return runAdapterCompletionNotice(cmd, policy, f, data)
+	}
 	if f.Event == "workflow_run" {
 		if handled, err := runAdapterCallback(cmd, policy, f, data); handled || err != nil {
 			return err

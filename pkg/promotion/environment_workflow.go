@@ -50,7 +50,9 @@ func RenderEnvironmentWorkflow(policy Policy, mintRef, configPath string, buildN
 on:
   push:
     branches: ['%s']
-%s  pull_request_target:
+%s  repository_dispatch:
+    types: [%s]
+  pull_request_target:
     types: [closed]
   workflow_dispatch:
     inputs:
@@ -117,5 +119,5 @@ jobs:
           command: deployment-control
           production-config: '%s'
           github-token: ${{ github.token }}
-`, workflowNameSuffix(policy.ComponentScope()), policy.DefaultBranch, callback, string(options), activation, mintRef, configPath), nil
+`, workflowNameSuffix(policy.ComponentScope()), policy.DefaultBranch, callback, AdapterCompletedEvent, string(options), activation, mintRef, configPath), nil
 }
