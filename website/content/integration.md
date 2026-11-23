@@ -1,11 +1,41 @@
 # Integrate Mint
 
-GitHub Actions is the standard release path. The action builds Mint from its
-published source on the runner and requires no locally installed binary. Use a
-reviewed immutable commit or the published `v1.0.0` tag. The local CLI is an
-optional manual helper.
+Use Mint in GitHub Actions to publish release state or manage deployment of an
+existing artifact. The action builds Mint on the runner. Pin the action to the
+full commit SHA of a reviewed published release.
 
-Start with the smallest release model your repository needs. Add environment control when you need reviewed promotion, verified history, or recovery across environments.
+## Choose a release path
+
+### Publish release state
+
+<ol class="flow" role="list" aria-label="Release-state publishing">
+  <li><strong>Resolve</strong><br>Read Git history for a SemVer and release notes.</li>
+  <li><strong>Tag</strong><br>Write the runner's version file and publish the Git tag.</li>
+  <li><strong>Publish</strong><br>Create or reuse the GitHub Release.</li>
+</ol>
+
+Use [release-state publishing](#start-with-release-state-publishing) for tags
+and GitHub Releases. For a package or artifact, keep the workflow that builds
+and publishes it. Run `mint changelog` separately if you need to update
+`CHANGELOG.md`.
+
+### Manage environment deployments
+
+<ol class="flow" role="list" aria-label="Environment-controlled deployment">
+  <li><strong>Build once</strong><br>Your workflow retains an immutable artifact.</li>
+  <li><strong>Select</strong><br>Mint records eligibility and freezes the selection.</li>
+  <li><strong>Deploy and verify</strong><br>Your adapter uses the frozen digest and configuration.</li>
+  <li><strong>Record</strong><br>Mint advances verified history and publishes if configured.</li>
+</ol>
+
+Use [environment policy](#add-environment-policy) for promotion without
+rebuilding, reviewed releases, or deployment recovery. Choose automatic,
+reviewed, or manual per environment. A manual promotion request uses the
+reviewed release path. Mint writes the proposed changelog entry in a generated
+Release PR. Ordinary automatic deployments skip that PR. If an environment has
+`publish: true`, Mint publishes its canonical GitHub Release after deployment
+verification. See [Release PRs](release-prs.html) for the review and reporting
+steps.
 
 ## Optional local CLI
 
@@ -17,7 +47,9 @@ mint version
 mint help
 ```
 
-Replace `<published-tag>` before running. An environment integration must pin a published immutable Mint commit containing schema 2 and team authorization support. Older releases may not support these features.
+Replace `<published-tag>` before running. For an environment integration, use a published Mint commit that supports the
+policy fields and adapter contracts you configure. For example, `build_events`
+and `activation_variable` require Mint v1.1.0 or later.
 
 ## Start with release-state publishing
 
@@ -127,7 +159,17 @@ A target such as `target: backend/v1.4.0` must carry the component prefix.
 | Deployment | Upload `mint-request.json` as `mint-request` before start; deploy the frozen digests; upload exact verified `mint-deployment.json` as `mint-deployment` after verification. |
 | Observation | Upload `mint-observation.json` as `mint-observation` with exact source/version, full artifact, runtime configuration, timestamp, run ID, and run URL. |
 
-A producer run is trusted when `push` or `workflow_dispatch` started it. To build only after another workflow succeeds, list `workflow_run` in `build_events` and make the producer verify its triggering run in a job-level `if:`; see [Continuous Delivery](environments.html#continuous-delivery).
+Allocate source versions with `mint release version-main` or the Action's
+`release-version-main` command. Build the exact tagged source commit and retain
+its artifact by digest.
+
+By default, Mint accepts `push` and `workflow_dispatch` as producer events.
+To build only after another workflow succeeds, list `workflow_run` in
+`build_events` and make the producer verify its triggering run in a job-level
+`if:`. For automatic deployments, use Mint v1.1.2 or later and wire the
+adapter's completion notification so the controller can settle the deployment
+without waiting for the next build. See
+[Continuous Delivery](environments.html#continuous-delivery) for both workflows.
 
 The deployment workflow receives `environment`, `intent_id`, and serialized `intent` inputs. It must consume these exact identities and avoid rebuilding. Mint validates server-side repository, default branch, workflow path, run identity/completion, archive digest, and manifest contents.
 
@@ -153,7 +195,9 @@ The generator reads callback workflow names from the files, so create those adap
 2. Configure `baseline_workflow` (and `baseline_build_workflow` if migrating a different producer). Run the trusted baseline adapter to reconcile the actual running artifact/configuration and upload digest-attested `mint-baseline` evidence. Import it with `mint deployment bootstrap --environment sandbox --run-id <verified-run-id>`. Do not infer a baseline from an image tag, supply a local JSON file, or re-import to erase an uncertain deployment.
 3. Review candidate production and retention, complete-bundle verification, required checks, and controller callback paths.
 4. Enable the policy's activation variable (`MINT_RELEASE_ENABLED`, or the `activation_variable` named in policy) and the project's existing deployment gates only after those prerequisites are ready.
-5. Promote an eligible candidate and inspect the Release PR and verified result end to end.
+5. Test with an eligible candidate. In a reviewed or manually requested release,
+   inspect the Release PR and the verified result. In an automatic deployment,
+   inspect the adapter run and verified environment history.
 
 Generation, installation, or merging policy does not provision cloud resources, grant IAM, deploy a runtime, or activate an existing consumer.
 

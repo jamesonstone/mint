@@ -34,6 +34,13 @@ Mint compares policy before the first PR commit and before merge. A target reque
 
 ## After merge
 
+<ol class="flow" role="list" aria-label="Reviewed release and publication">
+  <li><strong>Review</strong><br>Read the proposed changelog and artifact selection.</li>
+  <li><strong>Merge</strong><br>Mint freezes the reviewed deployment intent.</li>
+  <li><strong>Verify</strong><br>The adapter proves what ran.</li>
+  <li><strong>Publish</strong><br>Mint creates the GitHub Release if this environment publishes.</li>
+</ol>
+
 The controller verifies approval, freezes intent, and dispatches the project adapter. The adapter reports start and verifies the exact environment/artifact/configuration tuple. Only matching trusted successful evidence advances deployment history.
 
 Mint reports the result on the original approval PR using an idempotent machine-owned comment; human comments are preserved. Canonical publication is a separate retryable outcome after verification. A failed publication can be retried without redeploying the artifact.
