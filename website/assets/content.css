@@ -130,19 +130,34 @@ td {
   font-size: 12px;
 }
 .flow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 26px 20px;
-  background: var(--mint);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  margin: 28px 0;
-  font-size: 12px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding: 0;
+  margin: 24px 0;
+  list-style: none;
 }
-.flow b {
-  color: #3d8060;
+.flow > li {
+  position: relative;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--mint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.flow > li + li::before {
+  position: absolute;
+  top: calc(50% - 4px);
+  inset-inline-start: -17px;
+  width: 7px;
+  height: 7px;
+  border: solid var(--accent);
+  border-width: 2px 2px 0 0;
+  transform: rotate(45deg);
+  content: "";
 }
 aside.toc {
   font-size: 10px;

@@ -97,7 +97,7 @@ Run `mint <command> --help` for options and examples.
 
 - [Mint documentation](https://jamesonstone.github.io/mint/), [llms.txt](https://jamesonstone.github.io/mint/llms.txt), and [local site development](website/README.md)
 - [Agent command reference](agent-instructions/instructions.md) and [agent skill](agent-instructions/skills.md)
-- [Upgrade from Mint v1](https://jamesonstone.github.io/mint/release-prs.html). Legacy controller users can pin [v1.1.2](https://github.com/jamesonstone/mint/releases/tag/v1.1.2) while migrating.
+- [Upgrade from Mint v1](https://jamesonstone.github.io/mint/release-prs.html). Legacy controller users can pin [v1.1.3](https://github.com/jamesonstone/mint/releases/tag/v1.1.3) while migrating.
 
 ## Development
 
@@ -109,3 +109,7 @@ See the [testing reference](docs/references/testing.md) for more checks.
 
 Mint is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
 Bundled JetBrains Mono fonts retain their [SIL Open Font License](website/assets/fonts/OFL.txt).
+
+## Maintainers
+
+Maintained by [jamesonstone](https://github.com/jamesonstone).

@@ -7,6 +7,6 @@ verification, and recovery. Use Mint's release commands for versioning,
 changelogs, immutable Git tags, and GitHub Release publication.
 
 If your repository still uses the Mint v1 controller, pin
-[v1.1.2](https://github.com/jamesonstone/mint/releases/tag/v1.1.2).
-Read the [versioned environment lifecycle and adapter contract](https://github.com/jamesonstone/mint/blob/v1.1.2/docs/references/environment-lifecycle.md)
+[v1.1.3](https://github.com/jamesonstone/mint/releases/tag/v1.1.3).
+Read the [versioned environment lifecycle and adapter contract](https://github.com/jamesonstone/mint/blob/v1.1.3/docs/references/environment-lifecycle.md)
 for that controller.

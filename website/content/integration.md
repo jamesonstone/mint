@@ -4,6 +4,12 @@ Add Mint to your GitHub Actions workflow to resolve a version, generate release 
 
 ## Publish release state
 
+<ol class="flow" role="list" aria-label="Release-state publishing">
+  <li><strong>Resolve</strong><br>Read Git history for a version and release notes.</li>
+  <li><strong>Tag</strong><br>Write the version file and publish the Git tag.</li>
+  <li><strong>Publish</strong><br>Create or reuse the GitHub Release.</li>
+</ol>
+
 For a repository that publishes GitHub Releases from source, run this job in a workflow that starts on a trusted default-branch push. Replace `REPLACE_WITH_MINT_COMMIT_SHA` with the full commit SHA of the reviewed Mint release.
 
 ```yaml
@@ -30,6 +36,13 @@ jobs:
 Use one release publisher per tag namespace. Give read-only jobs `contents: read`. Grant write access only to trusted jobs that create tags or publish releases. The action accepts an HTTPS GitHub API URL and refuses redirects to protect the token.
 
 ## Add environment promotion
+
+<ol class="flow" role="list" aria-label="Repository-owned deployment">
+  <li><strong>Build once</strong><br>Retain the artifact under its digest.</li>
+  <li><strong>Verify staging</strong><br>Record successful evidence for that digest.</li>
+  <li><strong>Promote and verify</strong><br>Manually dispatch production with the exact project and version.</li>
+  <li><strong>Publish</strong><br>Call Mint after verification if this workflow publishes.</li>
+</ol>
 
 Keep the build and deployment jobs in your repository. Call Mint to version the exact build source before retaining the artifact. Follow the two paths in the [environment promotion guide](environments.html). If you publish after verified production, call `mint release github` for the existing tag. That command publishes the selected release without resolving a new version.
 

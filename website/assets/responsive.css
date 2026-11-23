@@ -76,8 +76,12 @@
     font-size: 15px;
   }
   .flow {
-    padding: 20px 12px;
-    font-size: 10px;
+    grid-auto-flow: row;
+  }
+  .flow > li + li::before {
+    top: -17px;
+    inset-inline-start: calc(50% - 4px);
+    transform: rotate(135deg);
   }
   pre {
     padding: 16px;

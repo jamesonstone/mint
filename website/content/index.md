@@ -8,7 +8,12 @@ Mint is a Go CLI and GitHub Action for Semantic Versioning, changelogs, Git tags
 
 Your build workflow retains an artifact by digest and records its source SHA and version. Continuous staging verifies that artifact. An authorized production dispatch selects the exact project and version and requires matching staging evidence before it can deploy.
 
-<div class="flow" aria-label="Release flow"><span>Build once</span><b>→</b><span>Verify staging</span><b>→</b><span>Promote by digest</span><b>→</b><span>Publish</span></div>
+<ol class="flow" role="list" aria-label="Release flow">
+  <li><strong>Build once</strong><br>Retain the artifact by digest.</li>
+  <li><strong>Verify staging</strong><br>Record the digest that passed staging.</li>
+  <li><strong>Promote to production</strong><br>Deploy that same digest and verify it.</li>
+  <li><strong>Publish</strong><br>Call Mint after production verification.</li>
+</ol>
 
 ## Start here
 

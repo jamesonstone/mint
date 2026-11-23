@@ -34,4 +34,4 @@ build. Record verified success only after the runtime check passes. Use an
 environment alias for discovery and the immutable digest for verification.
 
 When operating a legacy controller, identify its v1 pin and use the
-[versioned lifecycle guide](https://github.com/jamesonstone/mint/blob/v1.1.2/docs/references/environment-lifecycle.md).
+[versioned lifecycle guide](https://github.com/jamesonstone/mint/blob/v1.1.3/docs/references/environment-lifecycle.md).
