@@ -50,6 +50,6 @@ artifact. Verify the digest in production before recording success or
 publishing. Use `release github` for the selected tag and SHA after verification.
 The repository owns the provider operations, permission checks, and recovery.
 
-For v1 controller dependencies, pin [v1.1.2](https://github.com/jamesonstone/mint/releases/tag/v1.1.2)
-and use its [versioned lifecycle guide](https://github.com/jamesonstone/mint/blob/v1.1.2/docs/references/environment-lifecycle.md).
+For v1 controller dependencies, pin [v1.1.3](https://github.com/jamesonstone/mint/releases/tag/v1.1.3)
+and use its [versioned lifecycle guide](https://github.com/jamesonstone/mint/blob/v1.1.3/docs/references/environment-lifecycle.md).
 See [v2 migration](https://jamesonstone.github.io/mint/release-prs.html).

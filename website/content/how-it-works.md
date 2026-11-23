@@ -14,6 +14,12 @@ Repositories that only publish release state can use [the direct publishing comm
 
 ## Evidence and identity
 
+<ol class="flow" role="list" aria-label="Artifact identity through promotion">
+  <li><strong>Build</strong><br>Retain the complete artifact digest.</li>
+  <li><strong>Stage</strong><br>Verify and record the digest in staging.</li>
+  <li><strong>Promote</strong><br>Require matching staging evidence and verify the same digest in production.</li>
+</ol>
+
 | Evidence | What it establishes |
 | --- | --- |
 | Immutable Git tag | The version points to a source commit. |

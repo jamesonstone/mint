@@ -48,7 +48,8 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - GitHub-hosted proof completed on 2026-11-23 UTC. Frontend, backend, and single project each built once and promoted `v1.0.1` through continuous staging and authorized manual production. Downloaded bytes, build manifests, staging receipts, production receipts, and fixture publication markers agreed on the respective SHA-256 and retained artifact ID. The frontend and backend had distinct hashes under the same SemVer. Each manual run had zero build jobs and used the same promotion steps as staging.
 - Production refused missing, failed, cancelled, wrong-project, and wrong-digest staging evidence before the promotion job. A failed check or build prevented staging promotion. A forced digest mismatch and an interrupted verification in each environment emitted neither a successful verification receipt nor a publication marker.
 - Local pass: `go test ./...`, `go test -race ./...`, `go vet ./...`, `make build VERSION=v2.0.0`, Go formatting, Actions lint, and `make docs-check`. The built CLI reports `v2.0.0` and rejects the removed commands. Fixture Python tests and workflow lint passed in both testbeds.
-- `kit check direct-promotion-v2` passed. `kit check --project` reports the same 247 blocking findings on the source baseline and this worktree with Kit v3.0.64.
+- `kit check direct-promotion-v2` passed. With Kit v3.0.64, `kit check --project` reports the same 240 blocking findings on the v1.1.3 base and this worktree.
+- After refreshing onto v1.1.3, a fresh-context review verified the documentation resolution against both parents. The documentation build passed, and the built-in browser showed the overview, integration, and artifact evidence diagrams in order at desktop and mobile widths.
 
 ## OUTCOME
 
