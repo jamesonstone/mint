@@ -68,6 +68,22 @@ mint release github \
 Set `MINT_GITHUB_TOKEN` from the publishing job's token environment. For a
 component tag, add `--tag-prefix` with the component's prefix.
 
+## Publish Mint's own binary
+
+Mint's repository uses a fully automatic release workflow. A push to the default branch triggers dev, stg, and prd in order. Dev runs tests and builds one versioned Linux amd64 executable with Mint v2. Staging downloads the exact Actions artifact, runs the CLI, and verifies its version and SHA-256 digest. Production downloads the same artifact and compares it with the staging digest. The promoted CLI creates or validates the source tag. GitHub Actions uploads the binary to a draft and publishes the release after the uploaded digest matches.
+
+The repository declares its pipeline in `.mint.yaml`:
+
+```yaml
+artifact: binary
+deployment: continuous
+environments: [dev, stg, prd]
+```
+
+Use a Mint v2 version that supports `mint config` to print these fields as JSON. Pass `--file` to read an alternate path. The workflow validates the artifact type and stage order before it retains the build. The reader also accepts `artifact: image` and `deployment: manual` for workflows that use those modes. Repository workflows own their event triggers and jobs.
+
+Each release published by this workflow contains a `mint-linux-amd64` asset. Download it from the release, set its executable bit, and run `./mint-linux-amd64 version`. If an upload is interrupted, rerun the failed job to resume the draft. An existing asset must match the same digest.
+
 ## Release several components from one repository
 
 Give each independently shipped project a tag prefix and paths. For example:

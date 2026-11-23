@@ -18,7 +18,7 @@
 - For changelog CLI changes, smoke-test `./bin/mint changelog --help` and run the full Go test suite.
 - Use `go test ./pkg/release` for release resolver, Git tag creation, GitHub Release publishing, image validation, GitHub output, action metadata, and workflow rendering coverage.
 - For release workflow changes, assert generated YAML parses and keeps Mint-owned tag creation before image publishing.
-- For self-release workflow changes, assert YAML parses, uses the Mint action for release-state publishing, and does not include container-image publishing.
+- For self-release workflow changes, assert YAML parses, Mint resolves and tags its own release, and staging and production download the dev binary by artifact ID. Run `actionlint .github/workflows/release.yaml` and check the dev and staging jobs on the pull request.
 - For release resolver changes, use temporary Git repositories with deterministic commits, dates, and tags.
 - For release tag changes, cover same-commit tag reuse, conflicting tag failure, missing target/tag validation, and no tag movement.
 - For GitHub Release publishing changes, use local HTTP test servers and never create live releases during unit tests.

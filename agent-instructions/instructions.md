@@ -19,6 +19,7 @@ and [tooling reference](../docs/references/tooling.md) for command details.
 | Publish directly from source | `mint release publish --commitish <ref> --owner <owner> --repo <repo>` | Resolves the version, writes `.version`, tags, and publishes a GitHub Release. |
 | Generate an image publishing workflow | `mint release workflow --image name=<name>,uri=<uri>,dockerfile=<path>,context=<path>` | Renders Actions YAML for GHCR or ECR. |
 | Compare the build and runtime digests | `mint verify --expected <digest> --observed <digest>` | Accepts matching SHA-256 digests. Obtain the observed digest from the runtime first. |
+| Read repository release configuration | `mint config --file .mint.yaml` | Prints the validated artifact type, deployment mode, and ordered environments as JSON. |
 
 Fetch full history and tags before running Git-based release commands. Use
 `--tag-prefix` for an independent tag namespace, and pass `--path` for each

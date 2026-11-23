@@ -68,6 +68,7 @@ The current repository implements:
   - `mint version` and `mint --version`;
   - `mint changelog`;
   - `mint verify` for comparing expected and observed SHA-256 digests;
+  - `mint config` for validating repository release configuration;
   - root-level changelog flags for script compatibility;
   - `mint release resolve`;
   - `mint release select-tag`;
@@ -83,8 +84,9 @@ The current repository implements:
   GitHub Releases, and renders GHCR/ECR publish workflows.
 - A root `action.yml` composite GitHub Action that builds `cmd/mint`, adds the
   binary to `PATH`, and runs an allowlisted Mint command.
-- A repository release workflow that uses the Mint action itself to resolve and
-  publish Mint GitHub Releases.
+- A repository release workflow that uses Mint v2 to resolve and tag its own
+  release. GitHub Actions promotes one verified binary from dev through staging
+  to production and publishes it as a GitHub Release asset.
 - A Kit-style `Makefile`, Go tests, and repository-managed pre-commit build
   hook.
 - Kit-managed docs under `docs/specs`, `docs/references`, and
@@ -291,9 +293,10 @@ relevant feature docs and durable references.
   when enabled, and create or reuse the GitHub Release.
 - `mint release publish` must not build Docker images, authenticate to
   registries, push containers, upload release assets, or deploy services.
-- The self-release workflow for this repository must use the Mint action to
-  publish release state, with `contents: write` permissions and without
-  container-image publishing.
+- The self-release workflow for this repository must use Mint to resolve the
+  release and create its tag. It verifies the same retained CLI binary in each
+  promotion job and uses `contents: write` only in production to tag, attach
+  the binary, and publish the GitHub Release.
 
 ### Publish Workflow Generation
 

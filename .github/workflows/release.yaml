@@ -4,36 +4,120 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  pull_request:
 
 concurrency:
-  group: mint-github-release
+  group: mint-github-release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  github-release:
-    name: GitHub Release
-    if: github.ref == 'refs/heads/main'
+  dev:
+    name: Dev / Build CLI
     runs-on: ubuntu-latest
+    outputs:
+      artifact_id: ${{ steps.retain.outputs.artifact-id }}
+      version: ${{ steps.version.outputs.version_tag }}
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-
-      - name: Refresh Git tags
-        shell: bash
-        run: git fetch --tags
-
-      - name: Publish release state
-        id: release
-        uses: ./
+          persist-credentials: false
+      - name: Resolve the version with Mint v2
+        id: version
+        uses: jamesonstone/mint@002c1cecfa2792d16db229ba67b98c092f386507 # v2.0.0
         with:
-          command: release-publish
+          command: release-resolve
           commitish: ${{ github.sha }}
-          owner: ${{ github.repository_owner }}
-          repo: ${{ github.event.repository.name }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: go.mod
+      - name: Test Mint
+        run: |
+          go test ./...
+          go vet ./...
+      - name: Build and validate the release binary
+        id: build
+        env:
+          VERSION: ${{ steps.version.outputs.version_tag }}
+          NOTES: ${{ steps.version.outputs.release_notes }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          artifact="$RUNNER_TEMP/mint-release"
+          mkdir -p "$artifact"
+          binary="$artifact/mint-linux-amd64"
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-X github.com/jamesonstone/mint/v2/pkg/cli.Version=$VERSION" \
+            -o "$binary" ./cmd/mint
+          "$binary" config | jq -e \
+            '.artifact == "binary" and .deployment == "continuous" and .environments == ["dev","stg","prd"]'
+          digest=$(sha256sum "$binary")
+          echo "digest=sha256:${digest%% *}" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "${NOTES:-Release $VERSION}" > "$artifact/release-notes.md"
+      - name: Retain the versioned binary
+        id: retain
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: mint-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/mint-release/
+          if-no-files-found: error
+
+  stg:
+    name: Stg / Verify and run CLI
+    needs: [dev]
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.verify.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Download the dev binary by artifact ID
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          artifact-ids: ${{ needs.dev.outputs.artifact_id }}
+          path: ${{ runner.temp }}/mint-release/
+          merge-multiple: true
+      - name: Verify and run the retained binary
+        id: verify
+        env:
+          EXPECTED: ${{ needs.dev.outputs.digest }}
+          VERSION: ${{ needs.dev.outputs.version }}
+        run: |
+          set -euo pipefail
+          binary="$RUNNER_TEMP/mint-release/mint-linux-amd64"
+          digest=$(bash scripts/verify-release-binary.sh "$binary" "$EXPECTED" "$VERSION")
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          printf 'Verified %s at %s\n' "$VERSION" "$digest"
+
+  prd:
+    name: Prd / Publish CLI to GitHub Releases
+    needs: [dev, stg]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Download the same dev binary by artifact ID
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          artifact-ids: ${{ needs.dev.outputs.artifact_id }}
+          path: ${{ runner.temp }}/mint-release/
+          merge-multiple: true
+      - name: Verify staging digest and publish
+        env:
+          VERSION: ${{ needs.dev.outputs.version }}
+          STAGING_DIGEST: ${{ needs.stg.outputs.digest }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          artifact="$RUNNER_TEMP/mint-release"
+          bash scripts/publish-release-binary.sh "$artifact/mint-linux-amd64" "$artifact/release-notes.md"

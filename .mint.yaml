@@ -1,0 +1,6 @@
+artifact: binary
+deployment: continuous
+environments:
+  - dev
+  - stg
+  - prd
