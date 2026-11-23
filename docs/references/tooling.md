@@ -7,7 +7,7 @@
 
 ## Current State
 
-- Mint uses a Go module at `github.com/jamesonstone/mint`.
+- Mint uses the Go module `github.com/jamesonstone/mint/v2`.
 - The CLI binary entrypoint is `cmd/mint`.
 - Reusable command code belongs under `pkg/cli`.
 - Changelog generation code belongs under `pkg/changelog`.
@@ -30,6 +30,7 @@
 - `mint release resolve --commitish <ref> --github-output "$GITHUB_OUTPUT"` writes release metadata fields for GitHub Actions.
 - `mint release select-tag --commitish <ref>` selects the highest strict SemVer tag pointing at a commit without computing a new version.
 - `mint release select-tag --requested-tag <tag> --github-output "$GITHUB_OUTPUT"` validates an explicitly requested strict SemVer tag for downstream workflows.
+- `mint release version-main --main-ref <ref>` assigns versions to untagged first-parent commits. Pass `--tag-prefix` and repeatable `--path` for a component.
 - `mint release tag --tag <tag> --target <sha> --notes-file <path>` creates or reuses an annotated strict SemVer Git tag.
 - `mint release github --owner <owner> --repo <repo> --tag <tag> --target <sha> --notes-file <path>` creates or reuses a GitHub Release.
 - `mint release publish --owner <owner> --repo <repo> --commitish <ref>` resolves, writes `.version`, tags, and publishes GitHub Release state without Docker or deploy behavior.
@@ -39,11 +40,12 @@
 
 - Consumers can use Mint from a workflow with `uses: jamesonstone/mint@<ref>`.
 - The action is a composite action that sets up Go, builds `./cmd/mint`, adds the built binary directory to `GITHUB_PATH`, and optionally runs a supported command.
-- Supported `command` input values are `version`, `help`, `changelog`, `release-resolve`, `release-select-tag`, `release-tag`, `github-release`, `release-publish`, and `none`.
+- Supported `command` input values are `version`, `help`, `changelog`, `release-resolve`, `release-select-tag`, `release-version-main`, `release-tag`, `github-release`, `release-publish`, and `none`.
 - The `go-version` input defaults to `1.26.9`, matching `go.mod`.
 - `command: changelog` uses `prev-tag`, `current-tag`, `current-ref`, `owner`, `repo`, and `output` inputs.
 - `command: release-resolve` uses the `commitish` input and exposes typed release outputs.
 - `command: release-select-tag` uses `commitish` and optional `requested-tag`, then exposes `version_tag`, `tag_source`, `target_sha`, and `short_sha`.
+- `command: release-version-main` uses `commitish`, `target-sha`, `release-remote`, `release-push`, `tag-prefix`, and `paths`. It reports source-version and component-change outputs.
 - `command: release-tag` uses `release-tag`, `target-sha`, `release-notes-file`, `release-remote`, and `release-push` inputs.
 - `command: github-release` uses `owner`, `repo`, `release-tag`, `target-sha`, `release-title`, `release-notes-file`, `github-token`, and `github-api-url` inputs.
 - `command: release-publish` uses `commitish`, `owner`, `repo`, `release-title`, `release-remote`, `release-push`, `github-token`, `github-api-url`, and `version-file` inputs.
@@ -51,4 +53,4 @@
 - The action outputs `mint-path`, captured `output`, and release fields for `release-resolve` and `release-select-tag`.
 - Git tag outputs include `tag_name`, `tag_target_sha`, `tag_created`, `tag_reused`, and `tag_pushed`.
 - GitHub Release publishing outputs include `release_tag`, `release_url`, and `release_created`.
-- Mint owns release state. Application repositories own Docker builds, image registry publishing, and deployments after Mint finishes release-state commands.
+- Mint owns release state. Application repositories own build, artifact storage, deployment, runtime verification, and recovery.

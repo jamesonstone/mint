@@ -17,11 +17,11 @@ PAGES = [
     ("index", "Overview", "START HERE"),
     ("how-it-works", "How Mint works", "CONCEPTS"),
     ("integration", "Integrate Mint", "GET STARTED"),
-    ("environments", "Environments & sandboxes", "ENVIRONMENT POLICY"),
+    ("environments", "Environment promotion", "PROMOTION"),
     ("versioning", "Semantic versioning", "RELEASE IDENTITY"),
     ("changelog", "CHANGELOG integration", "RELEASE NOTES"),
-    ("release-prs", "Release PRs", "REVIEW & PROMOTION"),
-    ("recovery", "Rollback & hotfix", "RECOVERY"),
+    ("release-prs", "Upgrade from v1", "MIGRATION"),
+    ("recovery", "Deployment recovery", "RECOVERY"),
 ]
 
 
@@ -115,11 +115,11 @@ def build(output, base_url):
         summaries.append(f"- [{label}]({base_url}{slug}.md): {description}")
         full_text.append(raw)
     (output / "llms.txt").write_text(
-        "# Mint\n\n> Mint is a Go CLI and GitHub Action for source versioning, immutable artifacts, "
-        "reviewed environment releases, and verified recovery.\n\n"
-        "Mint supports arbitrary named environments; production is optional. Your project owns "
-        "build/deployment adapters and infrastructure. Source tags, verified deployment, and live "
-        "observations are separate evidence.\n\n## Guides\n\n" + "\n".join(summaries) +
+        "# Mint\n\n> Mint is a Go CLI and GitHub Action for source versioning, changelogs, "
+        "immutable Git tags, and GitHub Releases.\n\n"
+        "Repository workflows build artifacts and read runtime digests. Use `mint verify` to "
+        "compare the retained artifact digest with the destination in staging and production.\n\n"
+        "## Guides\n\n" + "\n".join(summaries) +
         f"\n\n## Optional\n\n- [Complete documentation]({base_url}llms-full.txt): All guides in Markdown.\n"
         "- [Source and releases](https://github.com/jamesonstone/mint): Implementation and published versions.\n"
     )

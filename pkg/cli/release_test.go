@@ -25,10 +25,27 @@ func TestReleaseHelpIncludesSubcommands(t *testing.T) {
 	}
 
 	help := output.String()
-	for _, want := range []string{"resolve", "select-tag", "tag", "github", "publish", "workflow", "Resolve, tag, and publish release state"} {
+	for _, want := range []string{"resolve", "select-tag", "tag", "github", "publish", "version-main", "workflow", "Resolve, tag, and publish release state"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("release help missing %q:\n%s", want, help)
 		}
+	}
+}
+
+func TestReleaseRejectsRemovedControllerSubcommand(t *testing.T) {
+	var output bytes.Buffer
+	rootCmd.SetArgs([]string{"release", "production"})
+	rootCmd.SetOut(&output)
+	rootCmd.SetErr(&output)
+	t.Cleanup(func() {
+		rootCmd.SetArgs(nil)
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+	})
+
+	err := rootCmd.ExecuteContext(t.Context())
+	if err == nil || !strings.Contains(err.Error(), `unknown command "production"`) {
+		t.Fatalf("removed release production command error = %v", err)
 	}
 }
 

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/jamesonstone/mint/pkg/changelog"
+	"github.com/jamesonstone/mint/v2/pkg/changelog"
 	"github.com/spf13/cobra"
 )
 

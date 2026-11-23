@@ -1,44 +1,28 @@
-# Release with confidence.
+# Build once. Release with evidence.
 
-Mint gives every release a clear path from source to artifact to environment. Build once, review an exact selection, and keep evidence of what actually ran.
+Mint is a Go CLI and GitHub Action for Semantic Versioning, changelogs, Git tags, and GitHub Releases. Build your application once, then use your repository workflows to promote the same artifact.
 
-<div class="hero-actions"><a class="button" href="integration.html">Integrate Mint →</a><a class="secondary" href="environments.html">Explore environments</a></div>
+<div class="hero-actions"><a class="button" href="integration.html">Integrate Mint →</a><a class="secondary" href="environments.html">Promote an artifact</a></div>
 
-## One artifact. Any environment.
+## One artifact across environments
 
-Mint is a Go CLI and GitHub Action for release state. It versions source, records trusted immutable builds, coordinates reviewed environment releases, and records verified outcomes. Your application owns the build and deployment adapters.
+Your build workflow retains an artifact by digest and records its source SHA and version. Continuous staging verifies that artifact. An authorized production dispatch selects the exact project and version and requires matching staging evidence before it can deploy.
 
-<ol class="flow" role="list" aria-label="Managed deployment lifecycle">
-  <li><strong>Version source</strong><br>Mint tags the commit.</li>
-  <li><strong>Build once</strong><br>Your workflow retains the artifact.</li>
-  <li><strong>Promote</strong><br>Environment policy selects a digest.</li>
-  <li><strong>Verify</strong><br>Mint records matching runtime evidence.</li>
+<ol class="flow" role="list" aria-label="Release flow">
+  <li><strong>Build once</strong><br>Retain the artifact by digest.</li>
+  <li><strong>Verify staging</strong><br>Record the digest that passed staging.</li>
+  <li><strong>Promote to production</strong><br>Deploy that same digest and verify it.</li>
+  <li><strong>Publish</strong><br>Call Mint after production verification.</li>
 </ol>
-
-A sandbox can use the same digest as staging or a customer demo. No environment named production is required. Each environment has its own policy and deployment history; a multi-component application moves as a complete digest bundle.
 
 ## Start here
 
-- [How Mint works](how-it-works.html): source versions, candidates, frozen intent, and evidence.
-- [Integrate Mint](integration.html): choose a release model, add policy, and connect trusted adapters.
-- [Environments & sandboxes](environments.html): local versus shared scope, arbitrary names, and promotion prerequisites.
-- [Semantic versioning](versioning.html): understand what increments a version and what a tag proves.
-- [CHANGELOG integration](changelog.html): generate linked release notes from Conventional Commits.
-- [Release PRs](release-prs.html): review the selection that will deploy.
-- [Rollback & hotfix](recovery.html): recover without losing artifact identity or deployment evidence.
+- [How Mint works](how-it-works.html) explains versioning, artifact identity, and publication.
+- [Integrate Mint](integration.html) shows how to add Mint to a GitHub Actions workflow.
+- [Environment promotion](environments.html) covers continuous staging and manual production.
+- [Semantic versioning](versioning.html) explains version rules and component scopes.
+- [CHANGELOG integration](changelog.html) covers release notes from Conventional Commits.
+- [Upgrade from v1](release-prs.html) provides migration guidance for controller users.
+- [Recovery](recovery.html) covers artifact rollback and publication retries.
 
-## Know what is proven
-
-| Evidence | What it means |
-| --- | --- |
-| Source tag | A source commit has a version identity. |
-| Trusted candidate | A successful build produced an eligible immutable artifact. |
-| Approved Release PR | Humans approved an exact selection and runtime configuration. |
-| Verified deployment | The adapter verified that exact selection in the environment. |
-| Live observation | Timestamped evidence of the runtime at observation time. |
-
-A merge, dispatch, image alias, or GitHub Release alone does not establish live runtime state.
-
-## Read with an agent
-
-Use [llms.txt](llms.txt) for a concise map, [llms-full.txt](llms-full.txt) for the complete guides, or the **Markdown source** link on any page. The site works without JavaScript and loads its fonts locally.
+[llms.txt](llms.txt) and [llms-full.txt](llms-full.txt) provide the guides in Markdown.

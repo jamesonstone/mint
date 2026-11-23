@@ -1,6 +1,14 @@
 # Mint simplification audit — GH-15
 
-Mint's production workflow is described in two paragraphs in the [README](../../README.md#reviewed-production-releases). The generic integration contract is an immutable artifact reference, content digest, configuration digest, source/build identity, and a project-owned deployment verifier. The engine does not build or deploy the application. Container images, binaries and packaged bundles use the same contract.
+This audit records the Mint v1 production controller. For v2, see
+[repository-owned environment promotion](../../website/content/environments.md).
+The [v1.1.2 lifecycle reference](https://github.com/jamesonstone/mint/blob/v1.1.2/docs/references/environment-lifecycle.md)
+describes the controller and its adapter contract.
+
+The v1 integration contract uses an immutable artifact reference, content
+digest, configuration digest, source and build identity, and a project-owned
+deployment verifier. Container images, binaries, and packaged bundles use
+the same contract.
 
 ## Research and selected changes
 

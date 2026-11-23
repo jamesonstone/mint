@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jamesonstone/mint/pkg/release"
+	"github.com/jamesonstone/mint/v2/pkg/release"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +49,9 @@ and can still render legacy GHCR or ECR publish workflow YAML. They do not
 deploy services, publish package-manager artifacts, or make the resolver mutate
 Git state directly.`,
 	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		return cmd.Help()
+	},
 }
 
 var releaseResolveCmd = &cobra.Command{

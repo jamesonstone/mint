@@ -13,368 +13,30 @@
 [![Last commit](https://img.shields.io/github/last-commit/jamesonstone/mint)](https://github.com/jamesonstone/mint/commits) [![Open issues](https://img.shields.io/github/issues/jamesonstone/mint)](https://github.com/jamesonstone/mint/issues) [![Pull requests](https://img.shields.io/github/issues-pr/jamesonstone/mint)](https://github.com/jamesonstone/mint/pulls) [![CI](https://github.com/jamesonstone/mint/actions/workflows/ci.yaml/badge.svg)](https://github.com/jamesonstone/mint/actions/workflows/ci.yaml) [![Release](https://img.shields.io/github/v/release/jamesonstone/mint)](https://github.com/jamesonstone/mint/releases)
 <!-- END KIT-MANAGED README BADGES -->
 
-🪙 Compute the next version, write the changelog, and mint the release.
+Compute the next version, write the changelog, and mint the release.
 
-Mint is a release tooling CLI. The current implementation provides the same
-CLI, README, Makefile, and build patterns used by Kit: a small Go binary under
-`cmd/mint`, a reusable `pkg/cli` command package, Cobra-based help/version
-handling, conventional-commit CHANGELOG.md generation, SemVer release
-resolution, read-only release tag selection, annotated Git tag creation,
-GitHub Release publishing, GHCR/ECR publish workflow generation,
-linker-injected versions, repository-level build targets, and a GitHub Action
-wrapper that builds and exposes the CLI in workflows.
+Mint is a Go CLI and GitHub Action for release state. Use it to resolve
+Semantic Versions from Git history, render a changelog, create immutable Git
+tags, and publish GitHub Releases. Each component in a monorepo can have its own
+tag prefix and source paths.
 
-Mint owns release-state operations: SemVer resolution and selection,
-changelog/release-note generation, immutable Git tag creation, and GitHub
-Release creation. Application repositories own Docker builds, image registry
-publishing, infrastructure updates, and deployments.
+## Use Mint in GitHub Actions
 
-CLI principles:
-
-- 🧰 Kit-style command structure
-- 📄 documented behavior before release automation expands
-- 🪙 deterministic SemVer release resolution from Git history
-- 🧩 component-scoped releases (`backend/v1.2.0`) with path-filtered history for monorepos
-- 🔎 read-only release tag selection for deployment handoff workflows
-- ⚡ small root surface while the domain model is still forming
-- 🔍 explicit build and verification commands
-- 🔄 version output that works for binaries and module-installed builds
-- 📝 deterministic CHANGELOG.md generation from conventional commits
-- 🏷️ immutable annotated Git tag creation
-- 🚀 GitHub Release publishing through the GitHub API
-- 🧱 project-owned Docker/GHCR/ECR/deployment boundaries
-- 🧩 public GitHub Action integration that keeps `mint` as the core CLI
-
-Team-owned lifecycle policies use `authorization: repository-write`, with optional
-separate `assignees`. Mint checks effective GitHub repository access instead of
-requiring one personal operator. See the [authorization contract](docs/references/environment-lifecycle.md#team-ownership-and-request-authority).
-
-## Agent Instructions
-
-Coding agents should use
-[`agent-instructions/instructions.md`](agent-instructions/instructions.md) as
-the comprehensive agent-first functionality map for Mint. That manifest
-describes available commands, GitHub Action modes, release-state boundaries,
-guardrails, validation, and evidence files.
-
-Use [`agent-instructions/skills.md`](agent-instructions/skills.md) when loading
-Mint as a reusable code-agent skill.
-
-## ⚙️ Installation
-
-GitHub Actions is the standard release path. The action builds Mint from its
-published source on the runner; users do not need a local Mint binary. Use the
-[GitHub Action quick start](#-github-action-quick-start) to configure a workflow.
-The local CLI below is an optional manual helper and requires Go 1.26.9 or newer.
-
-```bash
-go install github.com/jamesonstone/mint/cmd/mint@latest
-```
-
-Or build from source:
-
-```bash
-git clone https://github.com/jamesonstone/mint.git
-cd mint
-make build
-```
-
-To enable the repository-managed Git hooks for this clone:
-
-```bash
-make install-git-hooks
-```
-
-This configures `core.hooksPath` to use `.githooks/`, including a `pre-commit`
-hook that runs `make build` before every `git commit`. If the build fails, the
-commit is blocked.
-
-## 🚀 Quick Start
-
-```bash
-# inspect the current command surface
-mint --help
-
-# print the installed version
-mint version
-
-# equivalent Cobra version flag
-mint --version
-
-# prepend a CHANGELOG.md release block from conventional commits
-mint \
-  --prev-tag v1.0.0 \
-  --current-tag v1.1.0 \
-  --owner jamesonstone \
-  --repo kit \
-  --output CHANGELOG.md
-
-# resolve the next SemVer release tag from Git history
-mint release resolve --commitish HEAD
-
-# select an existing release tag for a downstream deploy workflow
-mint release select-tag --commitish HEAD
-
-# create or reuse an annotated Git tag for a resolved tag
-mint release tag \
-  --tag v1.1.0 \
-  --target "$(git rev-parse HEAD)" \
-  --notes-file CHANGELOG.md \
-  --push=false
-
-# create or reuse a GitHub Release after the Git tag exists
-GITHUB_TOKEN=... mint release github \
-  --owner jamesonstone \
-  --repo mint \
-  --tag v1.1.0 \
-  --target "$(git rev-parse HEAD)" \
-  --notes-file CHANGELOG.md
-
-# run resolve, tag, and GitHub Release publish in one release-state command
-GITHUB_TOKEN=... mint release publish \
-  --owner jamesonstone \
-  --repo mint \
-  --commitish HEAD
-
-# render a GHCR publish workflow
-mint release workflow \
-  --image name=api,uri=ghcr.io/jamesonstone/mint-api,dockerfile=Dockerfile.api,context=. \
-  --output .github/workflows/release-publish.yml
-
-# build the local binary into bin/mint
-make build
-
-# run tests
-make test
-
-# run Go vet
-make vet
-```
-
-## 🧩 GitHub Action Quick Start
-
-Use Mint directly in a GitHub Actions workflow:
+Use the action from a repository-owned workflow. This example publishes
+release state for an exact source commit. Replace
+`REPLACE_WITH_MINT_COMMIT_SHA` with the full SHA of the reviewed Mint release.
 
 ```yaml
-name: Mint
-
-on:
-  workflow_dispatch:
-
-jobs:
-  mint:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Run Mint
-        id: mint
-        uses: jamesonstone/mint@v1.0.0
-        with:
-          command: version
-
-      - name: Show Mint output
-        run: echo "${{ steps.mint.outputs.output }}"
-```
-
-Use the published `v1.0.0` tag, or pin its full reviewed commit SHA for an
-immutable source reference.
-
-The action builds the Go CLI from this repository, adds the generated `mint`
-binary to the workflow `PATH`, and then runs one supported command.
-
-Generate a changelog from a workflow after checking out the target repository:
-
-```yaml
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-
-  - name: Generate changelog
-    id: mint
-    uses: jamesonstone/mint@v1.0.0
-    with:
-      command: changelog
-      prev-tag: v1.0.0
-      current-tag: v1.1.0
-      owner: jamesonstone
-      repo: kit
-      output: CHANGELOG.md
-```
-
-Resolve a new version and generate a changelog for it without publishing a
-GitHub Release or any container images:
-
-```yaml
-name: Version and Changelog
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-jobs:
-  version-changelog:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve release
-        id: release
-        uses: jamesonstone/mint@v1.0.0
-        with:
-          command: release-resolve
-          commitish: ${{ github.sha }}
-
-      - name: Generate changelog
-        uses: jamesonstone/mint@v1.0.0
-        with:
-          command: changelog
-          prev-tag: ${{ steps.release.outputs.base_tag }}
-          current-tag: ${{ steps.release.outputs.version_tag }}
-          current-ref: ${{ steps.release.outputs.target_sha }}
-          owner: ${{ github.repository_owner }}
-          repo: ${{ github.event.repository.name }}
-          output: CHANGELOG.md
-```
-
-`current-tag` is the release version rendered in `CHANGELOG.md`. `current-ref`
-is the Git commit used as the range end when that tag has not been created yet.
-Omit `current-ref` when `current-tag` already exists.
-
-Resolve a release tag from a workflow after checking out full Git history:
-
-```yaml
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-
-  - name: Resolve release
-    id: release
-    uses: jamesonstone/mint@v1.0.0
-    with:
-      command: release-resolve
-      commitish: ${{ github.sha }}
-
-  - name: Show release tag
-    run: echo "${{ steps.release.outputs.version_tag }}"
-```
-
-Select an already-published release tag for a deploy workflow. A manual
-`requested-tag` wins when supplied; otherwise Mint selects the highest strict
-SemVer tag pointing at the checked-out commit and fails if none exists:
-
-```yaml
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-      fetch-tags: true
-
-  - name: Select published image tag
-    id: image
-    uses: jamesonstone/mint@v1.0.0
-    with:
-      command: release-select-tag
-      commitish: HEAD
-      requested-tag: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || '' }}
-
-  - name: Use image tag
-    run: echo "${{ steps.image.outputs.version_tag }}"
-```
-
-Create the Git tag and GitHub Release explicitly from a workflow with Mint:
-
-```yaml
-name: Release
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
 permissions:
   contents: write
-
-jobs:
-  github-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve release
-        id: release
-        uses: jamesonstone/mint@v1.0.0
-        with:
-          command: release-resolve
-          commitish: ${{ github.sha }}
-
-      - name: Write release notes
-        id: notes
-        shell: bash
-        env:
-          RELEASE_NOTES: ${{ steps.release.outputs.release_notes }}
-        run: |
-          notes_file="$RUNNER_TEMP/release-notes.md"
-          printf '%s\n' "$RELEASE_NOTES" > "$notes_file"
-          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
-
-      - name: Create release tag
-        id: tag
-        uses: jamesonstone/mint@v1.0.0
-        with:
-          command: release-tag
-          release-tag: ${{ steps.release.outputs.version_tag }}
-          target-sha: ${{ steps.release.outputs.target_sha }}
-          release-notes-file: ${{ steps.notes.outputs.path }}
-
-      - name: Publish GitHub Release
-        id: github_release
-        uses: jamesonstone/mint@v1.0.0
-        with:
-          command: github-release
-          owner: ${{ github.repository_owner }}
-          repo: ${{ github.event.repository.name }}
-          release-tag: ${{ steps.release.outputs.version_tag }}
-          target-sha: ${{ steps.release.outputs.target_sha }}
-          release-title: ${{ steps.release.outputs.version_tag }}
-          release-notes-file: ${{ steps.notes.outputs.path }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-Or let `release-publish` run the release-state sequence in one Mint command:
-
-```yaml
-name: Release
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-
-      - name: Publish release state
-        id: release
-        uses: jamesonstone/mint@v1.0.0
+      - uses: jamesonstone/mint@REPLACE_WITH_MINT_COMMIT_SHA
         with:
           command: release-publish
           commitish: ${{ github.sha }}
@@ -383,276 +45,65 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-These workflows need `contents: write` so the repository token can push release
-tags and create GitHub Releases. `release-publish` also writes the resolved
-runtime version to `.version` by default, without the leading `v`. Docker builds,
-registry login, image pushes, and deployments belong in application-owned
-workflow steps after Mint finishes release-state publishing.
+Run this job from a trusted branch or exact source ref. The action builds Mint,
+adds it to the runner path, and exposes command outputs. Use
+`command: none` to prepare Mint for later steps without invoking a command.
 
-Supported action inputs:
+## Promote the same artifact
 
-| Input                | Default                  | Description                                                                        |
-| -------------------- | ------------------------ | ---------------------------------------------------------------------------------- |
-| `command`            | `version`                | Run `version`, `help`, `changelog`, `release-resolve`, `release-select-tag`, `release-tag`, `github-release`, `release-publish`, `release-version-main`, `production-control`, `deployment-control`, or `none` |
-| `go-version`         | `1.26.9`                 | Go version used to build the CLI on the runner                                     |
-| `prev-tag`           | empty                    | Previous Git tag or ref; empty for first changelog release                         |
-| `current-tag`        | empty                    | Current Git tag or release version for changelog generation                        |
-| `current-ref`        | empty                    | Optional Git ref used as the changelog range end when `current-tag` is not created |
-| `owner`              | empty                    | GitHub repository owner for changelog links and GitHub Releases                    |
-| `repo`               | empty                    | GitHub repository name for changelog links and GitHub Releases                     |
-| `output`             | `CHANGELOG.md`           | Changelog file path for `command: changelog`                                       |
-| `commitish`          | `HEAD`                   | Git ref for `command: release-resolve` or `command: release-select-tag`            |
-| `requested-tag`      | empty                    | Optional strict `vX.Y.Z` SemVer tag for `command: release-select-tag`              |
-| `release-tag`        | empty                    | Strict `vX.Y.Z` SemVer tag for `command: release-tag` or `command: github-release` |
-| `target-sha`         | empty                    | Commitish where Mint should create the tag                                         |
-| `release-title`      | empty                    | Release title; defaults to `release-tag`                                           |
-| `release-notes-file` | empty                    | Release notes file for `command: release-tag` or `command: github-release`         |
-| `release-remote`     | `origin`                 | Git remote used by `command: release-tag` or `command: release-publish`            |
-| `release-push`       | `true`                   | Whether Mint pushes a newly created release tag                                    |
-| `github-token`       | empty                    | GitHub token for `command: github-release` or `command: release-publish`           |
-| `github-api-url`     | `https://api.github.com` | GitHub API base URL                                                                |
-| `version-file`       | `.version`               | Version file path written by `command: release-publish`                            |
+Your repository's workflows own deployment and verification.
 
-Supported action outputs:
+1. After trusted default-branch checks pass, version the source and build it
+   once. Retain the artifact by digest with the project, source SHA, SemVer, and
+   producer run.
+2. Deploy the digest to staging automatically. Record the verified digest and
+   staging results.
+3. Let an authorized operator dispatch production for an exact project and
+   SemVer. Require successful staging evidence for the same artifact. Call the
+   shared promotion job with the retained digest. Production uses the build
+   from the first step.
+4. After production verification, use `mint release github` to publish the
+   selected tag. Your workflow owns changelog updates.
 
-| Output            | Description                                             |
-| ----------------- | ------------------------------------------------------- |
-| `mint-path`       | Absolute path to the built `mint` binary                |
-| `output`          | Captured stdout from the selected command               |
-| `version_tag`     | Resolved strict SemVer release tag                      |
-| `version_bump`    | `already-tagged`, `patch`, `minor`, or `major`          |
-| `base_tag`        | Reachable base SemVer tag, if one exists                |
-| `target_sha`      | Full target commit SHA                                  |
-| `short_sha`       | Twelve-character target commit SHA                      |
-| `tag_source`      | `requested` or `commit-tag` from `command: release-select-tag` |
-| `needs_git_tag`   | Whether a generated workflow should create a Git tag    |
-| `commit_count`    | Number of commits evaluated for release resolution      |
-| `release_notes`   | Lightweight tag annotation notes for generated tags     |
-| `release_tag`     | GitHub Release tag from `command: github-release` or `command: release-publish` |
-| `release_url`     | GitHub Release URL from `command: github-release` or `command: release-publish` |
-| `release_created` | Whether Mint created a new GitHub Release               |
-| `tag_name`        | Git tag name from `command: release-tag` or `command: release-publish` |
-| `tag_target_sha`  | Git tag target SHA                                      |
-| `tag_created`     | Whether Mint created a new Git tag                      |
-| `tag_reused`      | Whether Mint reused an existing same-commit Git tag     |
-| `tag_pushed`      | Whether Mint pushed a newly created Git tag             |
+See the [environment promotion guide](https://jamesonstone.github.io/mint/environments.html).
 
-To install Mint into the workflow `PATH` without running it immediately:
+## Local CLI
 
-```yaml
-steps:
-  - name: Set up Mint
-    uses: jamesonstone/mint@v1.0.0
-    with:
-      command: none
-
-  - name: Use the Mint CLI
-    run: mint --help
-```
-
-## 🧰 Commands
-
-### 🪙 Release
-
-| Command                 | Description                                     |
-| ----------------------- | ----------------------------------------------- |
-| `mint release`          | Resolve, tag, and publish release state         |
-| `mint release resolve`  | Compute a strict `vX.Y.Z` release tag           |
-| `mint release select-tag` | Select an existing strict SemVer release tag  |
-| `mint release tag`      | Create or reuse an annotated SemVer Git tag     |
-| `mint release github`   | Create or reuse a GitHub Release                |
-| `mint release publish`  | Resolve, tag, and publish a GitHub Release      |
-| `mint release workflow` | Generate a GHCR or ECR publish workflow         |
-| `mint changelog`        | Generate CHANGELOG.md from conventional commits |
-
-Resolve a release tag:
+Mint requires Go 1.26.9 or newer. Set `MINT_VERSION` to a published v2 release
+tag, then install the CLI:
 
 ```bash
-mint release resolve --commitish HEAD
+go install "github.com/jamesonstone/mint/v2/cmd/mint@${MINT_VERSION:?Set MINT_VERSION to a published v2 tag}"
 ```
 
-The resolver prints the resolved `version_tag` and can write all release fields
-in GitHub Actions output format:
+To build from a source checkout, run `make build`, then use `./bin/mint`.
 
-```bash
-mint release resolve \
-  --commitish HEAD \
-  --github-output "$GITHUB_OUTPUT"
-```
+| Command | Purpose |
+| --- | --- |
+| `mint release resolve` | Resolve the version for a source commit. |
+| `mint release select-tag` | Select an existing version tag on a commit or validate a requested version's syntax. |
+| `mint release version-main` | Version untagged first-parent commits. |
+| `mint release tag` | Create or reuse an immutable annotated Git tag. |
+| `mint release github` | Create or reuse a GitHub Release for a selected tag. |
+| `mint release publish` | Resolve, write `.version`, tag, and publish a GitHub Release. |
+| `mint release workflow` | Generate an image publishing workflow for GHCR or ECR. |
+| `mint verify --expected --observed` | Compare the build record's SHA-256 digest with the runtime's digest. |
+| `mint changelog` | Write a changelog entry from Conventional Commits. |
+| `mint version` | Print the installed version. |
 
-Select an existing release tag without computing a new version:
-
-```bash
-mint release select-tag --commitish HEAD
-```
-
-If `--requested-tag v1.2.3` is supplied, Mint validates and returns that strict
-SemVer tag. Otherwise, Mint chooses the highest strict SemVer tag pointing at
-the target commit and fails if the target has not already been tagged.
-
-Create or reuse an annotated SemVer Git tag:
-
-```bash
-mint release tag \
-  --tag v1.1.0 \
-  --target "$(git rev-parse HEAD)" \
-  --notes-file CHANGELOG.md
-```
-
-If the tag already points at the target commit, the command succeeds. If the
-tag points somewhere else, Mint fails and never moves it.
-
-Create or reuse a GitHub Release:
-
-```bash
-mint release github \
-  --owner jamesonstone \
-  --repo mint \
-  --tag v1.1.0 \
-  --target "$(git rev-parse HEAD)" \
-  --notes-file CHANGELOG.md
-```
-
-`mint release github` reads a token from `MINT_GITHUB_TOKEN`, `GITHUB_TOKEN`, or
-`GH_TOKEN`, unless `--token-env` points at a different environment variable. It
-does not require the GitHub CLI.
-
-Resolve, tag, and publish a GitHub Release in one step:
-
-```bash
-mint release publish \
-  --owner jamesonstone \
-  --repo mint \
-  --commitish HEAD
-```
-
-`mint release publish` resolves the version, writes the runtime `.version` file,
-writes release notes to a temporary file, creates or reuses the Git tag, pushes
-the tag by default, and creates or reuses the GitHub Release. It does not build
-Docker images, authenticate to registries, push containers, or deploy services.
-
-Generate a GHCR publish workflow:
-
-```bash
-mint release workflow \
-  --image name=api,uri=ghcr.io/jamesonstone/mint-api,dockerfile=Dockerfile.api,context=. \
-  --output .github/workflows/release-publish.yml
-```
-
-Generate an ECR publish workflow:
-
-```bash
-mint release workflow \
-  --image name=api,uri=123456789012.dkr.ecr.us-east-1.amazonaws.com/mint-api,dockerfile=Dockerfile.api,context=. \
-  --output .github/workflows/release-publish.yml
-```
-
-Generated workflows run on `push`, resolve the release with the Mint action,
-create or reuse an annotated SemVer Git tag with the Mint action before image
-publishing, and publish each image with both the resolved version tag and
-`latest`.
-
-Image URIs must be repository URIs without tags. All images in one generated
-workflow must use the same supported registry kind: GHCR or AWS ECR.
-
-The root command also accepts the changelog flags directly for script-friendly
-usage:
-
-```bash
-mint --prev-tag v1.0.0 --current-tag v1.1.0 --owner jamesonstone --repo kit
-```
-
-When `--current-tag` is a newly resolved version that does not exist as a Git
-tag yet, provide `--current-ref` as the range end:
-
-```bash
-mint \
-  --prev-tag v1.0.0 \
-  --current-tag v1.1.0 \
-  --current-ref HEAD \
-  --owner jamesonstone \
-  --repo kit
-```
-
-### 🔧 Utilities
-
-| Command           | Description                       |
-| ----------------- | --------------------------------- |
-| `mint version`    | Print the installed Mint version  |
-| `mint completion` | Generate shell autocompletion     |
-| `mint help`       | Help about Mint or a Mint command |
-
-Mint owns release state. Application repositories own Docker image builds,
-registry authentication, container publishing, ECS/service deployment, and
-project-specific infrastructure steps.
-
-## 🛠️ Development
-
-| Target                   | Description                                     |
-| ------------------------ | ----------------------------------------------- |
-| `make build`             | Build `bin/mint` with linker-injected version   |
-| `make build-windows`     | Build `bin/mint.exe` for Windows amd64          |
-| `make install`           | Install `mint` with linker-injected version     |
-| `make install-git-hooks` | Use `.githooks/` as this clone's Git hooks path |
-| `make test`              | Run `go test -v ./...`                          |
-| `make lint`              | Run `golangci-lint run ./...`                   |
-| `make fmt`               | Run `go fmt ./...`                              |
-| `make vet`               | Run `go vet ./...`                              |
-| `make tidy`              | Run `go mod tidy`                               |
-| `make clean`             | Remove local build output and run `go clean`    |
-| `make all`               | Run `fmt`, `vet`, `test`, and `build`           |
-
-The Makefile mirrors Kit's local build pattern. Additional release-domain
-behavior should be added through feature specs before product commands are
-implemented.
+Run `mint <command> --help` for options and examples.
 
 ## Documentation
 
-Read the [Mint documentation](https://jamesonstone.github.io/mint/) for integration,
-named sandbox environments, semantic versioning, CHANGELOG, Release PRs, and recovery.
-Agents can start with [llms.txt](https://jamesonstone.github.io/mint/llms.txt).
-For local previews and GitHub Pages setup, see [website/README.md](website/README.md).
+- [Mint documentation](https://jamesonstone.github.io/mint/), [llms.txt](https://jamesonstone.github.io/mint/llms.txt), and [local site development](website/README.md)
+- [Agent command reference](agent-instructions/instructions.md) and [agent skill](agent-instructions/skills.md)
+- [Upgrade from Mint v1](https://jamesonstone.github.io/mint/release-prs.html). Legacy controller users can pin [v1.1.3](https://github.com/jamesonstone/mint/releases/tag/v1.1.3) while migrating.
 
-## Environment lifecycle
+## Development
 
-Merge source PRs as usual; Mint registers each successful trusted build once and reuses its immutable artifact digest, or complete digest bundle, across the environments described in `.mint.yaml`. Environments can have any name and follow the latest eligible build or select an exact version. Policy determines whether deployment waits for an explicit request, proceeds automatically, or requires review. `deploy: automatic` with `follow: latest` is Continuous Delivery for that environment, whatever its name: the latest eligible build is delivered with no release PR. `build_events` lets policy trust a producer that starts with `workflow_run` after checks pass; that producer must verify its triggering run before it builds. `activation_variable` gives each policy file its own controller switch. In a reviewed environment, one release PR **will update** with eligible builds until approval freezes its exact artifact and runtime configuration. A target-only policy PR can itself provide that approval. The project adapter deploys and verifies the frozen selection; Mint records the result and reports on the same PR. A configured canonical shared environment can publish the release.
-
-For recovery, prefer rolling forward with corrected or reverted source. A `hotfix(GH-123): :firetruck: ...` source PR or an Actions hotfix request starts the isolated hotfix path; rollback instead selects a retained verified artifact, using the current trusted runtime configuration. Use **Actions → Mint environment control → Run workflow** to select an environment and **promote**, **hotfix**, **rollback**, **resume**, **observe**, or **reconcile**. A successful rollback pauses latest-following releases until a fresh resume request. Observations show timestamped runtime evidence separately from desired policy and verified history; an uncertain deployment remains locked until explicit reconciliation proves its outcome. Deployment, artifact, and package projects share policy vocabulary without requiring a production environment or inventing runtime state for publication-only projects.
-
-```mermaid
-flowchart TD
-    Source["Merge source PR"] --> Build["Build once: exact digest or complete bundle"]
-    Build --> Policy{"Environment policy"}
-    Policy -->|manual| Request["Actions promote request"]
-    Policy -->|reviewed| Review["One updating release PR"]
-    Policy -->|automatic| Freeze["Freeze exact selection and configuration"]
-    Request --> Review
-    YAML["Target-only policy PR"] --> Approval["Review exact head and merge"]
-    Review --> Approval
-    Approval --> Freeze
-    Freeze --> Adapter["Project adapter deploys and verifies"]
-    Adapter -->|verified| History["Record history; optional canonical publication"]
-    History --> Report["Report outcome on the original PR"]
-    Adapter -->|uncertain| Lock["Retain deployment fence"]
-    Lock --> Observe["Fresh trusted observation"]
-    Observe --> Reconcile["Explicit Actions reconcile"]
-    Reconcile -->|exact approved state| History
-    Reconcile -->|exact previous state| Unchanged["Record unchanged failure; release fence"]
-    Unchanged --> Report
-    Fix["Prefer roll-forward: corrective or revert PR"] --> Build
-    Hotfix["Hotfix title or Actions request"] --> Isolated["Review isolated source fix"]
-    Isolated --> Build
-    Rollback["Actions rollback: retained verified artifact"] --> Review
-    History -->|successful rollback| Pause["Pause latest following"]
-    Pause --> Resume["Fresh Actions resume request"]
-    Resume --> Policy
-```
-
-See the [environment policy and adapter contract](docs/references/environment-lifecycle.md)
-for configuration, recovery, evidence, and activation requirements. Schema 1 and
-`mint release production` remain compatible; `mint deployment status --environment
-<name> --format markdown` exposes the generic environment view. Installing Mint or
-merging policy does not activate cloud resources or migrate existing consumers.
+Run `go test ./...`, `go vet ./...`, and `make build` to validate changes.
+Use `make install-git-hooks` to enable the repository build hook.
+See the [testing reference](docs/references/testing.md) for more checks.
 
 ## License
 

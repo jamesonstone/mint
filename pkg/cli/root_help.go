@@ -11,6 +11,7 @@ import (
 var commandOrder = map[string]int{
 	"release":    10,
 	"changelog":  20,
+	"verify":     30,
 	"version":    89,
 	"completion": 91,
 	"help":       92,
@@ -22,7 +23,7 @@ type commandSection struct {
 }
 
 var rootCommandSections = []commandSection{
-	{title: "Release", commands: []string{"release", "changelog"}},
+	{title: "Release", commands: []string{"release", "changelog", "verify"}},
 	{title: "Utilities", commands: []string{"version", "completion", "help"}},
 }
 

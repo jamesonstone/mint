@@ -7,31 +7,31 @@ import (
 	"testing"
 )
 
-func TestVersionMainBatchReplayAndHotfixCollision(t *testing.T) {
+func TestVersionMainBatchReplayAndTagCollision(t *testing.T) {
 	r := newTestRepo(t)
 	r.commit(t, "fix: initial", "", "2026-01-01T00:00:00Z")
 	r.tag(t, "v0.1.0")
 	first := r.commit(t, "docs: ordinary patch fallback", "", "2026-01-02T00:00:00Z")
 	r.tag(t, "v0.1.1")
+	r.git(t, nil, "checkout", "-b", "other")
+	other := r.commit(t, "fix: other branch", "", "2026-01-03T00:00:00Z")
+	r.tag(t, "v0.2.0")
+	r.git(t, nil, "checkout", "main")
 	second := r.commit(t, "feat: queued feature", "", "2026-01-03T00:00:00Z")
 	third := r.commit(t, "fix: small correction", "", "2026-01-04T00:00:00Z")
 	values, err := VersionMain(context.Background(), MainVersionOptions{WorkDir: r.dir, MainRef: "main"})
 	if err != nil || len(values) != 2 {
 		t.Fatal(values, err)
 	}
-	if values[0].SHA != second || values[0].Version != "v0.2.0" || values[1].SHA != third || values[1].Version != "v0.2.1" {
+	if values[0].SHA != second || values[0].Version != "v0.2.1" || values[1].SHA != third || values[1].Version != "v0.2.2" {
 		t.Fatal(values)
 	}
 	replay, err := VersionMain(context.Background(), MainVersionOptions{WorkDir: r.dir, MainRef: "main"})
-	if err != nil || len(replay) != 1 || replay[0].Version != "v0.2.1" {
+	if err != nil || len(replay) != 1 || replay[0].Version != "v0.2.2" {
 		t.Fatal(replay, err)
 	}
-	if r.revParse(t, "v0.1.1") != first {
+	if r.revParse(t, "v0.1.1") != first || r.revParse(t, "v0.2.0^{commit}") != other {
 		t.Fatal("tag moved")
-	}
-	hotfix, err := AllocateHotfixVersion("v0.1.0", []string{"v0.1.1", "v0.1.2", "v0.2.0"}, Scope{})
-	if err != nil || hotfix != "v0.1.3" {
-		t.Fatal(hotfix, err)
 	}
 }
 func TestVersionMainControlClassificationAndMixedChange(t *testing.T) {
@@ -55,20 +55,20 @@ func TestVersionMainControlClassificationAndMixedChange(t *testing.T) {
 	}
 }
 
-func TestVersionMainMergedProposalDoesNotBecomeAnApplicationCandidate(t *testing.T) {
+func TestVersionMainMergedChangelogIsControlOnly(t *testing.T) {
 	r := newTestRepo(t)
 	r.commit(t, "fix: initial", "", "2026-01-01T00:00:00Z")
 	r.tag(t, "v0.1.0")
-	r.git(t, nil, "checkout", "-b", "proposal")
+	r.git(t, nil, "checkout", "-b", "release-notes")
 	if err := os.WriteFile(filepath.Join(r.dir, "CHANGELOG.md"), []byte("pending"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	r.git(t, nil, "add", "CHANGELOG.md")
-	r.git(t, nil, "commit", "-m", "chore: proposal")
+	r.git(t, nil, "commit", "-m", "chore: release notes")
 	r.git(t, nil, "checkout", "main")
-	r.git(t, nil, "merge", "--no-ff", "proposal", "-m", "chore: merge release proposal")
+	r.git(t, nil, "merge", "--no-ff", "release-notes", "-m", "chore: merge release notes")
 	versions, err := VersionMain(context.Background(), MainVersionOptions{WorkDir: r.dir, MainRef: "main", ControlPaths: []string{"CHANGELOG.md"}})
 	if err != nil || len(versions) != 1 || !versions[0].ControlOnly {
-		t.Fatal("merged control-only PR became another release candidate", versions, err)
+		t.Fatal("merged release notes were classified as an application change", versions, err)
 	}
 }

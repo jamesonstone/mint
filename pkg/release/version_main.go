@@ -54,7 +54,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 		}
 		pending = append(pending, sha)
 	}
-	// Every occupied tag, including divergent hotfixes, fences new allocation.
+	// Every occupied tag, including tags on other branches, affects allocation.
 	names, err := runGit(ctx, opts.WorkDir, "tag", "--list")
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func VersionMain(ctx context.Context, opts MainVersionOptions) ([]MainVersion, e
 		if err != nil {
 			return nil, err
 		}
-		_, writeErr := fmt.Fprintf(notes, "Source version %s for %s. Artifact and production status are independent.\n", version, sha)
+		_, writeErr := fmt.Fprintf(notes, "Source version %s for %s.\n", version, sha)
 		closeErr := notes.Close()
 		if writeErr != nil || closeErr != nil {
 			_ = os.Remove(notes.Name())
@@ -149,26 +149,6 @@ func controlOnlyCommit(ctx context.Context, dir, sha string, allowed []string) (
 		}
 	}
 	return true, nil
-}
-
-// AllocateHotfixVersion chooses the next unused patch in production's series;
-// queued minor versions do not change that compatibility series.
-func AllocateHotfixVersion(production string, occupied []string, scope Scope) (string, error) {
-	base, ok := scope.parseTag(production)
-	if !ok {
-		return "", fmt.Errorf("production version must be strict %sSemVer", scope.TagPrefix)
-	}
-	used := map[string]bool{}
-	for _, tag := range occupied {
-		used[tag] = true
-	}
-	for {
-		base.Patch++
-		next := scope.FormatTag(base.Major, base.Minor, base.Patch)
-		if !used[next] {
-			return next, nil
-		}
-	}
 }
 
 // VersionIdentity reads an already minted source version and its control classification.

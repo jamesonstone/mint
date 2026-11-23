@@ -26,7 +26,7 @@ func TestGenerateWorkflowGHCR(t *testing.T) {
 	for _, want := range []string{
 		"concurrency:\n  group: release-publish\n  cancel-in-progress: false",
 		"packages: write",
-		"uses: jamesonstone/mint@v1.0.0",
+		"uses: jamesonstone/mint@v2.0.0",
 		"command: release-resolve",
 		"command: release-tag",
 		"git fetch --force --tags",

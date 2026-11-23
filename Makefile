@@ -2,7 +2,7 @@
 
 BINARY_NAME=mint
 VERSION?=$(shell git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo dev)
-LDFLAGS=-ldflags "-X github.com/jamesonstone/mint/pkg/cli.Version=$(VERSION)"
+LDFLAGS=-ldflags "-X github.com/jamesonstone/mint/v2/pkg/cli.Version=$(VERSION)"
 
 build:
 	go build $(LDFLAGS) -o bin/$(BINARY_NAME) ./cmd/mint
@@ -19,7 +19,6 @@ install-git-hooks:
 
 test:
 	go test -v ./...
-	python3 -m unittest discover -s adapters/tests -v
 
 lint:
 	golangci-lint run ./...
