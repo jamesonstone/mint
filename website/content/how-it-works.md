@@ -14,6 +14,16 @@ Mint separates release intent from the evidence that makes it safe to act on tha
 
 ## Artifact identity
 
+<ol class="flow" role="list" aria-label="Artifact identity through promotion">
+  <li><strong>Build</strong><br>Retain the complete artifact digest.</li>
+  <li><strong>Deploy to sandbox</strong><br>Verify that digest in sandbox.</li>
+  <li><strong>Promote to demo</strong><br>Deploy and verify the same digest with demo configuration.</li>
+</ol>
+
+This example assumes `demo` declares `requires: [sandbox]`. Mint checks the
+sandbox's verified artifact and confirms that sandbox has no deployment in
+flight when the demo adapter requests deployment start.
+
 A readable tag such as `sandbox` is an optional alias. The selected artifact is an immutable digest. For a multi-component application, `artifact.members` includes every component's reference, digest, and build configuration; the top-level digest fingerprints the complete bundle.
 
 The adapter must deploy and verify every member. A successful API deployment does not prove that the accompanying worker or frontend is correct.

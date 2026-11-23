@@ -8,7 +8,12 @@ Mint gives every release a clear path from source to artifact to environment. Bu
 
 Mint is a Go CLI and GitHub Action for release state. It versions source, records trusted immutable builds, coordinates reviewed environment releases, and records verified outcomes. Your application owns the build and deployment adapters.
 
-<div class="flow" aria-label="Release lifecycle"><span>Source</span><b>→</b><span>Build</span><b>→</b><span>Review</span><b>→</b><span>Verify</span></div>
+<ol class="flow" role="list" aria-label="Managed deployment lifecycle">
+  <li><strong>Version source</strong><br>Mint tags the commit.</li>
+  <li><strong>Build once</strong><br>Your workflow retains the artifact.</li>
+  <li><strong>Promote</strong><br>Environment policy selects a digest.</li>
+  <li><strong>Verify</strong><br>Mint records matching runtime evidence.</li>
+</ol>
 
 A sandbox can use the same digest as staging or a customer demo. No environment named production is required. Each environment has its own policy and deployment history; a multi-component application moves as a complete digest bundle.
 

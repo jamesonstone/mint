@@ -654,11 +654,11 @@ for configuration, recovery, evidence, and activation requirements. Schema 1 and
 <name> --format markdown` exposes the generic environment view. Installing Mint or
 merging policy does not activate cloud resources or migrate existing consumers.
 
-## Maintainers
-
-Maintained by the [jamesonstone](https://github.com/jamesonstone) team.
-
 ## License
 
 Mint is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
 Bundled JetBrains Mono fonts retain their [SIL Open Font License](website/assets/fonts/OFL.txt).
+
+## Maintainers
+
+Maintained by [jamesonstone](https://github.com/jamesonstone).

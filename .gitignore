@@ -52,3 +52,6 @@ __pycache__/
 # Public documentation build and local Python environment
 _site/
 .venv-docs/
+
+# Kit local environment, cache, scratch artifacts, and SOPs
+/docs/sops/local/
