@@ -23,9 +23,8 @@ people who install, configure, or operate Mint.
 
 ## Applies When
 
-Read this rule for every repository change. Changes to Mint behavior or to how
-users install, configure, or run Mint must update
-`website/content/integration.md` in the same pull request.
+Read this rule and update `website/content/integration.md` in the same pull
+request as every change to Mint.
 
 ## Rules
 
@@ -41,11 +40,12 @@ users install, configure, or run Mint must update
 - Describe only behavior available to the reader. When the pull request adds
   support that requires a new Mint release, identify that requirement and
   preserve instructions that still apply to supported older releases.
-- If the change has no effect on integration, review the guide for accuracy
-  without introducing unrelated edits.
+- If the change preserves user-facing behavior, make a concise improvement
+  that clarifies the guide's description of the current integration.
 
 ## Verification
 
+- Confirm that `website/content/integration.md` is in the pull request diff.
 - Run `make docs-check`. Review the generated integration page, its Markdown
   source, and the relevant entries in `llms.txt` and `llms-full.txt`.
 - Review changed diagrams at desktop and mobile widths. Confirm the order and

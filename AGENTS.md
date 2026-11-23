@@ -97,5 +97,5 @@ For UI/UX/design, read `DESIGN.md`; for security-relevant engineering, read the 
 
 ## Mint documentation
 
-- For every repository change, apply [mint-integration](docs/references/rules/mint-integration.md). Update the public integration guide in the same PR whenever the change affects how Mint works or how users integrate it.
+- For every change to Mint, apply [mint-integration](docs/references/rules/mint-integration.md) and update the public integration guide in the same PR.
 - Before any functional repository change, read and apply [mint-documentation](docs/references/rules/mint-documentation.md). Update the affected public guides and generated LLM documentation in the same PR.
