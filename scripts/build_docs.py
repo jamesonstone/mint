@@ -118,7 +118,8 @@ def build(output, base_url):
         "# Mint\n\n> Mint is a Go CLI and GitHub Action for source versioning, changelogs, "
         "immutable Git tags, and GitHub Releases.\n\n"
         "Repository workflows build artifacts and read runtime digests. Use `mint verify` to "
-        "compare the retained artifact digest with the destination in staging and production.\n\n"
+        "compare the retained artifact digest with the destination in staging and production. "
+        "Use `mint config` to read the artifact type and promotion stages from `.mint.yaml`.\n\n"
         "## Guides\n\n" + "\n".join(summaries) +
         f"\n\n## Optional\n\n- [Complete documentation]({base_url}llms-full.txt): All guides in Markdown.\n"
         "- [Source and releases](https://github.com/jamesonstone/mint): Implementation and published versions.\n"
