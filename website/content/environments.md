@@ -20,7 +20,7 @@ Use `workflow_dispatch` to accept a project and an exact SemVer from an authoriz
 3. Call the same promotion job as staging. Pass the exact artifact reference and the production environment. The job deploys the retained bytes without rebuilding.
 4. Verify the running artifact and required configuration. Record success and optionally publish a GitHub Release after verification.
 
-Give build and production deployment jobs separate permissions. Verify the actual runtime digest before the job records success. When verification fails or is interrupted, stop publication and inspect the runtime before retrying.
+Give build and production deployment jobs separate permissions. Read the actual digest from the runtime and use [`mint verify`](integration.html#add-environment-promotion) before the job records success. When verification fails or is interrupted, stop publication and inspect the runtime before retrying.
 
 ## References and retention
 

@@ -117,8 +117,9 @@ def build(output, base_url):
     (output / "llms.txt").write_text(
         "# Mint\n\n> Mint is a Go CLI and GitHub Action for source versioning, changelogs, "
         "immutable Git tags, and GitHub Releases.\n\n"
-        "Repository workflows build and verify artifacts. Use the same retained artifact digest "
-        "for continuous staging and manual production.\n\n## Guides\n\n" + "\n".join(summaries) +
+        "Repository workflows build artifacts and read runtime digests. Use `mint verify` to "
+        "compare the retained artifact digest with the destination in staging and production.\n\n"
+        "## Guides\n\n" + "\n".join(summaries) +
         f"\n\n## Optional\n\n- [Complete documentation]({base_url}llms-full.txt): All guides in Markdown.\n"
         "- [Source and releases](https://github.com/jamesonstone/mint): Implementation and published versions.\n"
     )

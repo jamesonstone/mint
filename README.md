@@ -87,6 +87,7 @@ To build from a source checkout, run `make build`, then use `./bin/mint`.
 | `mint release github` | Create or reuse a GitHub Release for a selected tag. |
 | `mint release publish` | Resolve, write `.version`, tag, and publish a GitHub Release. |
 | `mint release workflow` | Generate an image publishing workflow for GHCR or ECR. |
+| `mint verify --expected --observed` | Compare the build record's SHA-256 digest with the runtime's digest. |
 | `mint changelog` | Write a changelog entry from Conventional Commits. |
 | `mint version` | Print the installed version. |
 

@@ -67,6 +67,7 @@ The current repository implements:
   - root help and Kit-style command grouping;
   - `mint version` and `mint --version`;
   - `mint changelog`;
+  - `mint verify` for comparing expected and observed SHA-256 digests;
   - root-level changelog flags for script compatibility;
   - `mint release resolve`;
   - `mint release select-tag`;

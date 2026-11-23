@@ -24,6 +24,7 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - Bind staging evidence to the project, version, source, digest and trusted completed run. Reject missing, failed, cross-project and wrong-digest evidence. Failed and cancelled verification must produce no verified receipt or publication.
 - Remove controller commands, renderer, state, and bundled controller adapters from v2. Preserve usable release primitives. Publish real release state only when a project invokes the appropriate release primitive.
 - Run two private fixture repositories under jamesonstone. Provider smoke testing is separate.
+- Provide `mint verify --expected --observed` for the shared promotion step. Reject missing, malformed, and mismatched SHA-256 inputs. The workflow obtains the observed digest and owns runtime coverage and evidence.
 
 ## ACCEPTED PLAN
 
@@ -37,6 +38,7 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - Use a `/v2` Go module path so the v2 release can be installed and imported without changing the v1 import path.
 - An authorized dispatcher is sufficient for the private fixture production path. Exact verified staging evidence is mandatory.
 - Use publication receipts in the fixture. Production provider smoke and the post-fixture Mint configuration and Kit scaffolding designs need separate validation.
+- Compare supplied SHA-256 digests in the CLI. Keep provider lookup in the repository workflow and use the comparator before writing a runtime receipt.
 
 ## DISCOVERIES
 
@@ -49,6 +51,7 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - Production refused missing, failed, cancelled, wrong-project, and wrong-digest staging evidence before the promotion job. A failed check or build prevented staging promotion. A forced digest mismatch and an interrupted verification in each environment emitted neither a successful verification receipt nor a publication marker.
 - Local pass: `go test ./...`, `go test -race ./...`, `go vet ./...`, `make build VERSION=v2.0.0`, Go formatting, Actions lint, and `make docs-check`. The built CLI reports `v2.0.0` and rejects the removed commands. Fixture Python tests and workflow lint passed in both testbeds.
 - `kit check direct-promotion-v2` passed. `kit check --project` reports the same 247 blocking findings on the source baseline and this worktree with Kit v3.0.64.
+- GH-49 adds command tests for matching, missing, malformed, and mismatched inputs. The fixture integration tests run the CLI with the observed digest and check that a mismatch leaves no receipt.
 
 ## OUTCOME
 
