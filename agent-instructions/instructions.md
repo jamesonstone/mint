@@ -18,6 +18,7 @@ and [tooling reference](../docs/references/tooling.md) for command details.
 | Publish a selected version | `mint release github --tag <tag> --target <sha> --owner <owner> --repo <repo>` | Creates or reuses the GitHub Release. Accepts an optional notes file. |
 | Publish directly from source | `mint release publish --commitish <ref> --owner <owner> --repo <repo>` | Resolves the version, writes `.version`, tags, and publishes a GitHub Release. |
 | Generate an image publishing workflow | `mint release workflow --image name=<name>,uri=<uri>,dockerfile=<path>,context=<path>` | Renders Actions YAML for GHCR or ECR. |
+| Compare the build and runtime digests | `mint verify --expected <digest> --observed <digest>` | Accepts matching SHA-256 digests. Obtain the observed digest from the runtime first. |
 
 Fetch full history and tags before running Git-based release commands. Use
 `--tag-prefix` for an independent tag namespace, and pass `--path` for each
@@ -46,7 +47,7 @@ project, version, and build provenance. Use a shared repository-owned
 promotion job for continuous staging and authorized manual production.
 
 Require successful staging evidence for the exact retained production
-artifact. Verify the digest in production before recording success or
+artifact. Use `mint verify` before recording success or
 publishing. Use `release github` for the selected tag and SHA after verification.
 The repository owns the provider operations, permission checks, and recovery.
 

@@ -46,6 +46,14 @@ Use one release publisher per tag namespace. Give read-only jobs `contents: read
 
 Keep the build and deployment jobs in your repository. Call Mint to version the exact build source before retaining the artifact. Follow the two paths in the [environment promotion guide](environments.html). If you publish after verified production, call `mint release github` for the existing tag. That command publishes the selected release without resolving a new version.
 
+In Mint v2, pass the expected digest from the retained build record and the observed digest from the destination runtime to `mint verify`:
+
+```bash
+mint verify --expected "$BUILD_DIGEST" --observed "$RUNTIME_DIGEST"
+```
+
+Both inputs must use `sha256:` followed by 64 hexadecimal characters. Hexadecimal letter case does not affect equality. The command exits silently on a match and fails on a missing, malformed, or mismatched digest. The deployment job queries the runtime, checks every required replica or artifact, and records a receipt only after its checks pass.
+
 Check that the source tag points to the verified source SHA. Then publish from
 a job that requires successful production verification, with the selected
 tag and SHA from that job's verified record:

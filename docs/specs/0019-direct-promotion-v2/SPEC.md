@@ -24,6 +24,7 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - Bind staging evidence to the project, version, source, digest and trusted completed run. Reject missing, failed, cross-project and wrong-digest evidence. Failed and cancelled verification must produce no verified receipt or publication.
 - Remove controller commands, renderer, state, and bundled controller adapters from v2. Preserve usable release primitives. Publish real release state only when a project invokes the appropriate release primitive.
 - Run two private fixture repositories under jamesonstone. Provider smoke testing is separate.
+- Provide `mint verify --expected --observed` for the shared promotion step. Reject missing, malformed, and mismatched SHA-256 inputs. The workflow obtains the observed digest and owns runtime coverage and evidence.
 
 ## ACCEPTED PLAN
 
@@ -37,6 +38,7 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - Use a `/v2` Go module path so the v2 release can be installed and imported without changing the v1 import path.
 - An authorized dispatcher is sufficient for the private fixture production path. Exact verified staging evidence is mandatory.
 - Use publication receipts in the fixture. Production provider smoke and the post-fixture Mint configuration and Kit scaffolding designs need separate validation.
+- Compare supplied SHA-256 digests in the CLI. Keep provider lookup in the repository workflow and use the comparator before writing a runtime receipt.
 
 ## DISCOVERIES
 
@@ -50,6 +52,7 @@ Mint v1.1.2 couples promotion to a journal, generated release PRs, dispatch and 
 - Local pass: `go test ./...`, `go test -race ./...`, `go vet ./...`, `make build VERSION=v2.0.0`, Go formatting, Actions lint, and `make docs-check`. The built CLI reports `v2.0.0` and rejects the removed commands. Fixture Python tests and workflow lint passed in both testbeds.
 - `kit check direct-promotion-v2` passed. With Kit v3.0.64, `kit check --project` reports the same 240 blocking findings on the v1.1.3 base and this worktree.
 - After refreshing onto v1.1.3, a fresh-context review verified the documentation resolution against both parents. The documentation build passed, and the built-in browser showed the overview, integration, and artifact evidence diagrams in order at desktop and mobile widths.
+- GH-49 adds command tests for matching, missing, malformed, and mismatched inputs. The fixture integration tests in both private repositories ran the pinned CLI in GitHub Actions and confirmed that a mismatch leaves no receipt.
 
 ## OUTCOME
 
