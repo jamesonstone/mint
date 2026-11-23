@@ -6,7 +6,7 @@ const (
 	// DefaultCommitish is the Git ref resolved when callers do not provide one.
 	DefaultCommitish = "HEAD"
 	// DefaultMintRef is the Mint action ref used by generated workflows.
-	DefaultMintRef = "v1.0.0"
+	DefaultMintRef = "v2.0.0"
 	// DefaultVersionFile is the repository-local runtime version file.
 	DefaultVersionFile = ".version"
 )

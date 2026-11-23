@@ -6,7 +6,7 @@ branding:
   color: yellow
 inputs:
   command:
-    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, production-control, deployment-control, none."
+    description: "Mint command to run after the CLI is built. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, none."
     required: false
     default: version
   go-version:
@@ -77,24 +77,16 @@ inputs:
     description: GitHub API base URL used by command github-release.
     required: false
     default: https://api.github.com
-  production-config:
-    description: Repository-owned production release policy for production-control.
-    required: false
-    default: .mint.yaml
   version-file:
     description: Version file path written by command release-publish.
     required: false
     default: .version
-  version-config:
-    description: "Optional schema 2 policy for command release-version-main. A component policy versions only commits touching its paths, with its tag prefix and release-control paths. Empty keeps repository-wide versioning."
-    required: false
-    default: ""
   tag-prefix:
     description: "Component tag prefix for changelog and release commands, for example backend/ for backend/vX.Y.Z tags. Empty means unprefixed vX.Y.Z tags."
     required: false
     default: ""
   paths:
-    description: "Newline-separated Git pathspecs for changelog, release-resolve, and release-publish. Only commits touching these paths count toward the component's version and notes. Empty means the whole repository."
+    description: "Newline-separated Git pathspecs for changelog, release-resolve, release-publish, and release-version-main. Only commits touching these paths count toward the component's version and notes. Empty means the whole repository."
     required: false
     default: ""
 outputs:
@@ -132,10 +124,10 @@ outputs:
     description: Lightweight release notes from command release-resolve.
     value: ${{ steps.run.outputs.release_notes }}
   control_only:
-    description: Whether the versioned main commit changes only approved release-control paths.
+    description: Whether the versioned main commit changes only release files.
     value: ${{ steps.run.outputs.control_only }}
   component_changed:
-    description: From release-version-main with version-config set to a component policy; false when the target commit did not touch the component, so build jobs can skip.
+    description: Whether the requested commit has a source version in the scope passed to release-version-main.
     value: ${{ steps.run.outputs.component_changed }}
   release_tag:
     description: GitHub Release tag from command github-release or release-publish.
@@ -188,10 +180,7 @@ runs:
         esac
 
         cd "$GITHUB_ACTION_PATH"
-        go build -ldflags "-X github.com/jamesonstone/mint/pkg/cli.Version=$mint_version" -o "$mint_dir/mint" ./cmd/mint
-
-        cp "$GITHUB_ACTION_PATH"/adapters/mint-* "$mint_dir/"
-        chmod +x "$mint_dir/mint-adapter"
+        go build -ldflags "-X github.com/jamesonstone/mint/v2/pkg/cli.Version=$mint_version" -o "$mint_dir/mint" ./cmd/mint
 
         echo "$mint_dir" >> "$GITHUB_PATH"
         echo "mint-path=$mint_dir/mint" >> "$GITHUB_OUTPUT"
@@ -199,10 +188,6 @@ runs:
       id: run
       shell: bash
       env:
-        MINT_PRODUCTION_CONFIG: ${{ inputs.production-config }}
-        MINT_EVENT_PATH: ${{ github.event_path }}
-        MINT_EVENT_NAME: ${{ github.event_name }}
-        MINT_RUN_ID: ${{ github.run_id }}
         MINT_COMMAND: ${{ inputs.command }}
         MINT_PATH: ${{ steps.build.outputs.mint-path }}
         MINT_PREV_TAG: ${{ inputs.prev-tag }}
@@ -224,7 +209,6 @@ runs:
         MINT_GITHUB_API_URL: ${{ inputs.github-api-url }}
         MINT_VERSION_FILE: ${{ inputs.version-file }}
         MINT_TAG_PREFIX: ${{ inputs.tag-prefix }}
-        MINT_VERSION_CONFIG: ${{ inputs.version-config }}
         MINT_PATHS: ${{ inputs.paths }}
       run: |
         set -euo pipefail
@@ -238,11 +222,6 @@ runs:
             scope_paths+=(--path "$scope_path")
           fi
         done <<< "$MINT_PATHS"
-        version_scope=()
-        if [ -n "$MINT_VERSION_CONFIG" ]; then
-          version_scope=(--config "$MINT_VERSION_CONFIG")
-        fi
-
         release_output="$RUNNER_TEMP/mint-release-output"
         rm -f "$release_output"
 
@@ -266,14 +245,8 @@ runs:
             output="$("$MINT_PATH" release resolve --commitish "$MINT_COMMITISH" --github-output "$release_output" "${scope_prefix[@]}" ${scope_paths[@]+"${scope_paths[@]}"})"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
-          deployment-control)
-            output="$("$MINT_PATH" deployment control --config "$MINT_PRODUCTION_CONFIG" --event "$MINT_EVENT_NAME" --input "$MINT_EVENT_PATH" --run-id "$MINT_RUN_ID" --token-env MINT_GITHUB_TOKEN --api-url "$MINT_GITHUB_API_URL")"
-            ;;
-          production-control)
-            output="$("$MINT_PATH" release production control --config "$MINT_PRODUCTION_CONFIG" --event "$MINT_EVENT_NAME" --input "$MINT_EVENT_PATH" --run-id "$MINT_RUN_ID" --token-env MINT_GITHUB_TOKEN --api-url "$MINT_GITHUB_API_URL")"
-            ;;
           release-version-main)
-            output="$("$MINT_PATH" release version-main --main-ref "$MINT_COMMITISH" --target-commitish "$MINT_TARGET_SHA" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output" ${version_scope[@]+"${version_scope[@]}"})"
+            output="$("$MINT_PATH" release version-main --main-ref "$MINT_COMMITISH" --target-commitish "$MINT_TARGET_SHA" --remote "$MINT_RELEASE_REMOTE" --push="$MINT_RELEASE_PUSH" --github-output "$release_output" "${scope_prefix[@]}" ${scope_paths[@]+"${scope_paths[@]}"})"
             cat "$release_output" >> "$GITHUB_OUTPUT"
             ;;
           release-select-tag)
@@ -296,7 +269,7 @@ runs:
             output=""
             ;;
           *)
-            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, production-control, deployment-control, none."
+            echo "::error::Unsupported mint action command '$MINT_COMMAND'. Supported values: version, help, changelog, release-resolve, release-select-tag, release-tag, github-release, release-publish, release-version-main, none."
             exit 2
             ;;
         esac

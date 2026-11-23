@@ -101,13 +101,9 @@ The command prepends a release block while preserving older entries and file per
 
 A duplicate-version retry is an error, not an idempotent append. Inspect the existing entry before running again. For compatibility, the root CLI also accepts the changelog flags directly.
 
-## Connect CHANGELOG to the Release PR
+## Changelog and release publication
 
-In reviewed environment releases, `CHANGELOG.md` is a release-control path alongside `.mint/proposal.json` and `.mint/summary.md`. The controller maintains release metadata while eligible candidates advance. Review the proposed version, included changes, source, complete artifact, and runtime configuration on the current PR head.
-
-Control-only commits are classified separately from application work, avoiding a release loop caused by the generated changelog itself. Keep the configured control paths exact; do not expand them to arbitrary source files.
-
-The standalone changelog command writes a local file; it does not open a PR, publish a GitHub Release, or deploy. `release publish` writes its own resolved release notes and does not automatically commit your CHANGELOG. Choose one owner for changelog updates so competing workflows do not duplicate entries.
+The changelog command writes a file in the workspace. Choose one step or workflow to update and commit it. If your deployment workflow publishes a GitHub Release, pass the reviewed notes file to `mint release github` after production verification succeeds.
 
 ## Scope of provider support
 
@@ -117,8 +113,6 @@ Linear API. There is no title, description, status, comment or assignee enrichme
 This matches the existing GitHub CHANGELOG path, which derives links from commit
 references rather than fetching GitHub issue content.
 
-`mint release resolve` and `release publish` produce their separate release notes
-from commit subjects; they do not automatically use the CHANGELOG renderer or its
-Linear footer links. Mint's release/proposal controller and its control issues
-remain GitHub-backed. Selecting a Kit development issue provider does not migrate
-those control issues or configure Linear state automation.
+`mint release resolve` and `release publish` produce lightweight release notes
+from commit subjects. To include rendered issue links in a GitHub Release,
+generate the changelog entry and publish it with `mint release github --notes-file`.

@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/jamesonstone/mint/pkg/release"
+	"github.com/jamesonstone/mint/v2/pkg/release"
 	"github.com/spf13/pflag"
 )
 

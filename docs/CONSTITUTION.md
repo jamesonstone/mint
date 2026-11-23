@@ -40,10 +40,9 @@ documents.
   implementation of Mint behavior.
 - Workflow-generation features may emit shell or YAML, but the validation and
   decision logic must remain in Go where it can be tested.
-- Schema 1 Actions compatibility adapters may route events and serialize provider
-  manifests in Python, but must delegate lifecycle eligibility and journal changes
-  to the Go CLI. Native Go authenticates the active workflow; providers establish
-  runtime evidence. This exception does not extend to the schema 2 controller.
+- Repositories own deployment approvals, immutable artifact retention, promotion,
+  runtime verification, and recovery. Mint provides release primitives that
+  repositories can call from those workflows.
 - User-facing commands should remain script-friendly: deterministic stdout,
   explicit flags, clear errors, and no hidden interactive prompts unless a
   future spec requires them.
@@ -61,7 +60,7 @@ documents.
 
 The current repository implements:
 
-- A Go module at `github.com/jamesonstone/mint`.
+- A Go module at `github.com/jamesonstone/mint/v2`.
 - A thin binary entrypoint at `cmd/mint/main.go` that delegates to
   `pkg/cli.Execute()`.
 - A Cobra CLI under `pkg/cli` with:
@@ -75,9 +74,7 @@ The current repository implements:
   - `mint release github`;
   - `mint release publish`;
   - `mint release workflow`;
-  - `mint release version-main`;
-  - `mint release production` for reviewed proposals, authenticated candidates,
-    immutable intents, verified deployment history, hotfixes and rollback.
+  - `mint release version-main`.
 - A `pkg/changelog` package that generates `CHANGELOG.md` release blocks from
   conventional commits and Git refs.
 - A `pkg/release` package that resolves release metadata, selects existing
@@ -97,10 +94,11 @@ directly, deploy services, publish package-manager
 artifacts, support registries beyond GHCR/ECR, or make the CLI resolver push
 tags or images directly.
 
-The production proposal commands attach a verified deployment manifest to a
-production GitHub Release. Their lifecycle and activation boundaries are documented
-in `docs/references/production-release-proposals.md`. Application adapters own
-builds, immutable artifact storage, deployment and runtime verification.
+In the reference deployment flow, a repository builds once after trusted checks,
+verifies the retained artifact in staging, and validates that exact artifact
+before manual production promotion. The repository invokes release publication
+after successful production verification. Mint's standalone release commands
+also serve repositories that publish release state without deploying a runtime.
 
 ## ARCHITECTURE
 
@@ -576,13 +574,9 @@ contract, ownership, idempotency, and failure behavior:
 - The local CLI resolver does not push tags or images.
 
 
-## Reviewed Production Automation Identity
+## Release Automation Identity
 
-The approved production release process permits `github-actions[bot]` only for
-generated source-version tags, isolated release metadata and hotfix preparation,
-release-state/control commits and PR maintenance, and verified production Releases.
-Use job-scoped `GITHUB_TOKEN`; never fabricate human authorship for those writes.
-Application development and repository delivery commits remain human-authored.
-Required checks, independent human current-head approval, protected branches and
-human merge authorization still apply. This is not an allowance for unrelated
-source changes, automatic approval/merge, broader credentials or cloud mutations.
+Use a job-scoped `GITHUB_TOKEN` for automated release-state writes such as
+source tags and GitHub Releases. Application development and repository delivery
+commits remain human-authored. Keep existing required checks, protected branches,
+and human merge authorization.

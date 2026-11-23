@@ -48,7 +48,7 @@ func TestVersionMainScopedWithoutComponentCommits(t *testing.T) {
 	}
 }
 
-func TestVersionIdentityAndHotfixScoped(t *testing.T) {
+func TestVersionIdentityIsScoped(t *testing.T) {
 	r := newTestRepo(t)
 	sha := r.commitAt(t, "backend/main.go", "feat: api", "2026-01-01T00:00:00Z")
 	r.tag(t, "backend/v1.0.0")
@@ -57,12 +57,5 @@ func TestVersionIdentityAndHotfixScoped(t *testing.T) {
 	identity, err := VersionIdentity(context.Background(), r.dir, sha, nil, backendScope)
 	if err != nil || identity.Version != "backend/v1.0.0" {
 		t.Fatalf("VersionIdentity() = %+v, %v", identity, err)
-	}
-	hotfix, err := AllocateHotfixVersion("backend/v1.0.0", []string{"backend/v1.0.1", "v1.0.2"}, backendScope)
-	if err != nil || hotfix != "backend/v1.0.2" {
-		t.Fatalf("AllocateHotfixVersion() = %q, %v", hotfix, err)
-	}
-	if _, err := AllocateHotfixVersion("v1.0.0", nil, backendScope); err == nil {
-		t.Fatal("unprefixed production version accepted for a component")
 	}
 }

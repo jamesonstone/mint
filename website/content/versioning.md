@@ -51,7 +51,7 @@ mint release resolve --tag-prefix frontend/ --path frontend --path shared/ui
 - In the GitHub Action, set `tag-prefix` and `paths` (one pathspec per line):
 
 ```yaml
-- uses: jamesonstone/mint@v1.0.0
+- uses: jamesonstone/mint@REPLACE_WITH_MINT_COMMIT_SHA
   with:
     command: release-publish
     tag-prefix: backend/
@@ -59,31 +59,26 @@ mint release resolve --tag-prefix frontend/ --path frontend --path shared/ui
       backend
 ```
 
-Without a prefix or paths, behavior is unchanged.
+Replace the placeholder with the full SHA of the reviewed Mint release.
 
-To source-version a component on every default-branch push, point
-`version-main` at the component's schema 2 policy. Only first-parent commits
-that touch the component's paths receive `<prefix>vX.Y.Z` tags, and the
-policy's release-control files are treated as control-only:
+To version a component on each default-branch push, pass its prefix and paths
+to `version-main`. A first-parent commit that touches those paths can receive
+a `<prefix>vX.Y.Z` tag:
 
 ```bash
-mint release version-main --config .mint/backend.yaml --main-ref origin/main
+mint release version-main --main-ref origin/main --tag-prefix backend/ --path backend
 ```
 
-In the Action, set `command: release-version-main` and
-`version-config: .mint/backend.yaml`. For a component, the outputs describe the
-target commit and add `component_changed`: `false` (with an empty
-`version_tag`) when that commit did not touch the component's paths, so the
-component's build job can skip instead of failing. Without `--config`, `version-main`
-versions every commit on one unprefixed line, as before. See
-[Integrate Mint](integration.html#release-several-components-from-one-repository)
-for component environment policies.
+In the action, set `command: release-version-main`, `tag-prefix`, and
+`paths` with one path per line. When the target commit did not touch those
+paths, `component_changed` is `false` and `version_tag` is empty. A component
+build can use those outputs to skip that commit.
 
 ## Source version versus deployed release
 
-`mint release version-main` serially allocates one version for every untagged first-parent default-branch commit, oldest first. Controllers must use current authoritative main rather than an old triggering event SHA. Occupied tags, including isolated hotfix tags, are skipped by advancing patch until a free version is found.
+`mint release version-main` allocates versions for untagged first-parent commits, oldest first. Serialize writers for each tag namespace. For batch versioning, use the current authoritative default branch. Mint advances the patch number to avoid occupied tags.
 
-Trusted release-control-only commits also receive a source identity, but do not become application build candidates or add noise to application release notes. Source versioning does not create a GitHub Release or prove artifact eligibility. A selected environment release may include several source versions since its last verified deployment.
+Use `control_only` to identify commits that only update release metadata. This defaults to `CHANGELOG.md`; the CLI accepts a different list through `--control-paths`. Source tags establish version and commit identity. Build records and deployment receipts establish artifact eligibility and verification.
 
 ## Immutable tags
 
@@ -97,18 +92,9 @@ Inspect the conflicting tag and source identities before retrying. Do not repoin
 mint release select-tag --commitish HEAD
 ```
 
-Without `--requested-tag`, Mint selects the highest strict SemVer tag on the exact target commit and fails if none exists. With `--requested-tag v1.2.3`, it validates the version syntax and returns that selection; this alone does not prove the requested artifact exists, matches the commit, or was deployed. Environment requests additionally require authenticated candidate/history evidence.
+Without `--requested-tag`, Mint selects the highest strict SemVer tag on the exact target commit and fails if none exists. With `--requested-tag v1.2.3`, it validates the version syntax and returns that selection. For deployment, resolve the existing tag and require a matching build record and staging receipt.
 
-## Hotfix version series
+## Mint version compatibility
 
-An isolated hotfix allocates the next unused patch in the verified deployed version's series. If that environment is on `v1.2.3` while ordinary work has reached `v1.3.0`, the fix remains in `v1.2.x`; occupied patches are skipped. Merge the correction back into ordinary source so later releases keep it.
-
-## v1 compatibility
-
-Mint's public CLI and action interfaces use semantic versioning. Incompatible
-public interface changes require a major release. Pin `v1.0.0` or its full commit
-SHA; generated publishing workflows default to `v1.0.0`. Upgrade deliberately
-after reviewing release notes. Schema 1 production controls remain compatible;
-schema 2 environment policies require trusted project adapters and explicit
-activation. Mint does not provision infrastructure or deploy applications by
-itself.
+Pin an immutable Mint commit and review release notes before changing it.
+For controller-dependent workflows, see [Upgrade from Mint v1](release-prs.html).

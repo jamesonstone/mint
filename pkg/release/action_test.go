@@ -21,18 +21,12 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 
 	action := string(data)
 	for _, want := range []string{
-		"production-control",
-		"MINT_EVENT_PATH",
-		"MINT_EVENT_NAME",
-		"MINT_RUN_ID",
-		"release production control --config",
-		"--input \"$MINT_EVENT_PATH\"",
-		"--token-env MINT_GITHUB_TOKEN",
 		"release-resolve",
 		"release-select-tag",
 		"release-tag",
 		"github-release",
 		"release-publish",
+		"release-version-main",
 		"current-ref:",
 		"requested-tag:",
 		"MINT_CURRENT_REF",
@@ -51,6 +45,7 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 		"release tag --tag",
 		"release github --owner",
 		"release publish --commitish",
+		"release version-main --main-ref",
 		"--github-output \"$release_output\"",
 		"cat \"$release_output\" >> \"$GITHUB_OUTPUT\"",
 		"version_tag:",
@@ -73,9 +68,6 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 		"paths:",
 		"MINT_TAG_PREFIX",
 		"MINT_PATHS",
-		"version-config:",
-		"MINT_VERSION_CONFIG",
-		"version_scope=(--config \"$MINT_VERSION_CONFIG\")",
 		"scope_paths+=(--path \"$scope_path\")",
 	} {
 		if !strings.Contains(action, want) {
@@ -85,6 +77,11 @@ func TestActionYAMLSupportsReleaseCommands(t *testing.T) {
 
 	if strings.Contains(action, "eval ") || strings.Contains(action, "bash -c \"$MINT_COMMAND\"") {
 		t.Fatalf("action.yml appears to run arbitrary shell:\n%s", action)
+	}
+	for _, removed := range []string{"production-control", "deployment-control", "production-config", "version-config", "mint-adapter"} {
+		if strings.Contains(action, removed) {
+			t.Fatalf("action.yml includes removed controller interface %q", removed)
+		}
 	}
 }
 

@@ -1,38 +1,14 @@
 # Integrate Mint
 
-GitHub Actions is the standard release path. The action builds Mint from its
-published source on the runner and requires no locally installed binary. Use a
-reviewed immutable commit or the published `v1.0.0` tag. The local CLI is an
-optional manual helper.
+Add Mint to your GitHub Actions workflow to resolve a version, generate release notes, create a source tag, or publish a GitHub Release. Mint builds its CLI on the runner and makes `mint` available to later steps.
 
-Start with the smallest release model your repository needs. Add environment control when you need reviewed promotion, verified history, or recovery across environments.
+## Publish release state
 
-## Optional local CLI
-
-Use a published tag from [Mint releases](https://github.com/jamesonstone/mint/releases), rather than installing an unknown branch head. Mint's current build requires Go 1.26.9 or newer; check `go.mod` when upgrading.
-
-```bash
-go install github.com/jamesonstone/mint/cmd/mint@<published-tag>
-mint version
-mint help
-```
-
-Replace `<published-tag>` before running. An environment integration must pin a published immutable Mint commit containing schema 2 and team authorization support. Older releases may not support these features.
-
-## Start with release-state publishing
-
-For repositories that only need tags and GitHub Releases, this minimal workflow runs Mint's existing action. Replace `<published-mint-commit>` with the full commit SHA of a reviewed published release.
+For a repository that publishes GitHub Releases from source, run this job in a workflow that starts on a trusted default-branch push. Replace `REPLACE_WITH_MINT_COMMIT_SHA` with the full commit SHA of the reviewed Mint release.
 
 ```yaml
-name: Publish release state
-on:
-  push:
-    branches: [main]
 permissions:
   contents: write
-concurrency:
-  group: release-state
-  cancel-in-progress: false
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -40,7 +16,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
-      - uses: jamesonstone/mint@<published-mint-commit>
+      - uses: jamesonstone/mint@REPLACE_WITH_MINT_COMMIT_SHA
         with:
           command: release-publish
           commitish: ${{ github.sha }}
@@ -49,125 +25,45 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-This writes `.version` in the runner workspace without the leading `v`. It does not commit that file, build containers, or deploy. Add application-owned build steps explicitly. Use one release publisher; remove competing automatic version/tag publishers when adopting Mint.
+`release-publish` resolves the version, writes the numeric version to `.version` in the runner workspace, creates or reuses the annotated Git tag, and creates or reuses a GitHub Release. The job owns decisions about committing files and uploading release assets.
 
-The action uses Go 1.26.9 by default. Override `go-version` only with a supported,
-security-patched Go release. Release API URLs must use HTTPS; redirects are refused
-so the release credential stays with the configured API endpoint. Read-only
-commands need only `contents: read`; grant write permissions only to trusted
-release jobs. Never run write-enabled release commands on untrusted pull-request
-code or pass untrusted values as `github-api-url`. Command stdout is captured with
-a collision-safe multiline output delimiter.
+Use one release publisher per tag namespace. Give read-only jobs `contents: read`. Grant write access only to trusted jobs that create tags or publish releases. The action accepts an HTTPS GitHub API URL and refuses redirects to protect the token.
 
-For environment-controlled deployment, follow the next steps instead of publishing every source build as a canonical release.
+## Add environment promotion
 
-## Add environment policy
+Keep the build and deployment jobs in your repository. Call Mint to version the exact build source before retaining the artifact. Follow the two paths in the [environment promotion guide](environments.html). If you publish after verified production, call `mint release github` for the existing tag. That command publishes the selected release without resolving a new version.
 
-Create `.mint.yaml` using the [sandbox policy example](environments.html#sandbox-first-policy). Set the real repository, trusted workflow paths and check names. Choose explicit `default_environment` when multiple environments exist.
+Check that the source tag points to the verified source SHA. Then publish from
+a job that requires successful production verification, with the selected
+tag and SHA from that job's verified record:
 
-For a team, use `authorization: repository-write`. Mint checks current effective GitHub write, maintain, or admin access for human requests, including team-derived access. Independent reviewers must also have write access. Bots and read/triage access cannot authorize releases. Optional `assignees` route work but grant no authority.
+```bash
+mint release github \
+  --owner "$REPOSITORY_OWNER" --repo "$REPOSITORY_NAME" \
+  --tag "$VERIFIED_TAG" --target "$VERIFIED_SOURCE_SHA" \
+  --notes-file "$RELEASE_NOTES_FILE"
+```
 
-Legacy policies can retain `human_login`; do not combine it with `authorization`. Review a migration of authorization separately from a target-only release request.
+Set `MINT_GITHUB_TOKEN` from the publishing job's token environment. For a
+component tag, add `--tag-prefix` with the component's prefix.
 
 ## Release several components from one repository
 
-A monorepo can promote each component through its own environments with its own
-version line. Write one schema 2 policy file per component, each with a
-`component` block. A `deployment` component also needs its own
-`control_workflow`; `package` and `artifact` components run no controller:
-
-```yaml
-# .mint/backend.yaml
-schema_version: 2
-mode: deployment
-repository: acme/app
-default_branch: main
-authorization: repository-write
-build_workflow: .github/workflows/backend-build.yaml
-control_workflow: .github/workflows/backend-mint.yaml
-component:
-  name: backend            # lowercase letters, digits, and -
-  tag_prefix: backend/     # optional; defaults to <name>/
-  paths: [backend]         # Git pathspecs this component owns
-  changelog: backend/CHANGELOG.md
-environments:
-  production:
-    scope: shared
-    deploy: reviewed
-    follow: latest
-    promotion_workflow: .github/workflows/backend-deploy.yaml
-    publish: true
-```
-
-A component policy keeps everything separate from other components and from a
-repository-wide policy:
-
-| Concern | Repository-wide | Component `backend` |
-| --- | --- | --- |
-| Versions | `vX.Y.Z` | `backend/vX.Y.Z`, only for commits touching `paths` |
-| Journal | `mint-release-state[-<env>]` | `mint-release-state.backend.<env>` |
-| Release-control files | `CHANGELOG.md`, `.mint/proposal.json`, `.mint/summary.md` | `changelog`, `.mint/backend/proposal.json`, `.mint/backend/summary.md` |
-| Proposal marker | `<!-- mint:proposal:…` | `<!-- mint:component-proposal:backend:…` |
-| Controller concurrency | `mint-release-journal` | `mint-release-journal-backend` |
-| GitHub Release | marked Latest | never marked Latest |
-
-Give each component its own build, deployment, and observation workflows, so
-callback evidence stays unambiguous. Generate one controller per policy with
-`--config .mint/backend.yaml` and `--output` set to that policy's
-`control_workflow`. Pass the same file to the compatibility adapters with
-`MINT_CONFIG=.mint/backend.yaml`, and to source versioning with
-`version-config` (see [component releases](versioning.html#component-releases-in-one-repository)).
-A target such as `target: backend/v1.4.0` must carry the component prefix.
-
-## Connect trusted project adapters
-
-| Adapter | Required evidence |
-| --- | --- |
-| Build producer | Successful trusted run with a single `mint-candidate.json` inside the `mint-candidate` Actions artifact. |
-| Deployment | Upload `mint-request.json` as `mint-request` before start; deploy the frozen digests; upload exact verified `mint-deployment.json` as `mint-deployment` after verification. |
-| Observation | Upload `mint-observation.json` as `mint-observation` with exact source/version, full artifact, runtime configuration, timestamp, run ID, and run URL. |
-
-A producer run is trusted when `push` or `workflow_dispatch` started it. To build only after another workflow succeeds, list `workflow_run` in `build_events` and make the producer verify its triggering run in a job-level `if:`; see [Continuous Delivery](environments.html#continuous-delivery).
-
-The deployment workflow receives `environment`, `intent_id`, and serialized `intent` inputs. It must consume these exact identities and avoid rebuilding. Mint validates server-side repository, default branch, workflow path, run identity/completion, archive digest, and manifest contents.
-
-Use the [full adapter reference](https://github.com/jamesonstone/mint/blob/main/docs/references/environment-lifecycle.md#project-adapter-evidence) and [legacy integration contract](https://github.com/jamesonstone/mint/blob/main/docs/references/production-release-proposals.md) for manifest fields and controller wiring. These contracts are integration work: a policy file alone cannot make an existing deploy workflow compliant.
-
-## Generate and review the controller
-
-After the configured build, deploy, and observe workflow files exist, generate the repository controller:
+Give each independently shipped project a tag prefix and paths. For example:
 
 ```bash
-mint deployment workflow \
-  --config .mint.yaml \
-  --environment sandbox \
-  --mint-ref <published-mint-commit> \
-  --output .github/workflows/mint-environments.yaml
+mint release resolve --tag-prefix backend/ --path backend
+mint release resolve --tag-prefix frontend/ --path frontend --path shared/ui
 ```
 
-The generator reads callback workflow names from the files, so create those adapters first. Review the generated default-branch controller and validation integration before merging. The controller needs contents/issues/pull-requests/Actions write and checks read; version/build jobs need contents write and Actions/pull-requests/checks read. Native CI can remain read-only. Use a job-scoped token; never embed credentials in policy or manifests. Configure repository rules to require exact-head checks and independent human review. GitHub must permit the controller token to create PRs when generated Release PRs are used.
+Use the same prefix when you create, select, or publish one project's tag. Keep each project's version-to-artifact mapping, staging evidence, and deployment permissions scoped to that project. See [scope and versioning examples](versioning.html#component-releases-in-one-repository).
 
-## Activate a shared environment
-
-1. Supply a real approved runtime `configuration_sha256` and trusted adapters.
-2. Configure `baseline_workflow` (and `baseline_build_workflow` if migrating a different producer). Run the trusted baseline adapter to reconcile the actual running artifact/configuration and upload digest-attested `mint-baseline` evidence. Import it with `mint deployment bootstrap --environment sandbox --run-id <verified-run-id>`. Do not infer a baseline from an image tag, supply a local JSON file, or re-import to erase an uncertain deployment.
-3. Review candidate production and retention, complete-bundle verification, required checks, and controller callback paths.
-4. Enable the policy's activation variable (`MINT_RELEASE_ENABLED`, or the `activation_variable` named in policy) and the project's existing deployment gates only after those prerequisites are ready.
-5. Promote an eligible candidate and inspect the Release PR and verified result end to end.
-
-Generation, installation, or merging policy does not provision cloud resources, grant IAM, deploy a runtime, or activate an existing consumer.
-
-## Check integration state
+## Generate an image publishing workflow
 
 ```bash
-mint deployment policy --config .mint.yaml --environment sandbox
-mint deployment status --config .mint.yaml --environment sandbox --format markdown
+mint release workflow \
+  --image name=api,uri=ghcr.io/acme/api,dockerfile=Dockerfile,context=. \
+  --output .github/workflows/image-publish.yaml
 ```
 
-Policy inspection works before activation. Shared status reads authenticated repository state and needs the configured token (default `GH_TOKEN`). Treat missing evidence as unknown. Test a sandbox release and recovery before relying on the controller for a critical environment.
-
-## License
-
-Mint is licensed under [Apache-2.0](https://github.com/jamesonstone/mint/blob/main/LICENSE).
-The [NOTICE](https://github.com/jamesonstone/mint/blob/main/NOTICE) preserves project
-attribution and identifies the bundled fonts' separate SIL Open Font License.
+Use the generator for a repository that builds and publishes containers to GHCR or ECR. Provide each image as an untagged repository URI. One generated workflow uses one registry kind. The generated job resolves a version, creates or reuses its source tag, builds the image, and publishes it with the version tag and `latest`. Add deployment and evidence checks in the workflows that promote the retained image. Set `--mint-ref` to the reviewed Mint commit SHA to pin the action in generated YAML.
