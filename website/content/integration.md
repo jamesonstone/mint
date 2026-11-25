@@ -2,6 +2,43 @@
 
 Add Mint to your GitHub Actions workflow to resolve a version, generate release notes, create a source tag, or publish a GitHub Release. Mint builds its CLI on the runner and makes `mint` available to later steps.
 
+## Set up environments with Mint init
+
+Run `mint init` from the repository root with a Mint release that includes the command. Choose `binary` or `image`, enter environment names in promotion order, and choose `continuous` or `manual` for each one. Press Enter to accept a default. Mint defaults to continuous `dev` and `stg` and manual `prd`.
+
+After you confirm, Mint creates `.mint.yaml`, `.github/workflows/mint-deploy.yml`, and `.github/workflows/mint-promote.yml`. If any of those files already exists, Mint stops. Setup writes local files. The repository workflow owns credentials and dispatch.
+
+```yaml
+artifact: image
+environments:
+  - name: dev
+    deployment: continuous
+  - name: stg
+    deployment: continuous
+  - name: prd
+    deployment: manual
+```
+
+A push to the default branch runs the project checks and retains one build. The continuous environments use that build in their listed order. In **Actions → Mint deployment → Run workflow**, select a manual environment and the exact retained version. The manual run selects the existing artifact and calls the same promotion workflow. For a manual target after the first environment, the resolver receives the preceding environment as the verification prerequisite.
+
+Implement these scripts under `.github/mint/` before enabling the workflows. Each runs with Bash. Send diagnostic output to stderr.
+
+| Script | Arguments | Required behavior |
+| --- | --- | --- |
+| `check` | None | Run the project's required checks. Exit unsuccessfully if a check fails. |
+| `build` | Candidate version, source SHA | Reserve an exact version for the source SHA. Build and retain the artifact once. Record the version, source SHA, digest, and trusted producer run. Print a JSON object with the assigned `version`, immutable `ref`, and `digest` in `sha256:…` form. |
+| `resolve` | Target environment, version, prerequisite environment or empty string | Look up the exact retained build. If a prerequisite is set, require a trusted successful verification run and receipt for that same build, version, and digest there. Print the retained `version`, `ref`, `digest`, and full `source_sha` as JSON. |
+| `deploy` | Environment, version, ref, digest | Deploy the retained artifact. Use the immutable reference for the operation. |
+| `verify` | Environment, version, ref, digest | Query the deployed runtime or destination. Run the required checks and print the observed SHA-256 digest. |
+
+Configure GitHub environment protections and provider permissions before enabling deployment. Restrict each protected environment to the default branch and configure required reviewers where available. See [GitHub deployment protections](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments).
+
+After the digest comparison succeeds, the shared workflow uploads `mint-verified.json` in an artifact named `mint-verified-<environment>-<run_attempt>`. When resolving prerequisite evidence, match the receipt to the repository, environment, version, source SHA, artifact reference, and digest. Use GitHub Actions to confirm that the trusted run and attempt reported successful verification. An absent, failed, cancelled, or mismatched verification blocks promotion.
+
+The scaffold resolves a candidate version with `mint release resolve`. Successive pushes can get the same candidate before a source tag exists. Reserve the actual version atomically in the build hook or obtain it from your repository's version allocator. Reuse the reservation and any completed retained build for the same source on retry. Continuous promotion uses the assigned version returned by the build hook. The repository also owns [source tagging](versioning.html#source-version-versus-deployed-release) and GitHub Release publication.
+
+If you change a trigger after setup, update the generated workflow and `.mint.yaml` together. Existing configurations with a top-level deployment mode and a list of environment names remain valid.
+
 ## Publish release state
 
 <ol class="flow" role="list" aria-label="Release-state publishing">

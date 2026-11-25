@@ -2,6 +2,8 @@
 
 Use the same retained artifact in each environment. The repository defines its environments and controls which jobs and operators can deploy to them.
 
+Use [guided setup](integration.html#set-up-environments-with-mint-init) to choose a trigger for each environment and create the GitHub Actions scaffold.
+
 ## Continuous staging
 
 A workflow for a trusted default-branch push can run the following jobs in order:

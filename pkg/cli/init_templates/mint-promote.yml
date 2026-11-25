@@ -1,0 +1,69 @@
+name: Mint promotion
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      artifact:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build the Mint verifier
+        uses: jamesonstone/mint@59c2ad71149d188521e99bc6c870ba0dc322150f # v2.1.0
+        with:
+          command: none
+      - name: Deploy and verify the retained artifact
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          VERSION: ${{ inputs.version }}
+          ARTIFACT: ${{ inputs.artifact }}
+        run: |
+          # Actions expression string comparisons ignore case.
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "Run this workflow on the default branch." >&2
+            exit 1
+          fi
+          if [[ ! "$ENVIRONMENT" =~ ^[a-z][a-z0-9_-]*$ ]] ||
+             [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Expected an environment name and an exact vX.Y.Z version." >&2
+            exit 1
+          fi
+          if [[ ! -f .github/mint/deploy || ! -f .github/mint/verify ]]; then
+            echo "Implement .github/mint/deploy and .github/mint/verify before promotion." >&2
+            exit 1
+          fi
+          ref=$(jq -er '.ref | select(type == "string" and length > 0 and (test("[\u0000-\u001f\u007f]") | not))' <<< "$ARTIFACT")
+          digest=$(jq -er '.digest | select(type == "string" and length == 71 and test("^sha256:[0-9a-fA-F]{64}$"))' <<< "$ARTIFACT")
+          source_sha=$(jq -er '.source_sha | select(type == "string" and length == 40 and test("^[0-9a-f]{40}$"))' <<< "$ARTIFACT")
+          jq -e --arg version "$VERSION" '.version == $version' <<< "$ARTIFACT" >/dev/null
+          bash .github/mint/deploy "$ENVIRONMENT" "$VERSION" "$ref" "$digest"
+          observed=$(bash .github/mint/verify "$ENVIRONMENT" "$VERSION" "$ref" "$digest")
+          mint verify --expected "$digest" --observed "$observed"
+          jq -n --arg repository "$GITHUB_REPOSITORY" --arg environment "$ENVIRONMENT" \
+            --arg version "$VERSION" --arg ref "$ref" --arg digest "$digest" --arg source_sha "$source_sha" \
+            --arg run_id "$GITHUB_RUN_ID" --arg run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '$ARGS.named' > "$RUNNER_TEMP/mint-verified.json"
+      - name: Retain verification evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: mint-verified-${{ inputs.environment }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/mint-verified.json
+          if-no-files-found: error

@@ -69,6 +69,7 @@ The current repository implements:
   - `mint changelog`;
   - `mint verify` for comparing expected and observed SHA-256 digests;
   - `mint config` for validating repository release configuration;
+  - `mint init` for guided per-environment setup and repository workflow scaffolding;
   - root-level changelog flags for script compatibility;
   - `mint release resolve`;
   - `mint release select-tag`;
