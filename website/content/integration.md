@@ -10,6 +10,8 @@ Add Mint to your GitHub Actions workflow to resolve a version, generate release 
   <li><strong>Publish</strong><br>Create or reuse the GitHub Release.</li>
 </ol>
 
+Use [Conventional Commit subjects](versioning.html#how-the-next-version-is-chosen) to signal which version bump Mint should apply. You can add Gitmoji to the commit description.
+
 For a repository that publishes GitHub Releases from source, run this job in a workflow that starts on a trusted default-branch push. Replace `REPLACE_WITH_MINT_COMMIT_SHA` with the full commit SHA of the reviewed Mint release.
 
 ```yaml

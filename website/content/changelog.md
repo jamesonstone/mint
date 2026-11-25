@@ -1,6 +1,8 @@
 # CHANGELOG integration
 
-Mint generates linked Markdown release notes from Git commit history. Good Conventional Commit subjects make both version decisions and changelog entries understandable.
+Mint generates linked Markdown release notes from Git commit history.
+
+See [commit subjects and version bumps](versioning.html#how-the-next-version-is-chosen) for Conventional Commit examples with and without Gitmoji.
 
 ## Generate a release entry
 
