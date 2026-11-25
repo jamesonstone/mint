@@ -4,6 +4,10 @@ Mint uses strict release tags in the form `vMAJOR.MINOR.PATCH`, such as `v2.4.1`
 
 ## How the next version is chosen
 
+Mint uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) to decide the version bump. Use `type: description` or `type(scope): description` for the commit subject. Add `!` before the colon to mark a breaking change.
+
+You can add an emoji or a shortcode from [Gitmoji](https://gitmoji.dev/) at the start of the description, after the colon and space. Mint uses the commit type and breaking-change markers to choose the bump. If you put an emoji before the type, Mint treats the subject as non-conventional.
+
 The resolver evaluates commits since the highest reachable strict SemVer base tag. The strongest change wins.
 
 | Commit signal | Bump | From `v1.2.3` |
@@ -14,7 +18,7 @@ The resolver evaluates commits since the highest reachable strict SemVer base ta
 
 Without a base, breaking changes start at `v1.0.0`, features at `v0.1.0`, and other changes at `v0.0.1`. Breaking changes increment major even for a `v0.x.y` base. There is no special pre-1.0 minor-bump exception.
 
-For example, `feat(GH-42): :sparkles: add preview environments` triggers minor; `fix(api)!: remove legacy response fields` triggers major. A gitmoji in the description does not determine the bump.
+`feat(GH-42): ✨ add preview environments` gives a minor bump. The shortcode form `feat(GH-42): :sparkles: add preview environments` gives the same bump. `fix(api)!: remove legacy response fields` gives a major bump.
 
 ## Resolve without publishing
 
