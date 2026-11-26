@@ -12,9 +12,45 @@ import (
 )
 
 type pipelineConfig struct {
-	Artifact     string   `yaml:"artifact" json:"artifact"`
-	Deployment   string   `yaml:"deployment" json:"deployment"`
-	Environments []string `yaml:"environments" json:"environments"`
+	Artifact     string          `yaml:"artifact" json:"artifact"`
+	Deployment   string          `yaml:"deployment,omitempty" json:"deployment,omitempty"`
+	Environments []pipelineStage `yaml:"environments" json:"environments"`
+}
+
+type pipelineStage struct {
+	Name       string `yaml:"name" json:"name"`
+	Deployment string `yaml:"deployment" json:"deployment"`
+}
+
+func (stage *pipelineStage) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind == yaml.ScalarNode {
+		return node.Decode(&stage.Name)
+	}
+	if node.Kind != yaml.MappingNode {
+		return fmt.Errorf("each environment must be a name or a name and deployment mapping")
+	}
+	for index := 0; index < len(node.Content); index += 2 {
+		key := node.Content[index].Value
+		if key != "name" && key != "deployment" {
+			return fmt.Errorf("unknown environment field %q", key)
+		}
+	}
+	type stageFields pipelineStage
+	if err := node.Decode((*stageFields)(stage)); err != nil {
+		return err
+	}
+	if !validDeployment(stage.Deployment) {
+		return fmt.Errorf("environment %q deployment must be continuous or manual", stage.Name)
+	}
+	return nil
+}
+
+func (stage pipelineStage) MarshalJSON() ([]byte, error) {
+	if stage.Deployment == "" {
+		return json.Marshal(stage.Name)
+	}
+	type stageFields pipelineStage
+	return json.Marshal(stageFields(stage))
 }
 
 var environmentName = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
@@ -60,28 +96,49 @@ func readPipelineConfig(input io.Reader) (pipelineConfig, error) {
 		}
 		return cfg, fmt.Errorf("expected one YAML document")
 	}
-	switch cfg.Artifact {
-	case "binary", "image":
-	default:
-		return cfg, fmt.Errorf("artifact must be binary or image")
+	if !validArtifact(cfg.Artifact) {
+		return pipelineConfig{}, fmt.Errorf("artifact must be binary or image")
 	}
-	switch cfg.Deployment {
-	case "continuous", "manual":
-	default:
-		return cfg, fmt.Errorf("deployment must be continuous or manual")
+	if cfg.Deployment != "" && !validDeployment(cfg.Deployment) {
+		return pipelineConfig{}, fmt.Errorf("deployment must be continuous or manual")
 	}
 	if len(cfg.Environments) == 0 {
-		return cfg, fmt.Errorf("environments must name at least one stage")
+		return pipelineConfig{}, fmt.Errorf("environments must name at least one stage")
 	}
-	seen := make(map[string]bool, len(cfg.Environments))
-	for _, name := range cfg.Environments {
+	names := make([]string, 0, len(cfg.Environments))
+	for _, stage := range cfg.Environments {
+		if stage.Deployment == "" && !validDeployment(cfg.Deployment) {
+			return pipelineConfig{}, fmt.Errorf("deployment must be continuous or manual for a list of environment names")
+		}
+		if stage.Deployment != "" && cfg.Deployment != "" {
+			return pipelineConfig{}, fmt.Errorf("use either a top-level deployment mode or a mode per environment")
+		}
+		names = append(names, stage.Name)
+	}
+	if err := validateEnvironmentNames(names); err != nil {
+		return pipelineConfig{}, err
+	}
+	return cfg, nil
+}
+
+func validArtifact(artifact string) bool {
+	return artifact == "binary" || artifact == "image"
+}
+
+func validDeployment(deployment string) bool {
+	return deployment == "continuous" || deployment == "manual"
+}
+
+func validateEnvironmentNames(names []string) error {
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
 		if !environmentName.MatchString(name) {
-			return cfg, fmt.Errorf("invalid environment name %q", name)
+			return fmt.Errorf("invalid environment name %q", name)
 		}
 		if seen[name] {
-			return cfg, fmt.Errorf("duplicate environment %q", name)
+			return fmt.Errorf("duplicate environment %q", name)
 		}
 		seen[name] = true
 	}
-	return cfg, nil
+	return nil
 }

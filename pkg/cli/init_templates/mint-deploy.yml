@@ -1,0 +1,135 @@
+name: Mint deployment
+
+on:
+  push:
+    branches: ['**']
+<<:- if .Manual :>>
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to promote to
+        type: choice
+        required: true
+        options:
+<<:- range .Manual :>>
+          - <<: printf "%q" .Name :>>
+<<:- end :>>
+      version:
+        description: Exact retained version (vX.Y.Z)
+        type: string
+        required: true
+<<:- end :>>
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.retain.outputs.artifact }}
+      version: ${{ steps.retain.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run project checks
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          <<: template "default-branch-check" :>>
+          bash .github/mint/check
+      - name: Resolve the source version
+        id: version
+        uses: jamesonstone/mint@59c2ad71149d188521e99bc6c870ba0dc322150f # v2.1.0
+        with:
+          command: release-resolve
+          commitish: ${{ github.sha }}
+      - name: Build and retain the artifact
+        id: retain
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version_tag }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          artifact=$(bash .github/mint/build "$VERSION" "$SOURCE_SHA" |
+            jq -cse --arg source_sha "$SOURCE_SHA" --arg version "" <<: template "artifact-filter" :>>)
+          version=$(jq -r '.version' <<< "$artifact")
+          printf 'artifact=%s\nversion=%s\n' "$artifact" "$version" >> "$GITHUB_OUTPUT"
+<<:- range .Continuous :>>
+
+  continuous-<<: .Name :>>:
+    needs: [build<<: if .Prerequisite :>>, continuous-<<: .Prerequisite :>><<: end :>>]
+    uses: ./.github/workflows/mint-promote.yml
+    with:
+      environment: <<: printf "%q" .Name :>>
+      version: ${{ needs.build.outputs.version }}
+      artifact: ${{ needs.build.outputs.artifact }}
+<<:- end :>>
+<<:- if .Manual :>>
+
+  select-retained:
+    if: github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      artifact: ${{ steps.select.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Select a retained artifact
+        id: select
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          <<: template "default-branch-check" :>>
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Select an exact vX.Y.Z version." >&2
+            exit 1
+          fi
+          case "$ENVIRONMENT" in
+<<:- range .Manual :>>
+            <<: printf "%q" .Name :>>) prerequisite=<<: printf "%q" .Prerequisite :>> ;;
+<<:- end :>>
+            *) echo "Select a configured manual environment." >&2; exit 1 ;;
+          esac
+          artifact=$(bash .github/mint/resolve "$ENVIRONMENT" "$VERSION" "$prerequisite" |
+            jq -cse --arg source_sha "" --arg version "$VERSION" <<: template "artifact-filter" :>>)
+          printf 'artifact=%s\n' "$artifact" >> "$GITHUB_OUTPUT"
+
+  manual:
+    needs: [select-retained]
+    uses: ./.github/workflows/mint-promote.yml
+    with:
+      environment: ${{ inputs.environment }}
+      version: ${{ inputs.version }}
+      artifact: ${{ needs.select-retained.outputs.artifact }}
+<<:- end :>>
+<<:- define "default-branch-check" :>># Actions expression string comparisons ignore case.
+          if [[ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "Run this workflow on the default branch." >&2
+            exit 1
+          fi<<: end :>>
+<<:- define "artifact-filter" :>>'
+              if length == 1 and (.[0] | type == "object") then .[0]
+              else error("expected one artifact object") end
+              | if $source_sha != "" then .source_sha = $source_sha else . end
+              | if $version != "" and .version != $version
+                then error("retained artifact version does not match selection") else . end
+              | if (.ref | type == "string" and length > 0 and (test("[\u0000-\u001f\u007f]") | not))
+                and (.digest | type == "string" and length == 71 and test("^sha256:[0-9a-fA-F]{64}$"))
+                and (.source_sha | type == "string" and length == 40 and test("^[0-9a-f]{40}$"))
+                and (.version | type == "string" and test("\\Av[0-9]+\\.[0-9]+\\.[0-9]+\\z"))
+              then {ref, digest, source_sha, version}
+              else error("expected an immutable ref, SHA-256 digest, full source SHA, and exact version") end
+            '<<: end :>>

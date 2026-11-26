@@ -52,3 +52,42 @@ func TestPipelineConfigRejectsInvalidConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigCommandWithPerEnvironmentDeployment(t *testing.T) {
+	t.Chdir(t.TempDir())
+	config := "artifact: image\nenvironments:\n  - name: stg\n    deployment: continuous\n  - name: prd\n    deployment: manual\n"
+	if err := os.WriteFile(".mint.yaml", []byte(config), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	cmd := newConfigCommand()
+	cmd.SetOut(&output)
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"artifact":"image","environments":[{"name":"stg","deployment":"continuous"},{"name":"prd","deployment":"manual"}]}`
+	if got := strings.TrimSpace(output.String()); got != want {
+		t.Fatalf("configuration = %s, want %s", got, want)
+	}
+}
+
+func TestConfigRejectsInvalidEnvironmentMappings(t *testing.T) {
+	for _, test := range []struct {
+		name, config, want string
+	}{
+		{"mixed modes", "deployment: manual\nenvironments: [{name: stg, deployment: continuous}]", "either a top-level deployment mode or a mode per environment"},
+		{"mixed stage types", "environments: [dev, {name: stg, deployment: continuous}]", "for a list of environment names"},
+		{"missing name", "environments: [{deployment: manual}]", "invalid environment name"},
+		{"missing mode", "environments: [{name: stg}]", "deployment must be continuous or manual"},
+		{"unknown key", "environments: [{name: stg, deployment: continuous, extra: true}]", "unknown environment field"},
+		{"duplicate name", "environments: [{name: stg, deployment: continuous}, {name: stg, deployment: manual}]", "duplicate environment"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := readPipelineConfig(strings.NewReader("artifact: binary\n" + test.config))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("configuration error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}

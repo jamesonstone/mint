@@ -12,6 +12,7 @@ var commandOrder = map[string]int{
 	"release":    10,
 	"changelog":  20,
 	"verify":     30,
+	"init":       79,
 	"config":     80,
 	"version":    89,
 	"completion": 91,
@@ -25,7 +26,7 @@ type commandSection struct {
 
 var rootCommandSections = []commandSection{
 	{title: "Release", commands: []string{"release", "changelog", "verify"}},
-	{title: "Utilities", commands: []string{"config", "version", "completion", "help"}},
+	{title: "Utilities", commands: []string{"init", "config", "version", "completion", "help"}},
 }
 
 func configureRootHelp() {

@@ -30,6 +30,7 @@ func TestRenderRootHelpIncludesMintStructure(t *testing.T) {
 		"Release Intent",
 		"Usage",
 		"Available Commands",
+		"Guide setup of environment deployment workflows",
 		"version",
 	} {
 		if !strings.Contains(help, want) {
