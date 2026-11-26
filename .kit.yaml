@@ -105,7 +105,7 @@ registry:
         - kind: ruleset
           slug: mint-deployment-lifecycle
           path: docs/references/rules/mint-deployment-lifecycle.md
-          installed_hash: sha256:9458013be90929df7b46d6a89f37fdaf118d9a804ce8d6ddded1a77385beece8
+          installed_hash: sha256:28295ed2eed89f77ec92112e0b13b28dd51f18a63038fa8a4ce8f0a5f6480d20
           state: managed
         - kind: ruleset
           slug: readme-header-tagline

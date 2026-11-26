@@ -1,3 +1,11 @@
+---
+kit_metadata_version: 1
+artifact: plan
+feature:
+  id: "0021"
+  slug: guided-init
+  dir: 0021-guided-init
+---
 # Guided init implementation plan
 
 ## SUMMARY
@@ -24,7 +32,11 @@ Repository scripts supply checks, artifact retention, manual resolution, deploym
 
 ## DEPENDENCIES
 
-The generated jobs run on GitHub-hosted Ubuntu with Bash, jq and the pinned Mint Action. Repository workflows supply provider authentication and permissions.
+| Dependency | Type | Location | Used For | Status |
+| --- | --- | --- | --- | --- |
+| GitHub Actions | runner | `ubuntu-latest` | Run the repository's Bash and jq workflow steps | active |
+| Mint v2.1.0 | action | `jamesonstone/mint@59c2ad71149d188521e99bc6c870ba0dc322150f` | Resolve a candidate version and verify digests | active |
+| Repository deploy hooks | interface | `.github/mint/` in the project | Implement provider operations and permissions | active |
 
 ## RISKS
 
